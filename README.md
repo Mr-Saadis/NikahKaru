@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NikaahKaro CRM — Project Overview
 
-## Getting Started
+**Platform:** NikaahKaro Matrimonial CRM
+**Organization:** Quba Foundation
+**Type:** Internal Web Application (Staff-Only)
+**Tech Stack:** Next.js 15 (App Router) + TypeScript + Tailwind CSS
 
-First, run the development server:
+---
+
+## What is this project?
+
+An internal CRM for managing a halal matrimonial matching service. Field agents collect client information and preferences, the system runs compatibility matching, and a supervisory Manager role controls what information gets released to agents after reviewing matches.
+
+Clients do NOT use this system. All interactions are internal.
+
+---
+
+## Quick Start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# App runs at http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Key Routes (Built)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| URL | Description |
+|---|---|
+| `/overview2` | Operations Dashboard |
+| `/client2` | Profiles & Dossiers |
+| `/add-new2` | Add New Profile Form |
+| `/clients2` | Release Requests (Manager workspace) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Documentation Index
 
-To learn more about Next.js, take a look at the following resources:
+All project documentation is in the `.agents/` folder:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| File | Description |
+|---|---|
+| `.agents/AGENTS.md` | Coding rules, design tokens, architecture constraints |
+| `.agents/prd.md` | Full Product Requirements Document |
+| `.agents/workflow.md` | Complete operational workflow (18 phases) |
+| `.agents/data-models.md` | All profile fields, status enums, data models |
+| `.agents/matching-engine.md` | Two-way compatibility scoring specification |
+| `.agents/roles-permissions.md` | Role-based access control matrix |
+| `.agents/ui-component-map.md` | Page layouts, components, and data sources |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Design System
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The app uses a premium warm-cream design language. Key rules:
+- Background: `#FAF8F5`
+- Brand: `#064e3b`
+- Buttons: Always `rounded-full` (pill shape)
+- Cards: `rounded-[22px]` or `rounded-[26px]`
+- Shadow: `shadow-[0_2px_14px_-3px_rgba(0,0,0,0.04)]`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**DO NOT use:** Dark sidebars, blue/purple themes, Tailwind defaults without customization.
+
+See `.agents/AGENTS.md` for complete design token reference.
+
+---
+
+## Folder Structure
+
+```
+src/
+├── app/              # Pages (App Router)
+│   ├── client2/      # Profiles view
+│   ├── add-new2/     # Profile creation form
+│   ├── overview2/    # Dashboard
+│   └── clients2/     # Release requests
+└── components2/      # All new components (NOT components/)
+    ├── Sidebar2.tsx   # Shared navigation sidebar
+    ├── Header2.tsx    # Shared header
+    ├── overview2/     # Dashboard widgets
+    ├── clients2/      # Release request components
+    └── add-new2/      # Form components
+```
+
+---
+
+## Three Critical Status Concepts
+
+**Do NOT merge these three:**
+
+1. **Profile Status** — `active` | `in_progress` | `married` | `closed`
+2. **Match/Pair Status** — `suggested` | `requested` | `referred` | `in_progress` | `accepted` | `rejected`
+3. **Request Status** — `pending` | `under_review` | `approved` | `rejected` | `assigned` | `completed`

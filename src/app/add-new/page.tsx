@@ -57,9 +57,7 @@ export default function AddNewClientPage() {
           </p>
         </div>
         <div className="hidden md:flex flex-col items-end pt-4">
-          <div className="italic text-brand-slate/60 font-serif text-right text-lg">
-            Better Matches.<br />Brighter Afternoons.
-          </div>
+
           <div className="w-12 h-0.5 bg-[#D1C696] mt-4"></div>
         </div>
       </div>
