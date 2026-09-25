@@ -25,22 +25,10 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Session refresh karo — important hai, delete mat karo!
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Protected routes ka example — customize karo apni zaroorat ke hisaab se
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
-  ) {
-    // Uncomment to enable auth protection:
-    // const url = request.nextUrl.clone();
-    // url.pathname = "/login";
-    // return NextResponse.redirect(url);
-  }
+  // IMPORTANT: This refreshes the auth token. Do NOT remove this line.
+  // Even if the return value is not used directly here, the call itself
+  // triggers the cookie refresh via the setAll callback above.
+  await supabase.auth.getUser();
 
   return supabaseResponse;
 }

@@ -1,0 +1,132 @@
+'use client';
+
+import type { PhysicalInformation } from '@/lib/types/database.types';
+
+type Step2Data = {
+  height_cm: number | '';
+  weight_kg: number | '';
+  complexion: string;
+  has_disability: boolean;
+  disability_details: string;
+};
+
+interface Step2Props {
+  data: Step2Data;
+  onChange: (data: Step2Data) => void;
+}
+
+export type { Step2Data };
+
+const COMPLEXION_OPTIONS = [
+  'Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark Brown', 'Dark',
+];
+
+export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
+  const set = (field: keyof Step2Data, value: Step2Data[keyof Step2Data]) =>
+    onChange({ ...data, [field]: value });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-[15px] font-bold text-[#1E1F22] mb-1">Physical Information</h3>
+        <p className="text-[12px] text-[#7D766C]">Physical attributes of the person.</p>
+      </div>
+
+      {/* Height & Weight */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
+            Height (cm)
+          </label>
+          <input
+            type="number"
+            min={80}
+            max={250}
+            value={data.height_cm}
+            onChange={(e) => set('height_cm', e.target.value ? Number(e.target.value) : '')}
+            placeholder="e.g. 170"
+            className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+          />
+          <p className="text-[10px] text-[#A8A296]">Range: 80–250 cm</p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
+            Weight (kg)
+          </label>
+          <input
+            type="number"
+            min={20}
+            max={400}
+            value={data.weight_kg}
+            onChange={(e) => set('weight_kg', e.target.value ? Number(e.target.value) : '')}
+            placeholder="e.g. 65"
+            className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+          />
+          <p className="text-[10px] text-[#A8A296]">Range: 20–400 kg</p>
+        </div>
+      </div>
+
+      {/* Complexion */}
+      <div className="space-y-2">
+        <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
+          Complexion
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          {COMPLEXION_OPTIONS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => set('complexion', data.complexion === c ? '' : c)}
+              className={`py-2 px-3 rounded-xl text-[12px] font-medium border transition-all ${
+                data.complexion === c
+                  ? 'bg-[#064e3b] text-white border-[#064e3b]'
+                  : 'bg-white border-[#E9E4DC] text-[#4E473D] hover:border-[#064e3b]/30'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Disability */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-[#E9E4DC]">
+          <div>
+            <p className="text-[13px] font-semibold text-[#1E2022]">Has Disability?</p>
+            <p className="text-[11px] text-[#7D766C] mt-0.5">Physical or health condition</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => set('has_disability', !data.has_disability)}
+            className={`relative w-11 h-6 rounded-full transition-colors ${
+              data.has_disability ? 'bg-[#064e3b]' : 'bg-[#E9E4DC]'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                data.has_disability ? 'translate-x-5.5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </div>
+
+        {data.has_disability && (
+          <div className="space-y-2">
+            <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
+              Disability Details
+            </label>
+            <textarea
+              value={data.disability_details}
+              onChange={(e) => set('disability_details', e.target.value)}
+              rows={3}
+              placeholder="Describe the disability or health condition..."
+              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all resize-none"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

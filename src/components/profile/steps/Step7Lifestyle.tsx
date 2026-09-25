@@ -1,0 +1,186 @@
+'use client';
+
+import type { YesNo, ReligiousPracticeLevel, SmokingStatus } from '@/lib/types/database.types';
+import { useReferenceData } from '@/lib/hooks/useReferenceData';
+
+type Step7Data = {
+  beard: YesNo | '';
+  hijab: YesNo | '';
+  religious_practice: ReligiousPracticeLevel | '';
+  smoking: SmokingStatus | '';
+  other_lifestyle_information: string;
+  willing_to_relocate: YesNo | '';
+  preferred_country_id: number | '';
+  preferred_province_id: number | '';
+  preferred_city_id: number | '';
+  relocation_details: string;
+};
+
+interface Step7Props {
+  data: Step7Data;
+  onChange: (data: Step7Data) => void;
+  gender?: 'MALE' | 'FEMALE' | '';
+}
+
+export type { Step7Data };
+
+function ToggleGroup<T extends string>({
+  label, options, value, onChange,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T | '';
+  onChange: (v: T | '') => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">{label}</label>
+      <div className="flex flex-wrap gap-2">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(value === opt.value ? '' : opt.value)}
+            className={`px-4 py-2 rounded-full text-[12px] font-semibold border transition-all ${
+              value === opt.value
+                ? 'bg-[#064e3b] text-white border-[#064e3b] shadow-sm'
+                : 'bg-white border-[#E9E4DC] text-[#4E473D] hover:border-[#064e3b]/30'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
+  const { countries, getProvincesByCountry, getCitiesByProvince } = useReferenceData();
+
+  const set = (field: keyof Step7Data, value: Step7Data[keyof Step7Data]) =>
+    onChange({ ...data, [field]: value });
+
+  const prefProvinces = data.preferred_country_id ? getProvincesByCountry(Number(data.preferred_country_id)) : [];
+  const prefCities = data.preferred_province_id ? getCitiesByProvince(Number(data.preferred_province_id)) : [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-[15px] font-bold text-[#1E1F22] mb-1">Lifestyle</h3>
+        <p className="text-[12px] text-[#7D766C]">Religious practice, personal habits, and relocation preferences.</p>
+      </div>
+
+      {/* Religious Practice */}
+      <ToggleGroup
+        label="Religious Practice Level"
+        value={data.religious_practice}
+        onChange={(v) => set('religious_practice', v)}
+        options={[
+          { value: 'HIGHLY_PRACTICING', label: 'Highly Practicing' },
+          { value: 'PRACTICING', label: 'Practicing' },
+          { value: 'MODERATE', label: 'Moderate' },
+          { value: 'OTHER', label: 'Other' },
+        ]}
+      />
+
+      {/* Beard — only for males */}
+      {(!gender || gender === 'MALE') && (
+        <ToggleGroup
+          label="Beard"
+          value={data.beard}
+          onChange={(v) => set('beard', v)}
+          options={[{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }]}
+        />
+      )}
+
+      {/* Hijab — only for females */}
+      {(!gender || gender === 'FEMALE') && (
+        <ToggleGroup
+          label="Hijab"
+          value={data.hijab}
+          onChange={(v) => set('hijab', v)}
+          options={[{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }]}
+        />
+      )}
+
+      {/* Smoking */}
+      <ToggleGroup
+        label="Smoking"
+        value={data.smoking}
+        onChange={(v) => set('smoking', v)}
+        options={[
+          { value: 'NO', label: 'No' },
+          { value: 'YES', label: 'Yes' },
+          { value: 'OCCASIONALLY', label: 'Occasionally' },
+        ]}
+      />
+
+      {/* Other lifestyle */}
+      <div className="space-y-2">
+        <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
+          Additional Lifestyle Information
+        </label>
+        <textarea
+          rows={3}
+          value={data.other_lifestyle_information}
+          onChange={(e) => set('other_lifestyle_information', e.target.value)}
+          placeholder="Any other relevant lifestyle details..."
+          className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all resize-none"
+        />
+      </div>
+
+      {/* Relocation */}
+      <div className="space-y-4 pt-2 border-t border-[#F0EBE2]">
+        <h4 className="text-[13px] font-bold text-[#232326]">Relocation Preferences</h4>
+
+        <ToggleGroup
+          label="Willing to Relocate?"
+          value={data.willing_to_relocate}
+          onChange={(v) => set('willing_to_relocate', v)}
+          options={[{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }]}
+        />
+
+        {data.willing_to_relocate === 'YES' && (
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Preferred Country</label>
+              <select
+                value={data.preferred_country_id}
+                onChange={(e) => onChange({ ...data, preferred_country_id: e.target.value ? Number(e.target.value) : '', preferred_province_id: '', preferred_city_id: '' })}
+                className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none"
+              >
+                <option value="">Any</option>
+                {countries.map((c) => <option key={c.id} value={c.id}>{c.name_en}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Province</label>
+              <select
+                value={data.preferred_province_id}
+                onChange={(e) => onChange({ ...data, preferred_province_id: e.target.value ? Number(e.target.value) : '', preferred_city_id: '' })}
+                disabled={!prefProvinces.length}
+                className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none disabled:opacity-50"
+              >
+                <option value="">Any</option>
+                {prefProvinces.map((p) => <option key={p.id} value={p.id}>{p.name_en}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">City</label>
+              <select
+                value={data.preferred_city_id}
+                onChange={(e) => set('preferred_city_id', e.target.value ? Number(e.target.value) : '')}
+                disabled={!prefCities.length}
+                className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none disabled:opacity-50"
+              >
+                <option value="">Any</option>
+                {prefCities.map((c) => <option key={c.id} value={c.id}>{c.name_en}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

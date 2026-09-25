@@ -1,4 +1,4 @@
-﻿# NikaahKaro CRM — Complete Design System & UI/UX Blueprint
+# NikaahKaro CRM — Complete Design System & UI/UX Blueprint
 
 > **یہ file مکمل design reference ہے۔** اگر project delete ہو جائے یا نیا project شروع کرنا ہو، یہ file پڑھ کر بالکل same design, colours, fonts, اور UI/UX recreate کر سکتے ہیں۔
 

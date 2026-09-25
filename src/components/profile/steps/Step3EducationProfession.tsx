@@ -1,0 +1,295 @@
+'use client';
+
+import { Plus, Trash2 } from 'lucide-react';
+import { useReferenceData } from '@/lib/hooks/useReferenceData';
+import type { EducationRecord, EmploymentRecord, IncomeInformation, EmploymentType } from '@/lib/types/database.types';
+
+type PartialEducation = Partial<Omit<EducationRecord, 'id' | 'profile_id' | 'created_at'>> & { _tempId: string };
+type PartialEmployment = Partial<Omit<EmploymentRecord, 'id' | 'profile_id' | 'created_at'>> & { _tempId: string };
+
+type Step3Data = {
+  education_records: PartialEducation[];
+  employment_records: PartialEmployment[];
+  monthly_income_min: number | '';
+  monthly_income_max: number | '';
+};
+
+interface Step3Props {
+  data: Step3Data;
+  onChange: (data: Step3Data) => void;
+}
+
+export type { Step3Data };
+
+const EMPLOYMENT_TYPES: { value: EmploymentType; label: string }[] = [
+  { value: 'GOVERNMENT', label: 'Government' },
+  { value: 'PRIVATE', label: 'Private' },
+  { value: 'BUSINESS', label: 'Business' },
+  { value: 'SELF_EMPLOYED', label: 'Self Employed' },
+  { value: 'FREELANCER', label: 'Freelancer' },
+  { value: 'STUDENT', label: 'Student' },
+  { value: 'UNEMPLOYED', label: 'Unemployed' },
+  { value: 'OTHER', label: 'Other' },
+];
+
+const newEdu = (): PartialEducation => ({
+  _tempId: crypto.randomUUID(),
+  education_level_id: undefined,
+  qualification: '',
+  institution_name: '',
+  field_of_study: '',
+  is_highest_qualification: false,
+});
+
+const newEmp = (): PartialEmployment => ({
+  _tempId: crypto.randomUUID(),
+  occupation_id: undefined,
+  job_title: '',
+  organization_name: '',
+  employment_type: undefined,
+  is_current: true,
+});
+
+export default function Step3EducationProfession({ data, onChange }: Step3Props) {
+  const { educationLevels, occupations } = useReferenceData();
+
+  const set = <K extends keyof Step3Data>(field: K, value: Step3Data[K]) =>
+    onChange({ ...data, [field]: value });
+
+  const updateEdu = (idx: number, patch: Partial<PartialEducation>) => {
+    const updated = [...data.education_records];
+    updated[idx] = { ...updated[idx], ...patch };
+    set('education_records', updated);
+  };
+
+  const updateEmp = (idx: number, patch: Partial<PartialEmployment>) => {
+    const updated = [...data.employment_records];
+    updated[idx] = { ...updated[idx], ...patch };
+    set('employment_records', updated);
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-[15px] font-bold text-[#1E1F22] mb-1">Education & Profession</h3>
+        <p className="text-[12px] text-[#7D766C]">Academic qualifications and employment details.</p>
+      </div>
+
+      {/* Education Records */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-[13px] font-bold text-[#232326]">Education</h4>
+          <button
+            type="button"
+            onClick={() => set('education_records', [...data.education_records, newEdu()])}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-[#064e3b] hover:bg-[#F7FAF8] px-3 py-1.5 rounded-full border border-[#064e3b]/20 transition-colors"
+          >
+            <Plus size={13} /> Add
+          </button>
+        </div>
+
+        {data.education_records.length === 0 && (
+          <div className="p-4 rounded-xl bg-[#FAF8F5] border border-dashed border-[#E9E4DC] text-center text-[12px] text-[#A8A296]">
+            No education records added. Click "Add" to start.
+          </div>
+        )}
+
+        {data.education_records.map((edu, idx) => (
+          <div key={edu._tempId} className="p-4 rounded-xl border border-[#E9E4DC] bg-white space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-[#888174] uppercase tracking-wider">
+                Record #{idx + 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => set('education_records', data.education_records.filter((_, i) => i !== idx))}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 text-[#A8A296] hover:text-red-500 transition-colors"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Level</label>
+                <select
+                  value={edu.education_level_id ?? ''}
+                  onChange={(e) => updateEdu(idx, { education_level_id: e.target.value ? Number(e.target.value) : undefined })}
+                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none"
+                >
+                  <option value="">Select level</option>
+                  {educationLevels.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name_en}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Qualification</label>
+                <input
+                  type="text"
+                  value={edu.qualification ?? ''}
+                  onChange={(e) => updateEdu(idx, { qualification: e.target.value })}
+                  placeholder="e.g. B.Sc Computer Science"
+                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Institution</label>
+                <input
+                  type="text"
+                  value={edu.institution_name ?? ''}
+                  onChange={(e) => updateEdu(idx, { institution_name: e.target.value })}
+                  placeholder="School / University"
+                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Field of Study</label>
+                <input
+                  type="text"
+                  value={edu.field_of_study ?? ''}
+                  onChange={(e) => updateEdu(idx, { field_of_study: e.target.value })}
+                  placeholder="e.g. Engineering"
+                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={edu.is_highest_qualification ?? false}
+                onChange={(e) => updateEdu(idx, { is_highest_qualification: e.target.checked })}
+                className="accent-[#064e3b] w-3.5 h-3.5"
+              />
+              <span className="text-[11.5px] text-[#676156] font-medium">Highest qualification</span>
+            </label>
+          </div>
+        ))}
+      </section>
+
+      {/* Employment Records */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-[13px] font-bold text-[#232326]">Employment</h4>
+          <button
+            type="button"
+            onClick={() => set('employment_records', [...data.employment_records, newEmp()])}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-[#064e3b] hover:bg-[#F7FAF8] px-3 py-1.5 rounded-full border border-[#064e3b]/20 transition-colors"
+          >
+            <Plus size={13} /> Add
+          </button>
+        </div>
+
+        {data.employment_records.length === 0 && (
+          <div className="p-4 rounded-xl bg-[#FAF8F5] border border-dashed border-[#E9E4DC] text-center text-[12px] text-[#A8A296]">
+            No employment records added.
+          </div>
+        )}
+
+        {data.employment_records.map((emp, idx) => (
+          <div key={emp._tempId} className="p-4 rounded-xl border border-[#E9E4DC] bg-white space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-[#888174] uppercase tracking-wider">
+                Job #{idx + 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => set('employment_records', data.employment_records.filter((_, i) => i !== idx))}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 text-[#A8A296] hover:text-red-500 transition-colors"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Occupation</label>
+                <select
+                  value={emp.occupation_id ?? ''}
+                  onChange={(e) => updateEmp(idx, { occupation_id: e.target.value ? Number(e.target.value) : undefined })}
+                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none"
+                >
+                  <option value="">Select occupation</option>
+                  {occupations.map((o) => (
+                    <option key={o.id} value={o.id}>{o.name_en}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Employment Type</label>
+                <select
+                  value={emp.employment_type ?? ''}
+                  onChange={(e) => updateEmp(idx, { employment_type: e.target.value as EmploymentType || undefined })}
+                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none"
+                >
+                  <option value="">Select type</option>
+                  {EMPLOYMENT_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Job Title</label>
+                <input
+                  type="text"
+                  value={emp.job_title ?? ''}
+                  onChange={(e) => updateEmp(idx, { job_title: e.target.value })}
+                  placeholder="e.g. Software Engineer"
+                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Organization</label>
+                <input
+                  type="text"
+                  value={emp.organization_name ?? ''}
+                  onChange={(e) => updateEmp(idx, { organization_name: e.target.value })}
+                  placeholder="Company / Org name"
+                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={emp.is_current ?? true}
+                onChange={(e) => updateEmp(idx, { is_current: e.target.checked })}
+                className="accent-[#064e3b] w-3.5 h-3.5"
+              />
+              <span className="text-[11.5px] text-[#676156] font-medium">Currently employed here</span>
+            </label>
+          </div>
+        ))}
+      </section>
+
+      {/* Income */}
+      <section className="space-y-3">
+        <h4 className="text-[13px] font-bold text-[#232326]">Monthly Income (PKR)</h4>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Minimum</label>
+            <input
+              type="number"
+              value={data.monthly_income_min}
+              onChange={(e) => set('monthly_income_min', e.target.value ? Number(e.target.value) : '')}
+              placeholder="e.g. 50000"
+              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Maximum</label>
+            <input
+              type="number"
+              value={data.monthly_income_max}
+              onChange={(e) => set('monthly_income_max', e.target.value ? Number(e.target.value) : '')}
+              placeholder="e.g. 100000"
+              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+            />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
