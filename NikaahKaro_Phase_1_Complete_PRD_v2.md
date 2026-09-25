@@ -1,11 +1,13 @@
-# NikaahKaro.com --- Phase 1 Complete PRD
+# NikaahKaro.com --- Phase 1 Complete PRD --- Version 2
 
 ## CRM + Rule-Based Matrimonial Matching Engine
 
 ### Supabase / PostgreSQL Architecture, Data Model, Workflows and Business Logic
 
-**Status:** Technical/Product Specification\
+**Status:** Updated Technical/Product Specification\
 **Phase:** 1\
+**Version:** 2 --- aligned with finalized Agent/Manager workflow and
+Database Schema v2\
 **Database:** PostgreSQL via Supabase\
 **Authentication:** Supabase Auth\
 **Roles:** High-Level Admin, Manager, Agent\
@@ -185,56 +187,120 @@ Free-text may be translated separately while preserving the original.
 
 # 4. Role Model
 
-## 4.1 High-Level Admin
+NikaahKaro Phase 1 has three operational roles. The terminology below is
+final for the product specification.
 
-System-wide role.
+## 4.1 High-Level Admin / CU Admin
+
+The High-Level Admin has system-wide visibility and administrative
+control.
 
 Responsibilities:
 
--   User management.
--   Role/permission administration.
--   System monitoring.
--   Global analytics.
--   Audit review.
--   Agent performance.
--   Manager performance.
--   Matching statistics.
--   Request statistics.
--   Operational oversight.
+-   Manage authorized users and roles.
+-   Monitor overall system activity.
+-   Review system-wide dashboards and analytics.
+-   Review Agent and Manager workload/performance.
+-   Review matching statistics and outcomes.
+-   Review request/release activity.
+-   Review audit logs.
+-   Monitor operational and security exceptions.
+-   Configure/maintain approved reference data where permitted.
+
+The High-Level Admin is not required to participate in every individual
+matching operation.
 
 ## 4.2 Manager
 
-Operational decision-maker.
+The Manager is the operational decision-maker for candidate information
+and official matching runs.
 
 Responsibilities:
 
--   Review information requests.
--   Re-run matching.
--   Review match history.
--   Decide what candidate information can be released.
--   Select individual fields.
--   Assign/reassign requests.
--   Manage exceptional cases.
--   Monitor operational progress.
+-   Receive Agent information requests.
+-   Review the requesting Agent and source profile.
+-   Run the official matching engine for the requested source profile.
+-   Persist the official matching run and its candidate results.
+-   Review candidate score breakdowns.
+-   Select which candidate profiles should proceed.
+-   Select individual fields that may be released.
+-   Approve, partially approve, or reject information release.
+-   Reassign/referral a request to another Agent when operationally
+    needed.
+-   Monitor active matrimonial relationships and outcomes.
+-   Review structured feedback and rejection history.
 
-## 4.3 Agent
+Important: the Manager does not manually alter the matching score or
+override the deterministic matching criteria as part of the normal
+Phase-1 workflow. Re-matching means running the same matching engine
+again against the current eligible data.
 
-Primary data-entry and client-facing role.
+## 4.3 Agent / Staff
+
+The Agent is the primary data-entry and client-facing operational role.
 
 Responsibilities:
 
--   Collect client/family information.
--   Create and update profiles.
--   Enter partner preferences.
--   Run matching.
--   Review Top-5 candidates.
--   Select candidates of interest.
--   Submit information requests.
--   Receive approved information.
--   Share approved information externally.
--   Record feedback/outcomes.
+-   Collect profile information from the client/family.
+-   Create and maintain the client's matrimonial profile.
+-   Enter desired-partner preferences.
+-   Run a non-persistent matching preview for client presentation.
+-   View candidate ranking, score and permitted basic preview fields.
+-   Use the preview to explain possible candidates to the client.
+-   Submit an information request for the Agent's source profile to the
+    Manager after the client is interested.
+-   Receive only Manager-approved candidate information.
+-   Generate/download an approved-information PDF.
+-   Share approved information with the original client/family.
+-   Record relevant operational feedback/outcomes where permitted.
 
-------------------------------------------------------------------------
+### Critical Agent/Manager boundary
+
+The Agent's matching preview is a presentation/search operation only.
+
+It does NOT:
+
+-   create a `match_runs` row;
+-   create `match_run_results`;
+-   create persistent score-breakdown rows;
+-   create an actual `matches` relationship;
+-   create a candidate-information request for selected candidate
+    profiles;
+-   give the Agent access to sensitive candidate fields.
+
+After client interest, the Agent requests processing of the Agent's
+source profile from the Manager. The Manager then runs the official
+matching engine and controls disclosure.
+
+## 4.4 Requester vs Current Assignee
+
+The system must distinguish:
+
+``` text
+requested_by
+    = Agent who originally submitted the request
+
+current_assignee
+    = Agent currently responsible for operational handling
+```
+
+These can be different.
+
+Example:
+
+``` text
+Agent A creates Male A
+        |
+        | information request
+        v
+Manager receives request
+        |
+        | reassign/referral
+        v
+Agent B becomes current handler
+```
+
+The original requester remains historically identifiable.
 
 # 5. Authentication and Authorization
 
@@ -499,8 +565,8 @@ Attributes:
 -   `full_name` --- identity/name used in candidate display and approved
     releases.
 -   `date_of_birth` --- exact birth date where available.
--   `age` --- operational age if retained; if strict normalization is
-    desired, calculate it from DOB instead of storing it permanently.
+-   `age` --- not stored as a source-of-truth field in the v2 schema;
+    calculate/display age from `date_of_birth`.
 -   `marital_status` --- matching criterion.
 -   `number_of_children` --- matching/display criterion.
 -   `nationality_country_id` --- nationality is distinct from current
@@ -1131,63 +1197,216 @@ marriage success.
 
 # 21. `match_runs`
 
-Every matching execution is stored.
+`match_runs` stores only **official Manager matching executions**.
 
-Attributes:
+Agent preview matching is deliberately not persisted.
 
--   `id` --- run ID.
--   `source_profile_id` --- profile requesting matching.
--   `preference_set_id` --- exact preferences used.
--   `executed_by` --- Agent/Manager.
--   `algorithm_version` --- scoring-rule version.
--   `candidate_limit` --- normally 5.
--   `candidates_considered` --- initial pool.
--   `candidates_after_hard_filter` --- surviving candidates.
--   `executed_at`
--   `metadata` --- diagnostics/config snapshot.
+## 21.1 Why `match_runs` exists
 
-Why:
+A Manager run is a business decision point and must be reproducible.
 
-A score without its run context is difficult to reproduce or debug.
+The database should preserve:
 
-------------------------------------------------------------------------
+-   which source profile was matched;
+-   who ran the official matching operation;
+-   when it ran;
+-   which preference version was used;
+-   which algorithm version was used;
+-   requested candidate limit;
+-   run status;
+-   execution metadata where required.
 
-# 22. `matches`
+## 21.2 Agent preview is different
 
-Represents one male/female pair.
-
-Attributes:
-
--   `id`
--   `male_profile_id`
--   `female_profile_id`
--   `latest_match_run_id`
--   `status`
--   `male_to_female_score`
--   `female_to_male_score`
--   `final_score`
--   `first_suggested_at`
--   `last_scored_at`
--   `in_progress_at`
--   `closed_at`
--   `created_at`
--   `updated_at`
-
-The male/female orientation prevents the same pair from being stored
-twice as A-B and B-A.
-
-A unique constraint prevents duplicate pairs.
-
-------------------------------------------------------------------------
-
-# 23. Match Statuses
+Agent preview:
 
 ``` text
-SUGGESTED
-SHORTLISTED
-SHARED
-CONTACTED
-UNDER_CONSIDERATION
+Agent
+  ↓
+current profile + current preferences
+  ↓
+matching engine
+  ↓
+temporary ranked results
+  ↓
+screen presentation
+```
+
+No persistent matching-run records are created.
+
+This avoids polluting the historical dataset with every exploratory
+search made during client discussions.
+
+## 21.3 Manager official run
+
+Manager run:
+
+``` text
+Manager
+  ↓
+source profile
+  ↓
+same deterministic matching engine
+  ↓
+official ranked results
+  ↓
+persist match_runs
+  ↓
+persist match_run_results
+  ↓
+persist score breakdowns
+```
+
+The Manager run is therefore the authoritative Phase-1 matching result
+used for subsequent candidate selection and information release.
+
+# 22. `match_run_results`
+
+`match_run_results` contains the persisted candidate rows produced by
+one official Manager `match_runs` execution.
+
+Each result identifies:
+
+-   `match_run_id`;
+-   candidate profile;
+-   rank;
+-   final two-way score;
+-   eligibility/result status;
+-   relevant metadata needed for reproducibility.
+
+Example:
+
+``` text
+Manager Run #501
+
+Rank  Candidate  Score
+1     Female B   92
+2     Female C   88
+3     Female D   84
+4     Female E   81
+5     Female F   77
+...
+```
+
+The result belongs to the run. It is not itself an actual relationship.
+
+This distinction is essential:
+
+``` text
+match_run_results
+    = "this candidate was returned by this official search"
+
+matches
+    = "these two people are actually in a matrimonial relationship
+       lifecycle"
+```
+
+# 23. `match_score_breakdowns`
+
+Score breakdowns belong to a persisted `match_run_result`.
+
+For every meaningful criterion, the system can preserve:
+
+-   criterion name/code;
+-   source value;
+-   candidate value;
+-   importance level;
+-   criterion score;
+-   criterion weight;
+-   contribution;
+-   explanation;
+-   algorithm version.
+
+Example:
+
+``` text
+Candidate: Female B
+Final score: 92
+
+Age:
+  requested: 22-25
+  candidate: 23
+  importance: HIGH
+  score: 100
+
+Education:
+  requested: Bachelor's+
+  candidate: Bachelor's
+  importance: HIGH
+  score: 100
+
+Location:
+  requested: Lahore preferred
+  candidate: Lahore
+  importance: MEDIUM
+  score: 100
+
+Religious practice:
+  requested: Highly Preferred
+  candidate: matching
+  score: 100
+```
+
+The explanation is generated from structured facts. It must not claim
+that a match guarantees compatibility or marriage success.
+
+# 24. `matches` --- Actual Relationship Entity
+
+`matches` does **not** represent every candidate returned by a search.
+
+It represents an actual male-female relationship lifecycle after the
+organization/families move beyond simple candidate discovery.
+
+A row should be created when actual communication/proposal consideration
+begins, not merely because a candidate appeared in a preview or Manager
+run.
+
+Core references include:
+
+-   male profile;
+-   female profile;
+-   optional source `match_run_result_id`;
+-   current relationship status;
+-   timestamps;
+-   lifecycle metadata.
+
+## 24.1 Initial relationship state
+
+When actual communication/proposal consideration starts:
+
+``` text
+IN_PROGRESS
+```
+
+This is the explicit business meaning of `IN_PROGRESS`.
+
+A candidate shown in a Manager run is not automatically `IN_PROGRESS`.
+
+## 24.2 Pair uniqueness
+
+The database must prevent duplicate male/female relationship rows for
+the same active lifecycle.
+
+The logical pair is:
+
+``` text
+Male A ↔ Female B
+```
+
+and should not be duplicated as:
+
+``` text
+Male A ↔ Female B
+Female B ↔ Male A
+```
+
+The database representation remains one normalized pair.
+
+# 25. Match Relationship Statuses
+
+Phase 1 relationship statuses are:
+
+``` text
 IN_PROGRESS
 REJECTED
 ACCEPTED
@@ -1195,254 +1414,838 @@ CLOSED
 REOPENED
 ```
 
-These describe the relationship between two profiles.
+These statuses describe the relationship itself.
 
-They do not describe the profile itself.
+They are separate from:
 
-------------------------------------------------------------------------
+``` text
+profile.status
+information_request.status
+match_run.status
+```
 
-# 24. `match_score_breakdowns`
+## IN_PROGRESS
 
-Attributes:
+Actual communication/proposal consideration has started.
 
--   `id`
--   `match_id`
--   `direction`
--   `criterion_code`
--   `candidate_value`
--   `preferred_value`
--   `importance`
--   `match_mode`
--   `raw_score`
--   `weight`
--   `weighted_score`
--   `passed_hard_filter`
--   `explanation`
--   `algorithm_version`
--   `created_at`
+While a profile is in an active `IN_PROGRESS` relationship, the matching
+engine must normally exclude it from starting another new active
+relationship.
 
-This makes the system explainable.
+## REJECTED
+
+The pair has been explicitly rejected.
+
+The rejection applies to the pair, not globally to either person.
+
+## ACCEPTED
+
+The pair has reached the organization's defined accepted state.
+
+## CLOSED
+
+The relationship lifecycle is closed for operational reasons.
+
+## REOPENED
+
+A previously closed/rejected relationship is explicitly reopened where
+business rules allow it.
+
+# 26. `match_status_history` and `match_feedback`
+
+`match_status_history` preserves every important relationship
+transition.
 
 Example:
 
 ``` text
-AGE
-Candidate: 24
-Preferred: 22–25
-Importance: HIGH
-Score: 100
-Explanation: Candidate falls inside preferred range.
+IN_PROGRESS
+    ↓
+REJECTED
 ```
 
-------------------------------------------------------------------------
-
-# 25. `match_status_history`
-
-Stores:
+or:
 
 ``` text
-old_status
-new_status
-changed_by
-reason
-created_at
+IN_PROGRESS
+    ↓
+ACCEPTED
+    ↓
+CLOSED
 ```
 
-Why:
+`match_feedback` stores structured outcome information.
 
-Current `matches.status` tells current state.
+A rejection should contain machine-readable information such as:
 
-History tells how the pair reached that state.
+``` text
+reason = Job timing
+importance = HIGH
+note = Family prefers a different work schedule
+```
 
-------------------------------------------------------------------------
+The system must use pair-level rejection history to prevent the same
+pair from being automatically suggested again unless that pair is
+explicitly reopened.
 
-# 26. `match_feedback`
-
-Attributes:
-
--   `id`
--   `match_id`
--   `provided_by`
--   `feedback_type`
--   `rejection_reason_id`
--   `importance`
--   `notes`
--   `created_at`
-
-Feedback must be structured enough for future analytics.
-
-------------------------------------------------------------------------
+Feedback is historical evidence for future analytics/ML; it is not an ML
+model in Phase 1.
 
 # 27. Information Request Architecture
 
+The Phase-1 information request is intentionally simple.
+
+The Agent does **not** request individual candidate profiles directly.
+
+The request means:
+
 ``` text
-Agent
-  ↓
-information_requests
-  ↓
-information_request_profiles
-  ↓
-Manager review
-  ↓
-information_request_fields
-  ↓
-information_releases
-  ↓
-information_release_fields
-  ↓
-Agent
+"Manager, please process the source profile I am handling and run the
+official matching workflow so that approved candidate information can
+later be released."
 ```
 
-------------------------------------------------------------------------
+## 27.1 Request source
+
+An information request contains:
+
+-   requester (`requested_by`);
+-   source profile (`source_profile_id`);
+-   current operational assignment;
+-   request status;
+-   timestamps;
+-   notes/metadata where needed.
+
+## 27.2 Candidate selection happens after the Manager run
+
+The workflow is:
+
+``` text
+Agent request
+    ↓
+Manager
+    ↓
+official matching run
+    ↓
+saved match_run_results
+    ↓
+Manager chooses candidate(s)
+    ↓
+Manager selects fields
+    ↓
+release snapshot
+```
+
+There is no Agent-submitted list such as:
+
+``` text
+candidate_profile_id = Female B
+candidate_profile_id = Female C
+```
+
+inside the original information request.
+
+The Manager derives candidate choices from the official saved run.
 
 # 28. `information_requests`
 
-Attributes:
+`information_requests` is the operational request from an Agent to the
+Manager.
 
--   `id` --- request ID.
--   `requested_by` --- original Agent.
--   `source_profile_id` --- original client's profile.
--   `status` --- request lifecycle.
--   `reviewed_by` --- Manager.
--   `reviewed_at`
--   `manager_notes`
--   timestamps.
+Important fields:
 
-`requested_by` and current assignee are intentionally separate.
-
-------------------------------------------------------------------------
-
-# 29. Request Statuses
-
-``` text
-PENDING
-UNDER_REVIEW
-APPROVED
-PARTIALLY_APPROVED
-REJECTED
-FULFILLED
-CANCELLED
-```
-
-These describe the information request, not the match.
-
-------------------------------------------------------------------------
-
-# 30. `information_request_profiles`
-
-A single request may contain multiple candidate profiles.
-
-Attributes:
-
--   `id`
--   `request_id`
--   `candidate_profile_id`
--   `match_id`
--   `created_at`
-
-Example:
-
-``` text
-Request 500
- ├── Female B
- ├── Female D
- └── Female F
-```
-
-------------------------------------------------------------------------
-
-# 31. `information_request_assignments`
-
-Attributes:
-
--   `id`
--   `request_id`
--   `assigned_to`
--   `assigned_by`
+-   `requested_by`
+-   `source_profile_id`
 -   `status`
--   `assigned_at`
--   `ended_at`
--   `notes`
+-   `created_at`
+-   `updated_at`
+-   completion/cancellation metadata where applicable
 
-Why:
-
-Requester and current handler can differ.
+The source profile is the Agent's client profile.
 
 Example:
 
 ``` text
 requested_by = Agent A
-assigned_to = Agent B
+source_profile_id = Male A
 ```
 
-------------------------------------------------------------------------
+This does not mean that Agent A is requesting unrestricted access to all
+female profiles.
 
-# 32. `information_request_fields`
+# 29. Request Statuses
 
-Stores which fields were requested.
+Phase 1 uses:
+
+``` text
+PENDING
+IN_REVIEW
+COMPLETED
+CANCELLED
+```
+
+These statuses track the operational request only.
+
+They do not represent:
+
+-   profile state;
+-   candidate relationship state;
+-   approval of a marriage;
+-   change of matrimonial status.
+
+## PENDING
+
+Request has been submitted and awaits Manager processing.
+
+## IN_REVIEW
+
+Manager has opened/started processing the request.
+
+## COMPLETED
+
+The Manager has completed the request workflow. This may include one or
+more approved releases.
+
+## CANCELLED
+
+The request is no longer being processed.
+
+# 30. `information_request_assignments`
+
+This table preserves operational handling history.
+
+It exists because:
+
+``` text
+requested_by
+```
+
+and:
+
+``` text
+current handler
+```
+
+may differ.
 
 Example:
 
 ``` text
-full_name
-age
-education
-profession
-city
-family_introduction
-phone
-income
+requested_by = Agent A
+assigned_to  = Agent B
 ```
 
-Attributes:
+The assignment history should preserve:
 
--   `id`
--   `request_profile_id`
--   `field_path`
--   `requested`
--   `created_at`
+-   assigned Agent;
+-   assigned by;
+-   assignment status;
+-   start/end timestamps;
+-   notes.
 
-------------------------------------------------------------------------
+This is operational routing, not candidate selection.
 
-# 33. `information_releases`
+# 31. Manager Official Run and Candidate Selection
 
-Represents Manager-approved release.
+After opening a request, the Manager runs the same deterministic
+matching engine used by the Agent preview.
 
-Attributes:
+The key difference is persistence:
 
--   `id`
--   `request_profile_id`
--   `released_by`
--   `release_status`
--   `released_at`
--   `expires_at`
--   `notes`
+``` text
+Agent preview:
+  calculate → display → discard
 
-A request is not itself proof that information was released.
+Manager official:
+  calculate → save → review → select → release
+```
 
-------------------------------------------------------------------------
+The Manager can select one or more candidates from the persisted
+`match_run_results`.
 
-# 34. `information_release_fields`
+The selected candidate is represented by its run-result reference when
+creating an information release.
 
-Stores the exact approved snapshot.
+No manual score override is required.
 
-Attributes:
+# 32. `information_releases`
 
--   `id`
--   `release_id`
--   `field_path`
--   `field_value`
--   `created_at`
+`information_releases` represents an actual Manager-approved disclosure.
 
-Why snapshot values?
+It references:
 
-If the candidate later changes their city, profession or other field,
-the historical release remains an accurate record of what was approved
-at the time.
+-   the request;
+-   the official Manager `match_run_result`;
+-   candidate profile;
+-   releasing Manager;
+-   release status;
+-   release timestamps;
+-   optional expiry/revocation information.
 
-This is intentional historical denormalization for auditability.
+The release answers:
 
-------------------------------------------------------------------------
+``` text
+"Which candidate, from which official run, was approved for disclosure?"
+```
+
+The database should also preserve the Agent who receives the release
+when the operational recipient can differ from the original requester.
+
+Recommended field:
+
+``` text
+released_to
+```
+
+This avoids ambiguity when a request is reassigned.
+
+# 33. `information_release_fields`
+
+The Manager selects individual fields.
+
+Example:
+
+``` text
+APPROVED
+- Full Name
+- Age
+- Education
+- Profession
+- City
+- Family Introduction
+
+NOT APPROVED
+- Phone
+- Exact Address
+- Sensitive Family Details
+- Any other restricted field
+```
+
+Each approved field is stored as a historical snapshot:
+
+``` text
+field_path
+field_value
+```
+
+This is intentional historical denormalization.
+
+If the candidate later changes:
+
+``` text
+city
+profession
+education
+```
+
+the historical release still records exactly what the Manager approved
+at that time.
+
+The PDF must be generated from this release snapshot, not by reading the
+candidate's full current profile.
+
+# 34. Information Disclosure Security Model
+
+Visibility is divided into three levels.
+
+## Level 1 --- Agent preview visibility
+
+The Agent can see only the fields explicitly allowed for candidate
+preview, such as:
+
+-   name or approved display identifier;
+-   basic age;
+-   basic education;
+-   basic profession;
+-   score;
+-   score explanation;
+-   other non-sensitive fields defined by business rules.
+
+## Level 2 --- Manager visibility
+
+The Manager can inspect the detailed information needed to make an
+approval decision, subject to role permissions.
+
+## Level 3 --- Released information
+
+The Agent sees only the exact fields included in the Manager's release
+snapshot.
+
+Frontend hiding is not sufficient. RLS and/or secure server-side
+functions must enforce this boundary.
+
+# 35. Complete Agent Workflow
+
+## Step 1 --- Login
+
+Agent authenticates through Supabase Auth.
+
+## Step 2 --- Create or Open Source Profile
+
+Agent creates the matrimonial profile for the client.
+
+The system records:
+
+``` text
+created_by = current Agent
+current_agent_id = current Agent
+```
+
+The profile may remain `DRAFT` until validation is complete.
+
+## Step 3 --- Enter Profile Data
+
+Agent completes the approved Phase-1 sections:
+
+``` text
+Basic / Personal
+Physical
+Education
+Profession / Employment
+Income
+Religion & Culture
+Location
+Residency & Family
+Parents
+Siblings
+Children
+Previous Marriages
+Family Information
+Lifestyle
+Relocation
+```
+
+## Step 4 --- Enter Desired-Partner Preferences
+
+Agent records the client's requirements using the structured Phase-1
+preference model.
+
+Preferences can include:
+
+-   mandatory criteria;
+-   high/strong preferences;
+-   preferred criteria;
+-   flexible/optional criteria;
+-   range values where applicable.
+
+## Step 5 --- Validation
+
+System validates:
+
+-   required fields;
+-   conditional fields;
+-   valid reference IDs;
+-   logical ranges;
+-   gender-specific rules;
+-   date consistency;
+-   preference consistency.
+
+## Step 6 --- Activate Profile
+
+After required information is complete:
+
+``` text
+profiles.status = ACTIVE
+```
+
+Only eligible active profiles participate in matching.
+
+## Step 7 --- Agent Matching Preview
+
+Agent clicks:
+
+``` text
+Find Matches
+```
+
+The system calculates a temporary ranked result.
+
+It:
+
+1.  loads the source profile;
+2.  loads current preferences;
+3.  selects eligible opposite-gender profiles;
+4.  excludes inactive/ineligible profiles;
+5.  excludes self-pairs;
+6.  excludes pair-level rejected relationships;
+7.  excludes profiles already blocked by active relationship rules;
+8.  applies hard filters;
+9.  calculates soft criterion scores;
+10. calculates source → candidate compatibility;
+11. calculates candidate → source compatibility;
+12. combines the two directions;
+13. ranks the candidates;
+14. returns the configured preview list.
+
+### Critical rule
+
+The Agent preview result is not saved as an official match run.
+
+No persistent `match_runs`, `match_run_results`, `matches` or score
+breakdown records are created by this action.
+
+The preview exists to help the Agent explain potential candidates to the
+client.
+
+## Step 8 --- Client Discussion / Convincing
+
+The Agent discusses the preview with the client/family.
+
+The Agent can use:
+
+``` text
+Candidate name/basic identifier
+Age
+Education
+Profession
+Location/basic details
+Match percentage
+Score explanation
+```
+
+according to configured preview visibility.
+
+Sensitive candidate information remains hidden.
+
+## Step 9 --- Agent Submits Information Request
+
+Once the client is interested in proceeding, the Agent submits:
+
+``` text
+source_profile_id = client's profile
+requested_by = current Agent
+```
+
+The Agent does not submit candidate-profile IDs as the request itself.
+
+## Step 10 --- Manager Receives Request
+
+The Manager sees:
+
+-   requesting Agent;
+-   source profile;
+-   request history;
+-   relevant operational notes;
+-   current assignment;
+-   request status.
+
+## Step 11 --- Manager Runs Official Matching
+
+Manager runs the same matching engine.
+
+This execution is persisted:
+
+``` text
+match_runs
+match_run_results
+match_score_breakdowns
+```
+
+The official run becomes the source from which candidate information can
+be selected.
+
+## Step 12 --- Manager Selects Candidate(s)
+
+Manager reviews the saved ranked results and chooses the candidate or
+candidates that should proceed.
+
+## Step 13 --- Manager Selects Individual Fields
+
+For each selected candidate, the Manager chooses the exact fields that
+may be released.
+
+Example:
+
+``` text
+Name       ✓
+Age        ✓
+Education  ✓
+Profession ✓
+City       ✓
+Phone      ✗
+Income     ✗
+Address    ✗
+```
+
+The actual allowed set is controlled by business/security rules.
+
+## Step 14 --- Release Snapshot
+
+System creates:
+
+``` text
+information_releases
+information_release_fields
+```
+
+with exact values at the moment of approval.
+
+## Step 15 --- Agent Receives Approved Information
+
+The intended Agent receives only the approved snapshot.
+
+The Agent cannot query the candidate's unrestricted profile to bypass
+the release.
+
+## Step 16 --- PDF Generation
+
+The Agent can generate/download a PDF from the release snapshot.
+
+The PDF contains only approved fields.
+
+## Step 17 --- Family Communication
+
+The Agent shares the approved information with the original
+client/family through the organization's permitted external process.
+
+## Step 18 --- Actual Communication / Proposal
+
+If the two families actually begin communication/proposal consideration,
+the system creates the actual `matches` relationship:
+
+``` text
+Male A ↔ Female B
+status = IN_PROGRESS
+```
+
+This is the point at which `IN_PROGRESS` begins.
+
+## Step 19 --- Outcome
+
+The relationship may become:
+
+``` text
+REJECTED
+ACCEPTED
+CLOSED
+REOPENED
+```
+
+Structured feedback is recorded.
+
+## Step 20 --- Future Matching
+
+If A ↔ B is rejected, that pair is excluded from future automatic
+recommendations unless explicitly reopened.
+
+Male A can still be matched with other eligible females.
+
+Female B remains eligible for other eligible males.
+
+# 36. Complete Manager Workflow
+
+## 36.1 Login
+
+Manager sees:
+
+-   pending information requests;
+-   requests currently under review;
+-   active relationships;
+-   recent official matching runs;
+-   operational workload;
+-   relevant notifications.
+
+## 36.2 Open Request
+
+Manager sees:
+
+-   requesting Agent;
+-   source profile;
+-   current request status;
+-   assignment history;
+-   relevant previous processing history.
+
+The Manager is not presented with a preselected candidate list from the
+Agent request because the Agent did not submit one.
+
+## 36.3 Run Official Match
+
+Manager runs the deterministic engine for the source profile.
+
+The run is persisted.
+
+## 36.4 Review Results
+
+Manager sees:
+
+-   ranked candidates;
+-   final two-way score;
+-   criterion-level breakdown;
+-   hard-filter outcome;
+-   soft-preference contributions;
+-   previous pair history;
+-   candidate eligibility.
+
+## 36.5 Select Candidate
+
+Manager selects candidate(s) from the saved official run.
+
+## 36.6 Select Fields
+
+Manager selects individual fields for each candidate.
+
+## 36.7 Approve / Partially Approve / Reject
+
+The system creates releases only for approved information.
+
+A rejected request produces no information release.
+
+A partially approved workflow produces only approved release fields.
+
+## 36.8 Assign / Reassign
+
+Manager can route the request to another Agent.
+
+The system preserves:
+
+``` text
+original requester
+current assignee
+assignment history
+```
+
+If a release recipient differs from the original requester, the release
+records the actual recipient.
+
+## 36.9 Monitor Relationship Progress
+
+Manager can monitor:
+
+``` text
+IN_PROGRESS
+REJECTED
+ACCEPTED
+CLOSED
+REOPENED
+```
+
+and related feedback.
+
+# 37. Complete High-Level Admin Workflow
+
+## Login
+
+Admin sees system-wide operational information.
+
+## User Management
+
+-   Create/disable authorized users.
+-   Assign roles.
+-   Review account status.
+
+## Profile Analytics
+
+-   Total profiles.
+-   Active/draft/archived profiles.
+-   Male/female counts.
+-   Agent workload.
+-   Assignment history.
+
+## Matching Analytics
+
+-   Official Manager match runs.
+-   Candidate counts.
+-   Score distributions.
+-   Match outcomes.
+-   Rejection patterns.
+-   Pair-level history.
+
+Agent previews are not treated as official persisted match runs.
+
+## Request Analytics
+
+-   Pending requests.
+-   Requests under review.
+-   Completed/cancelled requests.
+-   Manager workload.
+-   Assignment/reassignment activity.
+-   Release activity.
+
+## Audit
+
+Admin can inspect important actions such as:
+
+-   profile creation/update;
+-   assignment;
+-   official matching run;
+-   candidate selection;
+-   information release;
+-   relationship status changes;
+-   user/role changes;
+-   security-sensitive actions.
+
+# 38. End-to-End Example
+
+``` text
+Agent A
+  ↓
+creates Male A
+  ↓
+profile ACTIVE
+  ↓
+preferences recorded
+  ↓
+Agent clicks Find Match
+  ↓
+TEMPORARY PREVIEW
+  ↓
+B 92%
+C 89%
+D 86%
+E 82%
+F 79%
+  ↓
+Agent discusses candidates with client
+  ↓
+Client wants to proceed
+  ↓
+Agent submits information request
+  source_profile = Male A
+  requested_by = Agent A
+  ↓
+Manager receives request
+  ↓
+Manager runs OFFICIAL matching
+  ↓
+Saved:
+  match_runs
+  match_run_results
+  score_breakdowns
+  ↓
+Manager reviews official results
+  ↓
+Manager selects Female B
+  ↓
+Manager approves:
+  Name
+  Age
+  Education
+  Profession
+  City
+  Family Introduction
+  ↓
+Release snapshot created
+  ↓
+Agent receives approved fields
+  ↓
+Agent generates PDF
+  ↓
+Agent shares approved information
+  ↓
+Families begin actual communication
+  ↓
+Male A ↔ Female B
+  status = IN_PROGRESS
+  ↓
+If rejected:
+  REJECTED
+  + structured reason
+  ↓
+A ↔ B excluded from future automatic suggestions
+  ↓
+Male A remains eligible for other profiles
+Female B remains eligible for other profiles
+```
 
 # 35. Complete Agent Workflow
 
@@ -1515,14 +2318,16 @@ Engine:
 8.  Calculates A→B.
 9.  Calculates B→A.
 10. Combines scores.
-11. Saves match run.
-12. Saves score breakdown.
+11. Displays temporary results; no match run is saved for Agent preview.
+12. Displays score breakdown temporarily; no persistent score breakdown
+    is created for Agent preview.
 13. Ranks candidates.
 14. Returns Top 5.
 
 ## Step 8 --- Client Interest
 
-Agent selects candidates of interest.
+Agent discusses the temporary preview with the client; the Agent does
+not persist candidate selections.
 
 ## Step 9 --- Information Request
 
@@ -1584,7 +2389,7 @@ Manager sees:
 
 -   requesting Agent,
 -   original profile,
--   requested candidates,
+-   the source profile and request history,
 -   match information,
 -   score breakdown,
 -   prior history.
@@ -1597,7 +2402,8 @@ No manual score manipulation is required for normal Phase 1 workflow.
 
 ## 36.4 Select Candidate
 
-Manager can decide which requested candidates should proceed.
+Manager can decide which the source profile and request history should
+proceed.
 
 ## 36.5 Select Fields
 
@@ -2544,70 +3350,91 @@ Phase 1 itself must remain deterministic.
 
 # 64. Final Entity Relationship Overview
 
+The final Phase-1 architecture is:
+
 ``` text
-auth.users
-   |
-   v
-users
-   |
-   +-- user_roles -- roles -- role_permissions -- permissions
-   |
-   +-- profiles
-         |
-         +-- profile_agent_assignments
-         |
-         +-- personal_information
-         +-- physical_information
-         +-- education_records
-         +-- employment_records
-         +-- income_information
-         +-- religion_information
-         +-- profile_locations
-         +-- residency_information
-         +-- parents
-         +-- siblings
-         +-- children
-         +-- previous_marriages
-         +-- family_information
-         +-- lifestyle_information
-         +-- relocation_information
-         |
-         +-- preference_sets
-               |
-               +-- basic_preferences
-               +-- physical_preferences
-               +-- education_preferences
-               +-- profession_preferences
-               +-- religion_preferences
-               +-- location_preferences
-               +-- family_preferences
-               +-- lifestyle_preferences
-               +-- relocation_preferences
+                         ┌──────────────────────┐
+                         │       users          │
+                         └──────────┬───────────┘
+                                    │
+                         ┌──────────▼───────────┐
+                         │     user_roles        │
+                         └──────────┬───────────┘
+                                    │
+                 ┌──────────────────┼──────────────────┐
+                 │                  │                  │
+                 ▼                  ▼                  ▼
+        HIGH_LEVEL_ADMIN         MANAGER             AGENT
 
-profiles
-   |
-   +-- match_runs
-   +-- matches
-         |
-         +-- match_score_breakdowns
-         +-- match_status_history
-         +-- match_feedback
-         |
-         +-- information_request_profiles
-               |
-               +-- information_requests
-               +-- information_request_fields
-               +-- information_request_assignments
-               +-- information_releases
-                     |
-                     +-- information_release_fields
 
-users
-   |
-   +-- notifications
-   +-- audit_logs
+                         ┌──────────────────────┐
+                         │       profiles       │
+                         └──────────┬───────────┘
+                                    │
+             ┌──────────────────────┼────────────────────────┐
+             │                      │                        │
+             ▼                      ▼                        ▼
+     profile information     preference_sets       profile assignments
+     (personal, physical,       │                    / history
+      education, family,        │
+      religion, etc.)           ▼
+                        typed preference tables
 
-Reference:
+
+AGENT PREVIEW
+─────────────
+profiles + preferences
+        ↓
+deterministic matching engine
+        ↓
+temporary results
+        ↓
+display only
+        ↓
+NO persistent match-run rows
+
+
+MANAGER OFFICIAL RUN
+────────────────────
+information_requests
+        ↓
+Manager
+        ↓
+match_runs
+        ↓
+match_run_results
+        ↓
+match_score_breakdowns
+        ↓
+candidate selection
+        ↓
+information_releases
+        ↓
+information_release_fields
+        ↓
+Agent receives approved snapshot
+        ↓
+PDF
+
+
+ACTUAL RELATIONSHIP
+───────────────────
+Male profile ↔ Female profile
+        ↓
+matches
+        ↓
+match_status_history
+        ↓
+match_feedback
+
+
+SUPPORTING SYSTEMS
+──────────────────
+notifications
+audit_logs
+
+REFERENCE DATA
+───────────────
 countries
 provinces
 cities
@@ -2620,7 +3447,34 @@ occupations
 rejection_reasons
 ```
 
-------------------------------------------------------------------------
+## Important Entity Distinctions
+
+### `match_run_results`
+
+Means:
+
+> "This candidate was returned by this official Manager matching run."
+
+### `matches`
+
+Means:
+
+> "This male/female pair entered an actual relationship lifecycle."
+
+### `information_requests`
+
+Means:
+
+> "An Agent asked the Manager to process the Agent's source profile."
+
+### `information_releases`
+
+Means:
+
+> "The Manager approved selected candidate information for release."
+
+These four entities must not be collapsed into one generic "match"
+table.
 
 # 65. Final Design Principles
 
@@ -2671,28 +3525,110 @@ graph/vector/ML infrastructure unnecessarily in Phase 1.
 
 # 66. Pre-Production Decisions Still Requiring Business Sign-Off
 
-Before freezing the production migration, confirm:
+The architecture and workflow above are fixed for Phase 1, but the
+following business values should be explicitly signed off before the
+production migration is frozen.
 
 1.  Exact hard-filter criteria.
 2.  Exact numerical scoring weights.
-3.  Exact range tolerances.
-4.  Exact required profile fields.
-5.  Exact Top-5 visible fields.
-6.  Exact restricted fields.
-7.  Multiple-city/country preference representation.
-8.  Whether age is calculated from DOB.
-9.  Exact Manager release/approval rules.
-10. Exact reopening permissions.
-11. Exact active IN_PROGRESS limit.
-12. Exact dashboard KPIs.
-13. Exact audit events.
-14. Exact PDF layout.
-15. Exact profile archive/delete policy.
+3.  Exact score-combination formula for two-way compatibility.
+4.  Exact range/tolerance behavior for age, height, income and other
+    numerical criteria.
+5.  Exact required profile fields.
+6.  Exact Agent preview fields.
+7.  Exact restricted/sensitive fields.
+8.  Exact Manager-visible fields.
+9.  Exact releaseable fields by role/business rule.
+10. Whether `released_to` must always equal the current request assignee
+    or can be explicitly selected.
+11. Exact preference behavior for multiple cities/countries if required
+    later.
+12. Exact age calculation policy from DOB.
+13. Exact definition of "actual communication/proposal" that starts
+    `IN_PROGRESS`.
+14. Exact rule for reopening a rejected/closed pair.
+15. Exact active `IN_PROGRESS` relationship limit.
+16. Exact request completion behavior when multiple candidate releases
+    are created.
+17. Exact PDF layout and bilingual presentation.
+18. Exact dashboard KPIs.
+19. Exact audit event list.
+20. Exact profile archive/reactivation rules.
+21. Exact reference-data administration permissions.
+22. Exact retention period for releases, requests, runs and audit logs.
+23. Exact notification channels.
+24. Exact production RLS policies and SECURITY DEFINER RPC boundaries.
+25. Exact backup/recovery objectives.
 
-These should be explicit product decisions rather than assumptions
-hidden in code.
+These are configuration/business-policy decisions. They should not be
+silently invented inside the application code.
 
-------------------------------------------------------------------------
+# 67. Conclusion
+
+NikaahKaro Phase 1 is a controlled internal CRM and deterministic
+matrimonial matching platform:
+
+``` text
+Authorized Users
+      +
+Role-Based Access
+      +
+Structured Matrimonial Profiles
+      +
+Structured Partner Preferences
+      +
+Agent Non-Persistent Matching Preview
+      +
+Manager-Persisted Official Matching Runs
+      +
+Two-Way Compatibility
+      +
+Explainable Scoring
+      +
+Pair-Level Relationship History
+      +
+Manager-Controlled Candidate Selection
+      +
+Field-Level Information Release
+      +
+Immutable Release Snapshots
+      +
+PDF Generation
+      +
+Auditability
+      +
+Supabase/PostgreSQL Security
+      +
+Future Analytics / ML Readiness
+```
+
+The most important Phase-1 architectural boundary is:
+
+``` text
+AGENT
+  = collect data + preview matching + client presentation
+  = no persisted candidate matching history
+
+MANAGER
+  = official matching + candidate selection + information approval
+  = persisted matching history
+
+SYSTEM
+  = relationship lifecycle + feedback + audit + historical snapshots
+```
+
+This keeps exploratory Agent searches out of the official historical
+dataset, makes Manager decisions reproducible, prevents unauthorized
+candidate disclosure, and preserves structured historical data for
+future analytics and ML.
+
+The database schema corresponding to this PRD is:
+
+`NikaahKaro_Phase_1_Database_Schema_v2.sql`
+
+The PRD and schema should be treated as a pair: database entities,
+workflow terminology, lifecycle semantics and security boundaries should
+remain aligned.
 
 # 67. Conclusion
 
