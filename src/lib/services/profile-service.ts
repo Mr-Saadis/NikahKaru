@@ -16,8 +16,21 @@ import type {
   FamilyInformation,
   LifestyleInformation,
   RelocationInformation,
-  ProfileStatus
+  ProfileStatus,
+  ProfileListItem,
+  ProfileGender
 } from '@/lib/types/database.types';
+
+export interface ProfileFilters {
+  search?: string;
+  gender?: ProfileGender;
+  status?: ProfileStatus;
+  cityId?: number;
+  minAge?: number;
+  maxAge?: number;
+  page?: number;
+  limit?: number;
+}
 
 export class ProfileService {
   /**
@@ -311,6 +324,65 @@ export class ProfileService {
 
     if (error) throw error;
     return data;
+  }
+
+  /**
+   * READ: Get list of profiles
+   */
+  static async getProfilesList(filters: ProfileFilters): Promise<{ data: ProfileListItem[], count: number }> {
+    const supabase = createClient();
+    
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from('profiles')
+      .select(`
+        id, gender, status, created_at, updated_at, current_agent_id,
+        personal_information ( full_name, date_of_birth, marital_status ),
+        profile_locations ( current_city_id )
+      `, { count: 'exact' });
+
+    if (filters.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters.gender) {
+      query = query.eq('gender', filters.gender);
+    }
+    
+    // Note: Advanced filtering like age range and nested field search (name, city)
+    // usually requires an RPC or a database view in Supabase.
+    // For now, we'll do basic matching for MVP. We can filter name by joining if possible 
+    // but PostgREST supports it via nested filtering:
+    if (filters.search) {
+      query = query.textSearch('personal_information.full_name', filters.search);
+    }
+    if (filters.cityId) {
+      query = query.eq('profile_locations.current_city_id', filters.cityId);
+    }
+
+    query = query.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+    
+    if (error) throw error;
+    
+    // Filter age in JS if provided, since we don't have DB function right now
+    let results = data as unknown as ProfileListItem[];
+    
+    if (filters.minAge || filters.maxAge) {
+      results = results.filter(p => {
+        if (!p.personal_information?.date_of_birth) return false;
+        const dob = new Date(p.personal_information.date_of_birth);
+        const age = Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+        if (filters.minAge && age < filters.minAge) return false;
+        if (filters.maxAge && age > filters.maxAge) return false;
+        return true;
+      });
+    }
+
+    return { data: results, count: count || results.length };
   }
 
   /**

@@ -55,7 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setSession: ({ user, role, permissions }) =>
     set({
       user,
-      role: role.name as UserRoleName,
+      role: role.name?.toUpperCase() as UserRoleName,
       roleData: role,
       permissions,
       isAuthenticated: true,

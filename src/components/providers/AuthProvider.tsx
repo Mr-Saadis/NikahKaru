@@ -78,10 +78,13 @@ export default function AuthProvider({ children }: AuthProviderProps) {
         .single();
 
       if (roleError || !userRoleData?.roles) {
+        console.error('DEBUG: Failed to fetch from user_roles or roles table', { roleError, userRoleData });
         setError('No role assigned. Please contact administrator.');
         clearSession();
         return;
       }
+
+      console.log('DEBUG: Successfully fetched role', userRoleData);
 
       // Supabase returns nested relation as object (since limit 1 + single)
       const role = userRoleData.roles as unknown as Role;

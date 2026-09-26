@@ -141,7 +141,7 @@ export default function LoginPage() {
         </div>
 
         <div className="text-[12px] text-[#A8A296] font-medium absolute bottom-8 text-center">
-          &copy; {new Date().getFullYear()} NikaahKaro. All rights reserved.
+          Developed by zscorelabs.
         </div>
       </div>
     </div>

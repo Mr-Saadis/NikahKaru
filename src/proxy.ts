@@ -1,60 +1,53 @@
-import { updateSession } from '@/lib/supabase/middleware';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
+import { createServerClient } from "@supabase/ssr";
 
 export async function proxy(request: NextRequest) {
-  // Refresh the Supabase auth session on every request
+  // 1. Update session (refreshes auth token if expired)
   const response = await updateSession(request);
 
-  const {
-    nextUrl: { pathname },
-  } = request;
-
-  // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/auth/callback', '/auth/confirm'];
-  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
-
-  // API routes — let them handle their own auth
-  const isApiRoute = pathname.startsWith('/api/');
-
-  // Static assets — always pass through
-  const isStaticAsset =
-    pathname.startsWith('/_next/') ||
-    pathname.startsWith('/favicon.ico') ||
-    pathname.endsWith('.svg') ||
-    pathname.endsWith('.png') ||
-    pathname.endsWith('.ico');
-
-  if (isStaticAsset || isApiRoute) {
-    return response;
-  }
-
-  // Check if user is authenticated via Supabase cookie
-  // The updateSession already refreshed the token; we check the cookie presence
-  const supabaseAuthToken = request.cookies.getAll().find(
-    (cookie) => cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')
+  // 2. Check Auth Status for Routing reliably via Supabase client
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll() {
+          // Handled by updateSession
+        },
+      },
+    }
   );
 
-  const isAuthenticated = !!supabaseAuthToken;
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // If user is NOT authenticated and trying to access a protected route
-  if (!isAuthenticated && !isPublicRoute) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirectTo', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // If user IS authenticated and trying to access login page — redirect to dashboard
-  if (isAuthenticated && pathname === '/login') {
-    return NextResponse.redirect(new URL('/overview', request.url));
-  }
-
-  // If user hits root "/" — redirect to overview
-  if (pathname === '/') {
-    if (isAuthenticated) {
+  const isLoginRoute = request.nextUrl.pathname.startsWith('/login');
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api');
+  
+  // If user visits root '/', redirect them based on auth status
+  if (request.nextUrl.pathname === '/') {
+    if (user) {
       return NextResponse.redirect(new URL('/overview', request.url));
     } else {
       return NextResponse.redirect(new URL('/login', request.url));
     }
+  }
+
+  // Protect all private routes (if NOT logged in, and NOT on login/api route -> redirect to login)
+  if (!user && !isLoginRoute && !isApiRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
+  // If already logged in and tries to access /login -> redirect to /overview
+  if (user && isLoginRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/overview';
+    return NextResponse.redirect(url);
   }
 
   return response;
@@ -63,10 +56,11 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
+     * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - images and fonts (svg, png, woff, etc)
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],

@@ -23,7 +23,7 @@ interface SidebarProps {
 
 export default function Sidebar({ activePage }: SidebarProps) {
   const { user, role, roleData } = useAuth();
-  
+
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -100,15 +100,15 @@ export default function Sidebar({ activePage }: SidebarProps) {
   ];
 
   const visibleNavItems = navItems.filter(item => role && item.roles.includes(role));
-  
+
   // Initials for avatar
-  const initials = user?.full_name 
+  const initials = user?.full_name
     ? user.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
     : 'U';
 
   return (
     <aside className="hidden md:flex flex-col w-[260px] lg:w-[280px] bg-[#FBF9F5] border-r border-[#EFE9DF] h-full flex-shrink-0 relative z-20">
-      
+
       {/* Brand & Logo */}
       <div className="p-6 pb-4">
         <div className="flex items-center gap-3.5 mb-8">
@@ -133,23 +133,21 @@ export default function Sidebar({ activePage }: SidebarProps) {
           {visibleNavItems.map((item) => {
             const isActive = activePage === item.id;
             return (
-              <Link 
-                key={item.id} 
+              <Link
+                key={item.id}
                 href={item.href}
-                className={`flex items-center justify-between px-4 py-2.5 rounded-2xl transition-all ${
-                  isActive 
-                    ? 'font-semibold text-white bg-[#064e3b] shadow-sm py-3 text-[14px]' 
+                className={`flex items-center justify-between px-4 py-2.5 rounded-2xl transition-all ${isActive
+                    ? 'font-semibold text-white bg-[#064e3b] shadow-sm py-3 text-[14px]'
                     : 'text-[13.5px] font-medium text-[#676156] hover:bg-[#F2ECE1]'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3.5">
                   <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-[#888174]'}`} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                    isActive ? 'bg-white text-[#064e3b]' : 'bg-[#EAE2D5] text-[#4E473D]'
-                  }`}>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-white text-[#064e3b]' : 'bg-[#EAE2D5] text-[#4E473D]'
+                    }`}>
                     {item.badge}
                   </span>
                 )}
@@ -169,14 +167,13 @@ export default function Sidebar({ activePage }: SidebarProps) {
             {adminItems.map((item) => {
               const isActive = activePage.startsWith(item.id);
               return (
-                <Link 
-                  key={item.id} 
+                <Link
+                  key={item.id}
                   href={item.href}
-                  className={`flex items-center gap-3.5 px-4 py-2.5 rounded-2xl transition-all ${
-                    isActive 
-                      ? 'font-semibold text-white bg-[#064e3b] shadow-sm py-3 text-[14px]' 
+                  className={`flex items-center gap-3.5 px-4 py-2.5 rounded-2xl transition-all ${isActive
+                      ? 'font-semibold text-white bg-[#064e3b] shadow-sm py-3 text-[14px]'
                       : 'text-[13.5px] font-medium text-[#676156] hover:bg-[#F2ECE1]'
-                  }`}
+                    }`}
                 >
                   <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-[#888174]'}`} />
                   <span>{item.label}</span>
@@ -201,7 +198,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
               {roleData?.name.replace(/_/g, ' ') || 'AGENT'}
             </span>
           </div>
-          <button 
+          <button
             onClick={handleLogout}
             className="w-8 h-8 flex items-center justify-center rounded-full text-[#8D867C] hover:text-[#115E49] hover:bg-[#F6F2EA] transition-colors flex-shrink-0"
             title="Logout"

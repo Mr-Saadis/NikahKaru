@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { ProfileService } from '@/lib/services/profile-service';
+import { PreferenceService } from '@/lib/services/preference-service';
 import HorizontalStepper, { type StepConfig } from './HorizontalStepper';
 import ProfileSidebar from './ProfileSidebar';
 import Step1BasicInfo, { type Step1Data } from './steps/Step1BasicInfo';
@@ -180,6 +181,118 @@ export default function AddProfileForm() {
           income_period: 'MONTHLY',
         });
       }
+
+      // 3. Save Preferences
+      await PreferenceService.savePreferences(pid, {
+        basic: {
+          preference_set_id: '', // Set in service
+          min_age: step8.pref_min_age ? Number(step8.pref_min_age) : null,
+          max_age: step8.pref_max_age ? Number(step8.pref_max_age) : null,
+          age_importance: step8.pref_age_importance || null,
+          preferred_marital_status: step8.pref_marital_status || null,
+          marital_status_importance: step8.pref_marital_importance || null,
+          children_allowed: step8.pref_children_allowed || null,
+          children_importance: step8.pref_children_importance || null,
+          preferred_gender: null, // Default
+          gender_importance: null, // Default
+          created_at: new Date().toISOString()
+        },
+        physical: {
+          preference_set_id: '',
+          min_height_cm: step8.pref_min_height ? Number(step8.pref_min_height) : null,
+          max_height_cm: step8.pref_max_height ? Number(step8.pref_max_height) : null,
+          height_importance: step8.pref_height_importance || null,
+          disability_allowed: step8.pref_disability_allowed || null,
+          disability_importance: step8.pref_disability_importance || null,
+          min_weight_kg: null,
+          max_weight_kg: null,
+          weight_importance: null,
+          preferred_complexion: null,
+          complexion_importance: null,
+          beard_preference: null,
+          beard_importance: null,
+          hijab_preference: null,
+          hijab_importance: null,
+          created_at: new Date().toISOString()
+        },
+        education: {
+          preference_set_id: '',
+          minimum_education_level_id: null,
+          education_importance: null,
+          preferred_field_of_study: null,
+          field_importance: null,
+          created_at: new Date().toISOString()
+        },
+        profession: {
+          preference_set_id: '',
+          minimum_monthly_income: step8.pref_min_income ? Number(step8.pref_min_income) : null,
+          maximum_monthly_income: step8.pref_max_income ? Number(step8.pref_max_income) : null,
+          income_importance: step8.pref_income_importance || null,
+          preferred_occupation_id: null,
+          occupation_importance: null,
+          preferred_employment_type: null,
+          employment_type_importance: null,
+          created_at: new Date().toISOString()
+        },
+        religion: {
+          preference_set_id: '',
+          religion_id: step8.pref_religion_id ? Number(step8.pref_religion_id) : null,
+          religion_importance: step8.pref_religion_importance || null,
+          sect_id: step8.pref_sect_id ? Number(step8.pref_sect_id) : null,
+          sect_importance: step8.pref_sect_importance || null,
+          caste_id: step8.pref_caste_id ? Number(step8.pref_caste_id) : null,
+          caste_importance: step8.pref_caste_importance || null,
+          religious_practice: step8.pref_religious_practice || null,
+          religious_practice_importance: step8.pref_religious_practice_importance || null,
+          created_at: new Date().toISOString()
+        },
+        location: {
+          preference_set_id: '',
+          country_id: step8.pref_location_country_id ? Number(step8.pref_location_country_id) : null,
+          country_importance: step8.pref_location_importance || null,
+          province_id: null,
+          province_importance: null,
+          city_id: null,
+          city_importance: null,
+          location_details: null,
+          created_at: new Date().toISOString()
+        },
+        family: {
+          preference_set_id: '',
+          family_setup: step8.pref_family_setup || null,
+          family_setup_importance: step8.pref_family_setup_importance || null,
+          living_with: null,
+          living_with_importance: null,
+          parents_status_preference: null,
+          parents_status_importance: null,
+          created_at: new Date().toISOString()
+        },
+        lifestyle: {
+          preference_set_id: '',
+          smoking: step8.pref_smoking || null,
+          smoking_importance: step8.pref_smoking_importance || null,
+          religious_practice: step8.pref_religious_practice || null, // Shared with religion? Let's use same for now or null
+          religious_practice_importance: step8.pref_religious_practice_importance || null,
+          beard_preference: null,
+          beard_importance: null,
+          hijab_preference: null,
+          hijab_importance: null,
+          additional_preferences: null,
+          created_at: new Date().toISOString()
+        },
+        relocation: {
+          preference_set_id: '',
+          willing_to_relocate_required: null,
+          relocation_importance: null,
+          country_id: null,
+          country_importance: null,
+          province_id: null,
+          province_importance: null,
+          city_id: null,
+          city_importance: null,
+          created_at: new Date().toISOString()
+        }
+      });
 
       // Navigate to the new profile
       router.push(`/profiles/${pid}`);
