@@ -198,6 +198,7 @@ create table public.profiles (
     status public.profile_status not null default 'DRAFT',
     created_by uuid not null references public.users(id) on delete restrict,
     current_agent_id uuid references public.users(id) on delete set null,
+    profile_URL text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
     archived_at timestamptz

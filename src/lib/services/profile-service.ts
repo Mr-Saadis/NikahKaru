@@ -36,16 +36,17 @@ export class ProfileService {
   /**
    * CREATE / INITIALIZE PROFILE
    */
-  static async createProfile(userId: string): Promise<Profile> {
+  static async createProfile(userId: string, gender: string): Promise<Profile> {
     const supabase = createClient();
     
-    // As per schema, a profile just needs created_by and current_agent_id
+    // As per schema, a profile needs created_by, current_agent_id and gender
     // It defaults to DRAFT status and generates a short_id
     const { data, error } = await supabase
       .from('profiles')
       .insert({
         created_by: userId,
         current_agent_id: userId,
+        gender: gender,
         status: 'DRAFT',
       })
       .select('*')
@@ -53,6 +54,46 @@ export class ProfileService {
 
     if (error) throw error;
     return data as Profile;
+  }
+
+  /**
+   * UPLOAD PROFILE PICTURE
+   */
+  static async uploadProfilePicture(profileId: string, file: File): Promise<string> {
+    const supabase = createClient();
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${profileId}-${Math.random()}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('Profile_Picture')
+      .upload(fileName, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from('Profile_Picture')
+      .getPublicUrl(fileName);
+
+    return data.publicUrl;
+  }
+
+  static async updateProfileUrl(profileId: string, url: string): Promise<void> {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ profile_URL: url })
+      .eq('id', profileId);
+
+    if (error) throw error;
+  }
+
+  static async updateProfileStatus(profileId: string, status: string): Promise<void> {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status })
+      .eq('id', profileId);
+    if (error) throw error;
   }
 
   /**

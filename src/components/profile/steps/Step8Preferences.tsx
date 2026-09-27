@@ -1,5 +1,6 @@
 'use client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 import type { PreferenceImportance, MaritalStatus, YesNo, ReligiousPracticeLevel, SmokingStatus, FamilySetup, LivingWith } from '@/lib/types/database.types';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
@@ -58,8 +59,8 @@ function RangeRow({ label, minVal, maxVal, onMin, onMax, suffix = '' }: {
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#FAF8F5] rounded-[22px] border border-[#E9E4DC] overflow-hidden">
-      <div className="px-5 py-3 border-b border-[#EFE9DF] bg-white">
+    <div className="bg-[#FAF8F5] rounded-[22px] border border-[#E9E4DC]">
+      <div className="px-5 py-3 border-b border-[#EFE9DF] bg-white rounded-t-[22px]">
         <h4 className="text-[12.5px] font-bold text-[#232326]">{title}</h4>
       </div>
       <div className="px-5 divide-y divide-[#F0EBE2]">{children}</div>
@@ -180,23 +181,23 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
         <ImportanceRow label="Age Importance" value={data.pref_age_importance} onChange={(v) => set('pref_age_importance', v)} />
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Marital Status</span>
-          <Select value={data.pref_marital_status || ''} onValueChange={(val) => {
-            const newStatus = val as MaritalStatus;
-            const needsChildren = ['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(newStatus);
-            onChange({
-              ...data,
-              pref_marital_status: newStatus,
-              ...(!needsChildren ? { pref_children_allowed: '', pref_children_importance: '' } : {})
-            });
-          }}>
-            <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
-              <SelectValue placeholder="Any" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Any</SelectItem>
-              {['NEVER_MARRIED','DIVORCED','WIDOWED','SEPARATED'].map(s => <SelectItem key={s} value={s}>{s.replace(/_/g,' ')}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="w-[160px]">
+            <SearchableSelect
+              value={data.pref_marital_status || ''}
+              onChange={(val) => {
+                const newStatus = val as MaritalStatus;
+                const needsChildren = ['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(newStatus);
+                onChange({
+                  ...data,
+                  pref_marital_status: newStatus,
+                  ...(!needsChildren ? { pref_children_allowed: '', pref_children_importance: '' } : {})
+                });
+              }}
+              options={[{ label: 'Any', value: 'none' }, ...['NEVER_MARRIED','DIVORCED','WIDOWED','SEPARATED'].map(s => ({ label: s.replace(/_/g,' '), value: s }))]}
+              placeholder="Any"
+              className="bg-white border-[#EFE9DF] h-[32px] px-3 py-1.5 text-[12px] rounded-lg"
+            />
+          </div>
         </div>
         <ImportanceRow label="Marital Status Importance" value={data.pref_marital_importance} onChange={(v) => set('pref_marital_importance', v)} />
         
@@ -237,58 +238,58 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
       <SectionCard title="Religion & Culture">
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religion</span>
-          <Select value={data.pref_religion_id ? String(data.pref_religion_id) : ''} onValueChange={(val) => onChange({...data, pref_religion_id: val && val !== 'none' ? Number(val) : '', pref_sect_id: ''})}>
-            <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
-              <SelectValue placeholder="Any" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Any</SelectItem>
-              {religions.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.name_en}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="w-[160px]">
+            <SearchableSelect
+              value={data.pref_religion_id ? String(data.pref_religion_id) : ''}
+              onChange={(val) => onChange({...data, pref_religion_id: val && val !== 'none' ? Number(val) : '', pref_sect_id: ''})}
+              options={[{ label: 'Any', value: 'none' }, ...religions.map(r => ({ label: r.name_en, value: String(r.id) }))]}
+              placeholder="Any"
+              className="bg-gray-50 border-[#EFE9DF] h-[32px] px-3 py-1.5 text-[12px] rounded-lg cursor-not-allowed opacity-70"
+              disabled={true}
+            />
+          </div>
         </div>
-        <ImportanceRow label="Religion Importance" value={data.pref_religion_importance} onChange={(v) => set('pref_religion_importance', v)} />
         {availableSects.length > 0 && (
           <>
             <div className="flex items-center justify-between gap-2 py-2">
               <span className="text-[12px] font-medium text-[#4E473D] flex-1">Sect</span>
-              <Select value={data.pref_sect_id ? String(data.pref_sect_id) : ''} onValueChange={(val) => set('pref_sect_id', val && val !== 'none' ? Number(val) : '')}>
-                <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
-                  <SelectValue placeholder="Any" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Any</SelectItem>
-                  {availableSects.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name_en}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="w-[160px]">
+                <SearchableSelect
+                  value={data.pref_sect_id ? String(data.pref_sect_id) : ''}
+                  onChange={(val) => set('pref_sect_id', val && val !== 'none' ? Number(val) : '')}
+                  options={[{ label: 'Any', value: 'none' }, ...availableSects.map(s => ({ label: s.name_en, value: String(s.id) }))]}
+                  placeholder="Any"
+                  className="bg-white border-[#EFE9DF] h-[32px] px-3 py-1.5 text-[12px] rounded-lg"
+                />
+              </div>
             </div>
             <ImportanceRow label="Sect Importance" value={data.pref_sect_importance} onChange={(v) => set('pref_sect_importance', v)} />
           </>
         )}
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Caste</span>
-          <Select value={data.pref_caste_id ? String(data.pref_caste_id) : ''} onValueChange={(val) => set('pref_caste_id', val && val !== 'none' ? Number(val) : '')}>
-            <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
-              <SelectValue placeholder="Any" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Any</SelectItem>
-              {castes.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="w-[160px]">
+            <SearchableSelect
+              value={data.pref_caste_id ? String(data.pref_caste_id) : ''}
+              onChange={(val) => set('pref_caste_id', val && val !== 'none' ? Number(val) : '')}
+              options={[{ label: 'Any', value: 'none' }, ...castes.map(c => ({ label: c.name_en, value: String(c.id) }))]}
+              placeholder="Any"
+              className="bg-white border-[#EFE9DF] h-[32px] px-3 py-1.5 text-[12px] rounded-lg"
+            />
+          </div>
         </div>
         <ImportanceRow label="Caste Importance" value={data.pref_caste_importance} onChange={(v) => set('pref_caste_importance', v)} />
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religious Practice</span>
-          <Select value={data.pref_religious_practice || ''} onValueChange={(val) => set('pref_religious_practice', val as ReligiousPracticeLevel)}>
-            <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
-              <SelectValue placeholder="Any" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Any</SelectItem>
-              {['HIGHLY_PRACTICING','PRACTICING','MODERATE','OTHER'].map(v => <SelectItem key={v} value={v}>{v.replace(/_/g,' ')}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="w-[160px]">
+            <SearchableSelect
+              value={data.pref_religious_practice || ''}
+              onChange={(val) => set('pref_religious_practice', val as ReligiousPracticeLevel)}
+              options={[{ label: 'Any', value: 'none' }, ...['HIGHLY_PRACTICING','PRACTICING','MODERATE','OTHER'].map(v => ({ label: v.replace(/_/g,' '), value: v }))]}
+              placeholder="Any"
+              className="bg-white border-[#EFE9DF] h-[32px] px-3 py-1.5 text-[12px] rounded-lg"
+            />
+          </div>
         </div>
         <ImportanceRow label="Practice Importance" value={data.pref_religious_practice_importance} onChange={(v) => set('pref_religious_practice_importance', v)} />
       </SectionCard>
@@ -304,15 +305,15 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
       <SectionCard title="Location">
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Preferred Country</span>
-          <Select value={data.pref_location_country_id ? String(data.pref_location_country_id) : ''} onValueChange={(val) => set('pref_location_country_id', val && val !== 'none' ? Number(val) : '')}>
-            <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
-              <SelectValue placeholder="Any" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Any</SelectItem>
-              {countries.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="w-[160px]">
+            <SearchableSelect
+              value={data.pref_location_country_id ? String(data.pref_location_country_id) : ''}
+              onChange={(val) => set('pref_location_country_id', val && val !== 'none' ? Number(val) : '')}
+              options={[{ label: 'Any', value: 'none' }, ...countries.map(c => ({ label: c.name_en, value: String(c.id) }))]}
+              placeholder="Any"
+              className="bg-white border-[#EFE9DF] h-[32px] px-3 py-1.5 text-[12px] rounded-lg"
+            />
+          </div>
         </div>
         <ImportanceRow label="Location Importance" value={data.pref_location_importance} onChange={(v) => set('pref_location_importance', v)} />
       </SectionCard>

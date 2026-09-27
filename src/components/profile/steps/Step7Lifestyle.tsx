@@ -1,5 +1,6 @@
 'use client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 import type { YesNo, ReligiousPracticeLevel, SmokingStatus } from '@/lib/types/database.types';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
@@ -150,50 +151,38 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Preferred Country</label>
-              <Select
-                value={data.preferred_country_id ? String(data.preferred_country_id) : undefined}
-                onValueChange={(val) => onChange({ ...data, preferred_country_id: val ? Number(val) : '', preferred_province_id: '', preferred_city_id: '' })}
-              >
-                <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none">
-                  <SelectValue placeholder="Any" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Any</SelectItem>
-                  {countries.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={data.preferred_country_id ? String(data.preferred_country_id) : ''}
+                onChange={(val) => onChange({ ...data, preferred_country_id: val && val !== 'none' ? Number(val) : '', preferred_province_id: '', preferred_city_id: '' })}
+                options={[{ label: 'Any', value: 'none' }, ...countries.map(c => ({ label: c.name_en, value: String(c.id) }))]}
+                placeholder="Any"
+                className="bg-white border-[#EFE9DF] h-[42px] px-3 py-2.5 text-[12px] rounded-xl"
+                direction="up"
+              />
             </div>
             <div className="space-y-1.5">
               <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Province</label>
-              <Select
-                value={data.preferred_province_id ? String(data.preferred_province_id) : undefined}
-                onValueChange={(val) => onChange({ ...data, preferred_province_id: val && val !== 'none' ? Number(val) : '', preferred_city_id: '' })}
+              <SearchableSelect
+                value={data.preferred_province_id ? String(data.preferred_province_id) : ''}
+                onChange={(val) => onChange({ ...data, preferred_province_id: val && val !== 'none' ? Number(val) : '', preferred_city_id: '' })}
+                options={[{ label: 'Any', value: 'none' }, ...prefProvinces.map(p => ({ label: p.name_en, value: String(p.id) }))]}
+                placeholder="Any"
                 disabled={!prefProvinces.length}
-              >
-                <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none disabled:opacity-50">
-                  <SelectValue placeholder="Any" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Any</SelectItem>
-                  {prefProvinces.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.name_en}</SelectItem>)}
-                </SelectContent>
-              </Select>
+                className="bg-white border-[#EFE9DF] h-[42px] px-3 py-2.5 text-[12px] rounded-xl"
+                direction="up"
+              />
             </div>
             <div className="space-y-1.5">
               <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">City</label>
-              <Select
-                value={data.preferred_city_id ? String(data.preferred_city_id) : undefined}
-                onValueChange={(val) => set('preferred_city_id', val && val !== 'none' ? Number(val) : '')}
+              <SearchableSelect
+                value={data.preferred_city_id ? String(data.preferred_city_id) : ''}
+                onChange={(val) => set('preferred_city_id', val && val !== 'none' ? Number(val) : '')}
+                options={[{ label: 'Any', value: 'none' }, ...prefCities.map(c => ({ label: c.name_en, value: String(c.id) }))]}
+                placeholder="Any"
                 disabled={!prefCities.length}
-              >
-                <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none disabled:opacity-50">
-                  <SelectValue placeholder="Any" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Any</SelectItem>
-                  {prefCities.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>)}
-                </SelectContent>
-              </Select>
+                className="bg-white border-[#EFE9DF] h-[42px] px-3 py-2.5 text-[12px] rounded-xl"
+                direction="up"
+              />
             </div>
           </div>
         )}

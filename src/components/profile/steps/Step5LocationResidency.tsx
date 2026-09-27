@@ -1,5 +1,6 @@
 'use client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
 import type { HouseStatus, PropertyType, FamilySetup, LivingWith } from '@/lib/types/database.types';
 
@@ -7,9 +8,13 @@ type Step5Data = {
   current_country_id: number | '';
   current_province_id: number | '';
   current_city_id: number | '';
+  current_province_text?: string;
+  current_city_text?: string;
   permanent_country_id: number | '';
   permanent_province_id: number | '';
   permanent_city_id: number | '';
+  permanent_province_text?: string;
+  permanent_city_text?: string;
   current_location_text: string;
   permanent_location_text: string;
   house_status: HouseStatus | '';
@@ -31,6 +36,8 @@ function LocationRow({
   countryVal, onCountry,
   provinceOptions, provinceVal, onProvince,
   cityOptions, cityVal, onCity,
+  provinceText, onProvinceTextChange,
+  cityText, onCityTextChange,
   locationText, onLocationTextChange,
 }: {
   label: string;
@@ -38,9 +45,12 @@ function LocationRow({
   countryVal: number | ''; onCountry: (v: number | '') => void;
   provinceOptions: {id: number; name_en: string}[]; provinceVal: number | ''; onProvince: (v: number | '') => void;
   cityOptions: {id: number; name_en: string}[]; cityVal: number | ''; onCity: (v: number | '') => void;
+  provinceText?: string; onProvinceTextChange?: (v: string) => void;
+  cityText?: string; onCityTextChange?: (v: string) => void;
   locationText: string; onLocationTextChange: (v: string) => void;
 }) {
   const { countries } = useReferenceData();
+  const isPakistan = countryVal === 131;
   
   return (
     <div className="space-y-3 p-4 rounded-xl bg-[#FAF8F5] border border-[#E9E4DC]">
@@ -51,42 +61,57 @@ function LocationRow({
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">Country</label>
-          <Select value={countryVal ? String(countryVal) : ''} onValueChange={(val) => onCountry(val ? Number(val) : '')}>
-            <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px] shadow-none">
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent>
-              {countries.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={countryVal ? String(countryVal) : ''}
+            onChange={(val) => onCountry(val ? Number(val) : '')}
+            options={countries.map(c => ({ label: c.name_en, value: String(c.id) }))}
+            placeholder="Select"
+            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+          />
         </div>
         <div>
-          <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">Province</label>
-          <Select value={provinceVal ? String(provinceVal) : ''} onValueChange={(val) => onProvince(val ? Number(val) : '')} disabled={!provinceOptions.length}>
-            <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px] shadow-none">
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent>
-              {provinceOptions.map((p) => (
-                <SelectItem key={p.id} value={String(p.id)}>{p.name_en}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">Province / State</label>
+          {isPakistan ? (
+            <SearchableSelect
+              value={provinceVal ? String(provinceVal) : ''}
+              onChange={(val) => onProvince(val ? Number(val) : '')}
+              options={provinceOptions.map(p => ({ label: p.name_en, value: String(p.id) }))}
+              placeholder="Select"
+              disabled={!provinceOptions.length}
+              className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            />
+          ) : (
+            <input
+              type="text"
+              value={provinceText || ''}
+              onChange={(e) => onProvinceTextChange?.(e.target.value)}
+              placeholder="State / Province"
+              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px]"
+              disabled={!countryVal}
+            />
+          )}
         </div>
         <div>
           <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">City</label>
-          <Select value={cityVal ? String(cityVal) : ''} onValueChange={(val) => onCity(val ? Number(val) : '')} disabled={!cityOptions.length}>
-            <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px] shadow-none">
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent>
-              {cityOptions.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {isPakistan ? (
+            <SearchableSelect
+              value={cityVal ? String(cityVal) : ''}
+              onChange={(val) => onCity(val ? Number(val) : '')}
+              options={cityOptions.map(c => ({ label: c.name_en, value: String(c.id) }))}
+              placeholder="Select"
+              disabled={!cityOptions.length}
+              className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            />
+          ) : (
+            <input
+              type="text"
+              value={cityText || ''}
+              onChange={(e) => onCityTextChange?.(e.target.value)}
+              placeholder="City name"
+              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px]"
+              disabled={!countryVal}
+            />
+          )}
         </div>
       </div>
       <div className="pt-2">
@@ -126,13 +151,17 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
       <LocationRow
         label="Current Location"
         countryVal={data.current_country_id}
-        onCountry={(v) => onChange({ ...data, current_country_id: v, current_province_id: '', current_city_id: '' })}
+        onCountry={(v) => onChange({ ...data, current_country_id: v, current_province_id: '', current_city_id: '', current_province_text: '', current_city_text: '' })}
         provinceOptions={currentProvinces}
         provinceVal={data.current_province_id}
         onProvince={(v) => onChange({ ...data, current_province_id: v, current_city_id: '' })}
         cityOptions={currentCities}
         cityVal={data.current_city_id}
         onCity={(v) => set('current_city_id', v)}
+        provinceText={data.current_province_text}
+        onProvinceTextChange={(v) => set('current_province_text', v)}
+        cityText={data.current_city_text}
+        onCityTextChange={(v) => set('current_city_text', v)}
         locationText={data.current_location_text}
         onLocationTextChange={(v) => set('current_location_text', v)}
       />
@@ -158,6 +187,8 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
                     permanent_country_id: data.current_country_id,
                     permanent_province_id: data.current_province_id,
                     permanent_city_id: data.current_city_id,
+                    permanent_province_text: data.current_province_text,
+                    permanent_city_text: data.current_city_text,
                     permanent_location_text: data.current_location_text,
                   });
                 } else {
@@ -166,6 +197,8 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
                     permanent_country_id: '',
                     permanent_province_id: '',
                     permanent_city_id: '',
+                    permanent_province_text: '',
+                    permanent_city_text: '',
                     permanent_location_text: '',
                   });
                 }
@@ -175,13 +208,17 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
           </label>
         }
         countryVal={data.permanent_country_id}
-        onCountry={(v) => onChange({ ...data, permanent_country_id: v, permanent_province_id: '', permanent_city_id: '' })}
+        onCountry={(v) => onChange({ ...data, permanent_country_id: v, permanent_province_id: '', permanent_city_id: '', permanent_province_text: '', permanent_city_text: '' })}
         provinceOptions={permProvinces}
         provinceVal={data.permanent_province_id}
         onProvince={(v) => onChange({ ...data, permanent_province_id: v, permanent_city_id: '' })}
         cityOptions={permCities}
         cityVal={data.permanent_city_id}
         onCity={(v) => set('permanent_city_id', v)}
+        provinceText={data.permanent_province_text}
+        onProvinceTextChange={(v) => set('permanent_province_text', v)}
+        cityText={data.permanent_city_text}
+        onCityTextChange={(v) => set('permanent_city_text', v)}
         locationText={data.permanent_location_text}
         onLocationTextChange={(v) => set('permanent_location_text', v)}
       />
@@ -190,55 +227,45 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">House Status</label>
-          <Select value={data.house_status || ''} onValueChange={(val) => set('house_status', val as HouseStatus)}>
-            <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px] shadow-none">
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent>
-              {[['OWN','Own'], ['RENTED','Rented'], ['FAMILY_HOUSE','Family House'], ['OTHER','Other']].map(([v, l]) => (
-                <SelectItem key={v} value={v}>{l}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={data.house_status || ''}
+            onChange={(val) => set('house_status', val as HouseStatus)}
+            options={[['OWN','Own'], ['RENTED','Rented'], ['FAMILY_HOUSE','Family House'], ['OTHER','Other']].map(([v, l]) => ({ label: l, value: v }))}
+            placeholder="Select"
+            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+          />
         </div>
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">Property Type</label>
-          <Select value={data.property_type || ''} onValueChange={(val) => set('property_type', val as PropertyType)}>
-            <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px] shadow-none">
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent>
-              {[['HOUSE','House'], ['APARTMENT','Apartment'], ['OTHER','Other']].map(([v, l]) => (
-                <SelectItem key={v} value={v}>{l}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={data.property_type || ''}
+            onChange={(val) => set('property_type', val as PropertyType)}
+            options={[['HOUSE','House'], ['APARTMENT','Apartment'], ['OTHER','Other']].map(([v, l]) => ({ label: l, value: v }))}
+            placeholder="Select"
+            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+          />
         </div>
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">Family Setup</label>
-          <Select value={data.family_setup || ''} onValueChange={(val) => set('family_setup', val as FamilySetup)}>
-            <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px] shadow-none">
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent>
-              {[['JOINT','Joint Family'], ['SEPARATE','Separate / Nuclear']].map(([v, l]) => (
-                <SelectItem key={v} value={v}>{l}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={data.family_setup || ''}
+            onChange={(val) => set('family_setup', val as FamilySetup)}
+            options={[['JOINT','Joint Family'], ['SEPARATE','Separate / Nuclear']].map(([v, l]) => ({ label: l, value: v }))}
+            placeholder="Select"
+            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            direction="up"
+          />
         </div>
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">Living With</label>
-          <Select value={data.living_with || ''} onValueChange={(val) => set('living_with', val as LivingWith)}>
-            <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px] shadow-none">
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent>
-              {[['PARENTS','Parents'], ['FATHER','Father'], ['MOTHER','Mother'], ['SIBLINGS','Siblings'], ['ALONE','Alone'], ['OTHER','Other']].map(([v, l]) => (
-                <SelectItem key={v} value={v}>{l}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={data.living_with || ''}
+            onChange={(val) => set('living_with', val as LivingWith)}
+            options={[['PARENTS','Parents'], ['FATHER','Father'], ['MOTHER','Mother'], ['SIBLINGS','Siblings'], ['ALONE','Alone'], ['OTHER','Other']].map(([v, l]) => ({ label: l, value: v }))}
+            placeholder="Select"
+            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            direction="up"
+          />
         </div>
       </div>
     </div>

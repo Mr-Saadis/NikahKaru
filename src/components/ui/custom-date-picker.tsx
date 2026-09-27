@@ -34,8 +34,8 @@ function parseFlexibleDate(raw: string): Date | null {
     if (dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d) return dt;
   }
 
-  // Try "20 feb 2000" style
-  const textMatch = s.match(/^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$/);
+  // Try "20 feb 2000" or "20feb2000" style
+  const textMatch = s.match(/^(\d{1,2})[\s\-]*([a-zA-Z]+)[\s\-]*(\d{4})$/);
   if (textMatch) {
     const d = parseInt(textMatch[1], 10);
     const mStr = textMatch[2].toLowerCase().slice(0, 3);
@@ -45,6 +45,16 @@ function parseFlexibleDate(raw: string): Date | null {
       const dt = new Date(y, mIdx, d);
       if (dt.getFullYear() === y && dt.getMonth() === mIdx && dt.getDate() === d) return dt;
     }
+  }
+
+  // Try ddmmyyyy (e.g. 20042005 for 20-04-2005)
+  const numericMatch = s.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (numericMatch) {
+    const d = parseInt(numericMatch[1], 10);
+    const m = parseInt(numericMatch[2], 10) - 1;
+    const y = parseInt(numericMatch[3], 10);
+    const dt = new Date(y, m, d);
+    if (dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d) return dt;
   }
 
   // Try yyyy-mm-dd

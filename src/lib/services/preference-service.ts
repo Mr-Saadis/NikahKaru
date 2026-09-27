@@ -6,7 +6,7 @@ export class PreferenceService {
    * Save preferences for a profile.
    * This creates a new preference_set version and inserts/updates all 9 preference sub-tables.
    */
-  static async savePreferences(profileId: string, data: AllPreferences): Promise<void> {
+  static async savePreferences(profileId: string, data: AllPreferences, createdBy: string): Promise<void> {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -36,6 +36,7 @@ export class PreferenceService {
         profile_id: profileId,
         version: nextVersion,
         is_current: true,
+        created_by: createdBy,
       })
       .select('id')
       .single();
