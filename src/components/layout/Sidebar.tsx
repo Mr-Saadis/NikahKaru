@@ -39,9 +39,9 @@ interface SidebarProps {
 const SIDEBAR = '#064e3b';   // deep forest green
 const PAGE_BG = 'var(--bg-app)';   // warm off-white — MUST match layout bg
 const ICON_OFF = '#6B8F80';   // muted icon colour
-const ROW_H = 52;          // nav-row height in px
-const CURVE = 30;          // gooey-curve radius in px
-const GAP = 8;           // space between aside right edge and wrapper right edge
+const ROW_H = 50;          // nav-row height in px
+const CURVE = 29.15;          // gooey-curve radius in px
+const GAP = 8;          // space between aside right edge and wrapper right edge
 
 export const navItems = [
   { label: 'Overview', href: '/overview', icon: LayoutDashboard, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'overview' },
@@ -87,7 +87,7 @@ export const adminItems = [
 
 const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; isActive: boolean; open: boolean; onClick: () => void }) => {
   const [tooltipOpen, setTooltipOpen] = useState(false);
-  
+
   return (
     <Tooltip open={open ? false : tooltipOpen} onOpenChange={setTooltipOpen}>
       <TooltipTrigger render={
@@ -105,126 +105,126 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
         />
       }>
         {/* ──── GOOEY LAYERS (Animated structure, instant opacity) ──── */}
-    <>
-      {/* ──── z:1 — PAGE_BG vertical strip (creates notch + gooey area) ──── */}
-      <div
-        style={{
-          position: 'absolute',
-          right: -GAP,
-          top: -CURVE,
-          bottom: -CURVE,
-          width: CURVE + GAP,
-          background: PAGE_BG,
-          opacity: isActive ? 1 : 0,
-          zIndex: 1,
-          pointerEvents: 'none',
-          transition: 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1), top 0.7s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      />
+        <>
+          {/* ──── z:1 — PAGE_BG vertical strip (creates notch + gooey area) ──── */}
+          <div
+            style={{
+              position: 'absolute',
+              right: -GAP,
+              top: -CURVE,
+              bottom: -CURVE,
+              width: CURVE + GAP,
+              background: PAGE_BG,
+              opacity: isActive ? 1 : 0,
+              zIndex: 1,
+              pointerEvents: 'none',
+              transition: 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1), top 0.7s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          />
 
-      {/* ──── z:2 — PAGE_BG pill (row background) ──── */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 4, // Deep cutout, mathematically perfect with CURVE=30
-          right: -GAP,
-          top: 0,
-          bottom: 0,
-          background: PAGE_BG,
-          borderRadius: `${ROW_H / 2}px 0 0 ${ROW_H / 2}px`,
-          opacity: isActive ? 1 : 0,
-          zIndex: 2,
-          pointerEvents: 'none',
-          transition: 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      />
+          {/* ──── z:2 — PAGE_BG pill (row background) ──── */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 8, // Deep cutout, mathematically perfect with CURVE=30
+              right: -GAP,
+              top: 0,
+              bottom: 0,
+              background: PAGE_BG,
+              borderRadius: `${ROW_H / 2}px 0 0 ${ROW_H / 2}px`,
+              opacity: isActive ? 1 : 0,
+              zIndex: 2,
+              pointerEvents: 'none',
+              transition: 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          />
 
-      {/* ──── z:3 — Green curve TOP ──── */}
-      <div
-        style={{
-          position: 'absolute',
-          right: 0,
-          top: -CURVE,
-          width: CURVE,
-          height: CURVE,
-          background: SIDEBAR,
-          borderBottomRightRadius: CURVE,
-          opacity: isActive ? 1 : 0,
-          zIndex: 3,
-          pointerEvents: 'none',
-          transition: 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1), top 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      />
+          {/* ──── z:3 — Green curve TOP ──── */}
+          <div
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: -CURVE,
+              width: CURVE,
+              height: CURVE,
+              background: SIDEBAR,
+              borderBottomRightRadius: CURVE,
+              opacity: isActive ? 1 : 0,
+              zIndex: 3,
+              pointerEvents: 'none',
+              transition: 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1), top 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          />
 
-      {/* ──── z:3 — Green curve BOTTOM ──── */}
-      <div
-        style={{
-          position: 'absolute',
-          right: 0,
-          bottom: -CURVE,
-          width: CURVE,
-          height: CURVE,
-          background: SIDEBAR,
-          borderTopRightRadius: CURVE,
-          opacity: isActive ? 1 : 0,
-          zIndex: 3,
-          pointerEvents: 'none',
-          transition: 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      />
-    </>
+          {/* ──── z:3 — Green curve BOTTOM ──── */}
+          <div
+            style={{
+              position: 'absolute',
+              right: 0,
+              bottom: -CURVE,
+              width: CURVE,
+              height: CURVE,
+              background: SIDEBAR,
+              borderTopRightRadius: CURVE,
+              opacity: isActive ? 1 : 0,
+              zIndex: 3,
+              pointerEvents: 'none',
+              transition: 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          />
+        </>
 
-    {/* ──── z:10 — Content: icon + label ──── */}
-    <div
-      className="sidebar-trans"
-      style={{
-        position: 'relative',
-        zIndex: 10,
-        display: 'flex',
-        alignItems: 'center',
-        height: '100%',
-        width: '100%',
-        paddingLeft: isActive ? 18 : 12, // Centered perfectly in the left:4 pill
-      }}
-    >
-      {/* Icon — green circle when active */}
-      <div style={{
-        width: 36,
-        height: 36,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        borderRadius: '50%',
-        background: isActive ? SIDEBAR : 'transparent',
-        transition: 'background 0.2s',
-        transform: 'translateZ(0)', // Prevent sub-pixel jitter during open/close
-      }}>
-        <item.icon
-          size={20}
-          color={isActive ? PAGE_BG : ICON_OFF}
-          strokeWidth={isActive ? 2.5 : 2}
+        {/* ──── z:10 — Content: icon + label ──── */}
+        <div
           className="sidebar-trans"
-        />
-      </div>
+          style={{
+            position: 'relative',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            height: '100%',
+            width: '100%',
+            paddingLeft: isActive ? 18 : 12, // Centered perfectly in the left:4 pill
+          }}
+        >
+          {/* Icon — green circle when active */}
+          <div style={{
+            width: 36,
+            height: 36,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            borderRadius: '50%',
+            background: isActive ? SIDEBAR : 'transparent',
+            transition: 'background 0.2s',
+            transform: 'translateZ(0)', // Prevent sub-pixel jitter during open/close
+          }}>
+            <item.icon
+              size={20}
+              color={isActive ? PAGE_BG : ICON_OFF}
+              strokeWidth={isActive ? 2.5 : 2}
+              className="sidebar-trans"
+            />
+          </div>
 
-      {/* Label */}
-      <span
-        className="sidebar-trans"
-        style={{
-          marginLeft: 10,
-          fontWeight: 700,
-          fontSize: 14,
-          whiteSpace: 'nowrap',
-          color: isActive ? SIDEBAR : ICON_OFF,
-          opacity: open ? 1 : 0,
-          maxWidth: open ? 150 : 0,
-          overflow: 'hidden',
-        }}
-      >
-        {item.label}
-      </span>
-    </div>
+          {/* Label */}
+          <span
+            className="sidebar-trans"
+            style={{
+              marginLeft: 10,
+              fontWeight: 700,
+              fontSize: 14,
+              whiteSpace: 'nowrap',
+              color: isActive ? SIDEBAR : ICON_OFF,
+              opacity: open ? 1 : 0,
+              maxWidth: open ? 150 : 0,
+              overflow: 'hidden',
+            }}
+          >
+            {item.label}
+          </span>
+        </div>
       </TooltipTrigger>
       {!open && (
         <TooltipContent side="right" sideOffset={12} className="border-none bg-[#064e3b] text-[#FAF8F5] font-semibold text-sm">
@@ -477,36 +477,36 @@ export default function Sidebar({ activePage }: SidebarProps) {
                   }}
                 />
               }>
-              <div style={{
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <LogOut size={20} strokeWidth={2} style={{ transition: 'color 0.15s' }} />
-              </div>
-              <span
-                className="sidebar-trans"
-                style={{
-                  marginLeft: 10,
-                  fontWeight: 700,
-                  fontSize: 13,
-                  opacity: open ? 1 : 0,
-                  maxWidth: open ? 100 : 0,
-                  overflow: 'hidden',
-                  whiteSpace: 'nowrap',
-                }}
-              >
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <LogOut size={20} strokeWidth={2} style={{ transition: 'color 0.15s' }} />
+                </div>
+                <span
+                  className="sidebar-trans"
+                  style={{
+                    marginLeft: 10,
+                    fontWeight: 700,
+                    fontSize: 13,
+                    opacity: open ? 1 : 0,
+                    maxWidth: open ? 100 : 0,
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
                   Logout
                 </span>
               </TooltipTrigger>
               {!open && (
-              <TooltipContent side="right" sideOffset={12} className="border-none bg-[#064e3b] text-[#FAF8F5] font-semibold text-sm">
-                Logout
-              </TooltipContent>
-            )}
+                <TooltipContent side="right" sideOffset={12} className="border-none bg-[#064e3b] text-[#FAF8F5] font-semibold text-sm">
+                  Logout
+                </TooltipContent>
+              )}
             </Tooltip>
           </div>
 
