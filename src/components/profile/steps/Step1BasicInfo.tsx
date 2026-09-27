@@ -1,8 +1,10 @@
 'use client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Camera, User } from 'lucide-react';
 import { useRef } from 'react';
 import CustomDatePicker from '@/components/ui/custom-date-picker';
+import { compressImage } from '@/lib/imageUtils';
 
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
 import type { PersonalInformation, ProfileGender, MaritalStatus } from '@/lib/types/database.types';
@@ -17,6 +19,7 @@ type Step1Data = {
   nationality_country_id: number | '';
   mother_tongue_id: number | '';
   profile_picture?: string;
+  profile_picture_file?: File;
 };
 
 interface Step1Props {
@@ -53,14 +56,24 @@ export default function Step1BasicInfo({ data, onChange }: Step1Props) {
     return age;
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        set('profile_picture', reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressedFile = await compressImage(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          // Set BOTH at the same time to avoid stale closure issues
+          onChange({
+            ...data,
+            profile_picture_file: compressedFile,
+            profile_picture: reader.result as string,
+          });
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (err) {
+        console.error("Compression failed:", err);
+      }
     }
   };
 
@@ -261,38 +274,26 @@ export default function Step1BasicInfo({ data, onChange }: Step1Props) {
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Nationality
           </label>
-          <Select
-            value={data.nationality_country_id ? String(data.nationality_country_id) : undefined}
-            onValueChange={(val) => set('nationality_country_id', val ? Number(val) : '')}
-          >
-            <SelectTrigger className="w-full h-[46px] bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all shadow-none">
-              <SelectValue placeholder="Select country" />
-            </SelectTrigger>
-            <SelectContent>
-              {countries.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={data.nationality_country_id ? String(data.nationality_country_id) : ''}
+            onChange={(val) => set('nationality_country_id', val ? Number(val) : '')}
+            options={countries.map(c => ({ label: c.name_en, value: String(c.id) }))}
+            placeholder="Select country"
+            direction="up"
+          />
         </div>
 
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Mother Tongue
           </label>
-          <Select
-            value={data.mother_tongue_id ? String(data.mother_tongue_id) : undefined}
-            onValueChange={(val) => set('mother_tongue_id', val ? Number(val) : '')}
-          >
-            <SelectTrigger className="w-full h-[46px] bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all shadow-none">
-              <SelectValue placeholder="Select language" />
-            </SelectTrigger>
-            <SelectContent>
-              {motherTongues.map((m) => (
-                <SelectItem key={m.id} value={String(m.id)}>{m.name_en}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={data.mother_tongue_id ? String(data.mother_tongue_id) : ''}
+            onChange={(val) => set('mother_tongue_id', val ? Number(val) : '')}
+            options={motherTongues.map(m => ({ label: m.name_en, value: String(m.id) }))}
+            placeholder="Select language"
+            direction="up"
+          />
         </div>
       </div>
     </div>

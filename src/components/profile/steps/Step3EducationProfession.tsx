@@ -1,5 +1,6 @@
 'use client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 import { Plus, Trash2 } from 'lucide-react';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
@@ -113,19 +114,13 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Level</label>
-                <Select
+                <SearchableSelect
                   value={edu.education_level_id ? String(edu.education_level_id) : ''}
-                  onValueChange={(val) => updateEdu(idx, { education_level_id: val ? Number(val) : undefined })}
-                >
-                  <SelectTrigger className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none">
-                    <SelectValue placeholder="Select level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {educationLevels.map((l) => (
-                      <SelectItem key={l.id} value={String(l.id)}>{l.name_en}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => updateEdu(idx, { education_level_id: val ? Number(val) : undefined })}
+                  options={educationLevels.map(l => ({ label: l.name_en, value: String(l.id) }))}
+                  placeholder="Select level"
+                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[42px] px-3 py-2 text-[12px] rounded-lg"
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Qualification</label>
@@ -209,35 +204,23 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Occupation</label>
-                <Select
+                <SearchableSelect
                   value={emp.occupation_id ? String(emp.occupation_id) : ''}
-                  onValueChange={(val) => updateEmp(idx, { occupation_id: val ? Number(val) : undefined })}
-                >
-                  <SelectTrigger className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none">
-                    <SelectValue placeholder="Select occupation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {occupations.map((o) => (
-                      <SelectItem key={o.id} value={String(o.id)}>{o.name_en}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => updateEmp(idx, { occupation_id: val ? Number(val) : undefined })}
+                  options={occupations.map(o => ({ label: o.name_en, value: String(o.id) }))}
+                  placeholder="Select occupation"
+                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[42px] px-3 py-2 text-[12px] rounded-lg"
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Employment Type</label>
-                <Select
+                <SearchableSelect
                   value={emp.employment_type || ''}
-                  onValueChange={(val) => updateEmp(idx, { employment_type: val as EmploymentType || undefined })}
-                >
-                  <SelectTrigger className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EMPLOYMENT_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => updateEmp(idx, { employment_type: val as EmploymentType || undefined })}
+                  options={EMPLOYMENT_TYPES.map(t => ({ label: t.label, value: t.value }))}
+                  placeholder="Select type"
+                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[42px] px-3 py-2 text-[12px] rounded-lg"
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Job Title</label>
