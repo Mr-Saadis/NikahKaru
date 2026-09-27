@@ -1,5 +1,6 @@
 'use client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 import { Plus, Trash2 } from 'lucide-react';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
@@ -111,18 +112,16 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
               </span>
               <div className="flex items-center gap-2">
                 {/* Status toggle */}
-                <Select
+                <SearchableSelect
                   value={parent.status || ''}
-                  onValueChange={(val) => updateParent(idx, { status: val as ParentStatus })}
-                >
-                  <SelectTrigger className="w-[100px] bg-white border border-[#E9E4DC] rounded-lg px-2 py-1 text-[11px] focus:outline-none h-[30px] shadow-none">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALIVE">Alive</SelectItem>
-                    <SelectItem value="DECEASED">Deceased</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => updateParent(idx, { status: val as ParentStatus })}
+                  options={[
+                    { label: 'Alive', value: 'ALIVE' },
+                    { label: 'Deceased', value: 'DECEASED' }
+                  ]}
+                  placeholder="Status"
+                  className="bg-white border-[#E9E4DC] h-[30px] px-2 py-1 text-[11px] rounded-lg w-[120px]"
+                />
                 <button type="button" onClick={() => set('parents', data.parents.filter((_, i) => i !== idx))}
                   className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50 text-[#A8A296] hover:text-red-500 transition-colors">
                   <Trash2 size={13} />
@@ -168,28 +167,28 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Gender</label>
-                <Select value={sib.gender || ''} onValueChange={(val) => updateSibling(idx, { gender: val as SiblingGender })}>
-                  <SelectTrigger className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none h-[46px] shadow-none">
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MALE">Male</SelectItem>
-                    <SelectItem value="FEMALE">Female</SelectItem>
-                  </SelectContent>
-                </Select></div>
+                <SearchableSelect
+                  value={sib.gender || ''}
+                  onChange={(val) => updateSibling(idx, { gender: val as SiblingGender })}
+                  options={[
+                    { label: 'Male', value: 'MALE' },
+                    { label: 'Female', value: 'FEMALE' }
+                  ]}
+                  placeholder="Select"
+                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Name</label>
                 <input type="text" value={sib.full_name} onChange={(e) => updateSibling(idx, { full_name: e.target.value })} placeholder="Name (opt.)" className={inputClass} /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Age</label>
                 <input type="number" value={sib.age} onChange={(e) => updateSibling(idx, { age: e.target.value ? Number(e.target.value) : '' })} placeholder="Age" className={inputClass} /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Status</label>
-                <Select value={sib.marital_status || ''} onValueChange={(val) => updateSibling(idx, { marital_status: val as RelationshipStatus })}>
-                  <SelectTrigger className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none h-[46px] shadow-none">
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {['MARRIED','UNMARRIED','DIVORCED','WIDOWED'].map(s => <SelectItem key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</SelectItem>)}
-                  </SelectContent>
-                </Select></div>
+                <SearchableSelect
+                  value={sib.marital_status || ''}
+                  onChange={(val) => updateSibling(idx, { marital_status: val as RelationshipStatus })}
+                  options={['MARRIED','UNMARRIED','DIVORCED','WIDOWED'].map(s => ({ label: s.charAt(0) + s.slice(1).toLowerCase(), value: s }))}
+                  placeholder="Select"
+                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                /></div>
               <div className="col-span-2"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession</label>
                 <input type="text" value={sib.profession} onChange={(e) => updateSibling(idx, { profession: e.target.value })} placeholder="e.g. Doctor" className={inputClass} /></div>
             </div>

@@ -233,6 +233,7 @@ export interface Profile {
   status: ProfileStatus;
   created_by: string;
   current_agent_id: string | null;
+  profile_URL: string | null;
   created_at: string;
   updated_at: string;
   archived_at: string | null;

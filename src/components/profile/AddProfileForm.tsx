@@ -50,11 +50,11 @@ const SIDEBAR_STEPS = STEPS.map((s) => ({
 const defaultStep1 = (): Step1Data => ({ gender: '', full_name: '', date_of_birth: '', marital_status: 'NEVER_MARRIED', number_of_children: '', children_living_with: '', nationality_country_id: '', mother_tongue_id: '', profile_picture: '' });
 const defaultStep2 = (): Step2Data => ({ height_cm: '', weight_kg: '', complexion: '', has_disability: false, disability_details: '' });
 const defaultStep3 = (): Step3Data => ({ education_records: [], employment_records: [], monthly_income_min: '', monthly_income_max: '' });
-const defaultStep4 = (): Step4Data => ({ religion_id: '', sect_id: '', caste_id: '', other_caste_text: '' });
+const defaultStep4 = (): Step4Data => ({ religion_id: 1, sect_id: '', caste_id: '', other_caste_text: '' });
 const defaultStep5 = (): Step5Data => ({ current_country_id: '', current_province_id: '', current_city_id: '', permanent_country_id: '', permanent_province_id: '', permanent_city_id: '', current_location_text: '', permanent_location_text: '', house_status: '', property_type: '', family_setup: '', living_with: '' });
 const defaultStep6 = (): Step6Data => ({ parents: [], siblings: [], family_profession_business: '', social_background: '', family_values: '', family_introduction: '' });
 const defaultStep7 = (): Step7Data => ({ beard: '', hijab: '', religious_practice: '', smoking: '', other_lifestyle_information: '', willing_to_relocate: '', preferred_country_id: '', preferred_province_id: '', preferred_city_id: '', relocation_details: '' });
-const defaultStep8 = (): Step8Data => ({ pref_min_age: '', pref_max_age: '', pref_age_importance: '', pref_marital_status: '', pref_marital_importance: '', pref_children_allowed: '', pref_children_importance: '', pref_min_height: '', pref_max_height: '', pref_height_importance: '', pref_disability_allowed: '', pref_disability_importance: '', pref_religion_id: '', pref_religion_importance: '', pref_sect_id: '', pref_sect_importance: '', pref_caste_id: '', pref_caste_importance: '', pref_religious_practice: '', pref_religious_practice_importance: '', pref_min_income: '', pref_max_income: '', pref_income_importance: '', pref_location_country_id: '', pref_location_importance: '', pref_family_setup: '', pref_family_setup_importance: '', pref_smoking: '', pref_smoking_importance: '' });
+const defaultStep8 = (): Step8Data => ({ pref_min_age: '', pref_max_age: '', pref_age_importance: '', pref_marital_status: '', pref_marital_importance: '', pref_children_allowed: '', pref_children_importance: '', pref_min_height: '', pref_max_height: '', pref_height_importance: '', pref_disability_allowed: '', pref_disability_importance: '', pref_religion_id: 1, pref_religion_importance: '', pref_sect_id: '', pref_sect_importance: '', pref_caste_id: '', pref_caste_importance: '', pref_religious_practice: '', pref_religious_practice_importance: '', pref_min_income: '', pref_max_income: '', pref_income_importance: '', pref_location_country_id: '', pref_location_importance: '', pref_family_setup: '', pref_family_setup_importance: '', pref_smoking: '', pref_smoking_importance: '' });
 
 export default function AddProfileForm() {
   const router = useRouter();
@@ -113,7 +113,7 @@ export default function AddProfileForm() {
           total += 1;
           if (step2.disability_details) completed++;
         }
-        const mandatoryComplete = !!(step2.height_cm && step2.complexion);
+        const mandatoryComplete = !!(step2.height_cm);
         return { completed, total, mandatoryComplete };
       }
       case 3: {
@@ -123,7 +123,7 @@ export default function AddProfileForm() {
         if (step3.employment_records.length > 0) completed++;
         if (step3.monthly_income_min) completed++;
         if (step3.monthly_income_max) completed++;
-        const mandatoryComplete = completed > 0; // All optional, but don't show "Done" if 0%
+        const mandatoryComplete = step3.education_records.length > 0 && step3.employment_records.length > 0;
         return { completed, total, mandatoryComplete };
       }
       case 4: {
@@ -133,7 +133,7 @@ export default function AddProfileForm() {
         if (step4.sect_id) completed++;
         if (step4.caste_id) completed++;
         if (step4.other_caste_text) completed++;
-        const mandatoryComplete = !!(step4.religion_id);
+        const mandatoryComplete = !!(step4.religion_id && step4.sect_id && (step4.caste_id || step4.other_caste_text));
         return { completed, total, mandatoryComplete };
       }
       case 5: {
@@ -150,7 +150,7 @@ export default function AddProfileForm() {
         if (step5.property_type) completed++;
         if (step5.family_setup) completed++;
         if (step5.living_with) completed++;
-        const mandatoryComplete = !!(step5.current_country_id && step5.current_province_id && step5.current_city_id);
+        const mandatoryComplete = !!(step5.current_country_id && (step5.current_country_id === 131 ? (step5.current_province_id && step5.current_city_id) : step5.current_location_text));
         return { completed, total, mandatoryComplete };
       }
       case 6: {
@@ -162,7 +162,15 @@ export default function AddProfileForm() {
         if (step6.social_background) completed++;
         if (step6.family_values) completed++;
         if (step6.family_introduction) completed++;
-        const mandatoryComplete = step6.parents.length > 0;
+        
+        const hasFather = step6.parents.some(p => p.parent_type === 'FATHER');
+        const hasMother = step6.parents.some(p => p.parent_type === 'MOTHER');
+        const parentsValid = hasFather && hasMother && step6.parents.every(p => {
+          if (p.status === 'DECEASED') return true;
+          return !!(p.full_name && p.profession && p.education);
+        });
+        
+        const mandatoryComplete = !!parentsValid;
         return { completed, total, mandatoryComplete };
       }
       case 7: {
@@ -178,13 +186,23 @@ export default function AddProfileForm() {
         if (step7.preferred_province_id) completed++;
         if (step7.preferred_city_id) completed++;
         if (step7.relocation_details) completed++;
-        const mandatoryComplete = !!(step7.religious_practice);
+        const mandatoryComplete = !!(step7.religious_practice && step7.smoking);
         return { completed, total, mandatoryComplete };
       }
       case 8: {
         const total = 29;
         const completed = Object.values(step8).filter(v => v !== '' && v !== null && v !== undefined).length;
-        const mandatoryComplete = true;
+        
+        const reqBasic = !!(step8.pref_min_age && step8.pref_max_age && step8.pref_age_importance && step8.pref_marital_status && step8.pref_marital_importance);
+        const needsChildren = ['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(step8.pref_marital_status as string);
+        const reqChildren = needsChildren ? !!(step8.pref_children_allowed && step8.pref_children_importance) : true;
+        const reqPhys = !!(step8.pref_min_height && step8.pref_max_height && step8.pref_height_importance && step8.pref_disability_allowed && step8.pref_disability_importance);
+        const reqRel = !!(step8.pref_caste_id && step8.pref_caste_importance && step8.pref_religious_practice && step8.pref_religious_practice_importance);
+        const reqProf = !!(step8.pref_min_income && step8.pref_max_income && step8.pref_income_importance);
+        const reqLoc = !!(step8.pref_location_country_id && step8.pref_location_importance);
+        const reqLife = !!(step8.pref_family_setup && step8.pref_family_setup_importance && step8.pref_smoking && step8.pref_smoking_importance);
+        
+        const mandatoryComplete = reqBasic && reqChildren && reqPhys && reqRel && reqProf && reqLoc && reqLife;
         return { completed, total, mandatoryComplete };
       }
       default:
@@ -210,8 +228,19 @@ export default function AddProfileForm() {
 
     try {
       // 1. Create profile root
-      const profile = await ProfileService.createProfile(user.id);
+      const profile = await ProfileService.createProfile(user.id, step1.gender as string);
       const pid = profile.id;
+
+      // 1b. Upload profile picture if available
+      if (step1.profile_picture_file) {
+        try {
+          const publicUrl = await ProfileService.uploadProfilePicture(pid, step1.profile_picture_file);
+          await ProfileService.updateProfileUrl(pid, publicUrl);
+        } catch (uploadError) {
+          console.error("Error uploading profile picture:", uploadError);
+          // Non-blocking error, profile creation continues
+        }
+      }
 
       // 2. Save each section in parallel where possible
       await ProfileService.savePersonalInfo(pid, {
@@ -241,12 +270,13 @@ export default function AddProfileForm() {
         }),
         ProfileService.saveLocations(pid, {
           current_country_id: step5.current_country_id ? Number(step5.current_country_id) : null,
-          current_province_id: step5.current_province_id ? Number(step5.current_province_id) : null,
-          current_city_id: step5.current_city_id ? Number(step5.current_city_id) : null,
+          current_province_id: step5.current_country_id === 131 && step5.current_province_id ? Number(step5.current_province_id) : null,
+          current_city_id: step5.current_country_id === 131 && step5.current_city_id ? Number(step5.current_city_id) : null,
           permanent_country_id: step5.permanent_country_id ? Number(step5.permanent_country_id) : null,
-          permanent_province_id: step5.permanent_province_id ? Number(step5.permanent_province_id) : null,
-          permanent_city_id: step5.permanent_city_id ? Number(step5.permanent_city_id) : null,
-          current_location_text: step5.current_location_text || null,
+          permanent_province_id: step5.permanent_country_id === 131 && step5.permanent_province_id ? Number(step5.permanent_province_id) : null,
+          permanent_city_id: step5.permanent_country_id === 131 && step5.permanent_city_id ? Number(step5.permanent_city_id) : null,
+          current_location_text: (step5.current_country_id !== 131 ? [step5.current_city_text, step5.current_province_text, step5.current_location_text].filter(Boolean).join(', ') : step5.current_location_text) || null,
+          permanent_location_text: (step5.permanent_country_id !== 131 ? [step5.permanent_city_text, step5.permanent_province_text, step5.permanent_location_text].filter(Boolean).join(', ') : step5.permanent_location_text) || null,
         }),
         ProfileService.saveResidencyInfo(pid, {
           house_status: step5.house_status || null,
@@ -405,12 +435,16 @@ export default function AddProfileForm() {
           city_importance: null,
           created_at: new Date().toISOString()
         }
-      });
+      }, user.id);
+
+      // 4. Mark profile as ACTIVE since all mandatory steps are completed
+      await ProfileService.updateProfileStatus(pid, 'ACTIVE');
 
       // Navigate to the new profile
       router.push(`/profiles/${pid}`);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to save profile';
+    } catch (err: any) {
+      console.error('Full save error:', { message: err?.message, stack: err?.stack, details: err?.details, code: err?.code, hint: err?.hint });
+      const message = err?.message || (typeof err === 'string' ? err : 'Failed to save profile. Check console.');
       setError(message);
     } finally {
       setIsSaving(false);
@@ -446,7 +480,7 @@ export default function AddProfileForm() {
 
         {/* ── Main form card ── */}
         <div className="lg:col-span-8">
-          <div className="bg-white rounded-[32px] border border-[#E9E4DC] shadow-[0_2px_14px_-3px_rgba(0,0,0,0.04),0_1px_4px_-1px_rgba(0,0,0,0.02)] overflow-hidden">
+          <div className="bg-white rounded-[32px] border border-[#E9E4DC] shadow-[0_2px_14px_-3px_rgba(0,0,0,0.04),0_1px_4px_-1px_rgba(0,0,0,0.02)]">
 
             {/* Step content */}
             <div className="p-8">
