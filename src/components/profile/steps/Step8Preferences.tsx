@@ -1,4 +1,5 @@
 'use client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import type { PreferenceImportance, MaritalStatus, YesNo, ReligiousPracticeLevel, SmokingStatus, FamilySetup, LivingWith } from '@/lib/types/database.types';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
@@ -55,6 +56,70 @@ function RangeRow({ label, minVal, maxVal, onMin, onMax, suffix = '' }: {
   );
 }
 
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-[#FAF8F5] rounded-[22px] border border-[#E9E4DC] overflow-hidden">
+      <div className="px-5 py-3 border-b border-[#EFE9DF] bg-white">
+        <h4 className="text-[12.5px] font-bold text-[#232326]">{title}</h4>
+      </div>
+      <div className="px-5 divide-y divide-[#F0EBE2]">{children}</div>
+    </div>
+  );
+}
+
+function HeightRangeRow({ label, minCm, maxCm, onMin, onMax }: {
+  label: string; minCm: number | ''; maxCm: number | '';
+  onMin: (v: number | '') => void; onMax: (v: number | '') => void;
+}) {
+  const inputClass = "w-[42px] bg-white border border-[#EFE9DF] rounded-lg px-1.5 py-1.5 text-[12px] text-center focus:border-[#064e3b] focus:outline-none";
+  
+  const parseCm = (cm: number | '') => {
+    if (!cm) return { ft: '', in: '' };
+    const totalInches = Math.round(cm / 2.54);
+    return { ft: Math.floor(totalInches / 12), in: totalInches % 12 };
+  };
+
+  const min = parseCm(minCm);
+  const max = parseCm(maxCm);
+
+  const handleChange = (type: 'min' | 'max', field: 'ft' | 'in', val: string) => {
+    const current = type === 'min' ? min : max;
+    const update = { ...current, [field]: val ? Number(val) : '' };
+    
+    if (update.ft === '' && update.in === '') {
+      type === 'min' ? onMin('') : onMax('');
+      return;
+    }
+    const ft = update.ft === '' ? 0 : Number(update.ft);
+    const inc = update.in === '' ? 0 : Number(update.in);
+    const cm = Math.round((ft * 12 + inc) * 2.54);
+    type === 'min' ? onMin(cm) : onMax(cm);
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-2 py-2">
+      <span className="text-[12px] font-medium text-[#4E473D] flex-1">{label}</span>
+      <div className="flex items-center gap-1.5">
+        {/* Min */}
+        <div className="flex items-center gap-1">
+          <input type="number" value={min.ft} onChange={e => handleChange('min', 'ft', e.target.value)} placeholder="ft" className={inputClass} />
+          <span className="text-[11px] text-[#888174]">'</span>
+          <input type="number" value={min.in} onChange={e => handleChange('min', 'in', e.target.value)} placeholder="in" className={inputClass} />
+          <span className="text-[11px] text-[#888174]">"</span>
+        </div>
+        <span className="text-[11px] text-[#888174] mx-1">—</span>
+        {/* Max */}
+        <div className="flex items-center gap-1">
+          <input type="number" value={max.ft} onChange={e => handleChange('max', 'ft', e.target.value)} placeholder="ft" className={inputClass} />
+          <span className="text-[11px] text-[#888174]">'</span>
+          <input type="number" value={max.in} onChange={e => handleChange('max', 'in', e.target.value)} placeholder="in" className={inputClass} />
+          <span className="text-[11px] text-[#888174]">"</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export type Step8Data = {
   pref_min_age: number | '';
   pref_max_age: number | '';
@@ -101,15 +166,6 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
 
   const selectClass = "bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:border-[#064e3b] focus:outline-none min-w-[120px]";
 
-  const SectionCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="bg-[#FAF8F5] rounded-[22px] border border-[#E9E4DC] overflow-hidden">
-      <div className="px-5 py-3 border-b border-[#EFE9DF] bg-white">
-        <h4 className="text-[12.5px] font-bold text-[#232326]">{title}</h4>
-      </div>
-      <div className="px-5 divide-y divide-[#F0EBE2]">{children}</div>
-    </div>
-  );
-
   return (
     <div className="space-y-5">
       <div>
@@ -124,28 +180,46 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
         <ImportanceRow label="Age Importance" value={data.pref_age_importance} onChange={(v) => set('pref_age_importance', v)} />
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Marital Status</span>
-          <select value={data.pref_marital_status} onChange={(e) => set('pref_marital_status', e.target.value as MaritalStatus)} className={selectClass}>
-            <option value="">Any</option>
-            {['NEVER_MARRIED','DIVORCED','WIDOWED','SEPARATED'].map(s => <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
-          </select>
+          <Select value={data.pref_marital_status || ''} onValueChange={(val) => {
+            const newStatus = val as MaritalStatus;
+            const needsChildren = ['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(newStatus);
+            onChange({
+              ...data,
+              pref_marital_status: newStatus,
+              ...(!needsChildren ? { pref_children_allowed: '', pref_children_importance: '' } : {})
+            });
+          }}>
+            <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
+              <SelectValue placeholder="Any" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Any</SelectItem>
+              {['NEVER_MARRIED','DIVORCED','WIDOWED','SEPARATED'].map(s => <SelectItem key={s} value={s}>{s.replace(/_/g,' ')}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <ImportanceRow label="Marital Status Importance" value={data.pref_marital_importance} onChange={(v) => set('pref_marital_importance', v)} />
-        <div className="flex items-center justify-between gap-2 py-2">
-          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Children Allowed</span>
-          <div className="flex gap-1.5">
-            {[['YES','Yes'],['NO','No']].map(([v,l]) => (
-              <button key={v} type="button" onClick={() => set('pref_children_allowed', data.pref_children_allowed === v ? '' : v as YesNo)}
-                className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_children_allowed === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
-            ))}
-          </div>
-        </div>
-        <ImportanceRow label="Children Importance" value={data.pref_children_importance} onChange={(v) => set('pref_children_importance', v)} />
+        
+        {['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(data.pref_marital_status as string) && (
+          <>
+            <div className="flex items-center justify-between gap-2 py-2">
+              <span className="text-[12px] font-medium text-[#4E473D] flex-1">Children Allowed</span>
+              <div className="flex gap-1.5">
+                {[['YES','Yes'],['NO','No']].map(([v,l]) => (
+                  <button key={v} type="button" onClick={() => set('pref_children_allowed', data.pref_children_allowed === v ? '' : v as YesNo)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_children_allowed === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <ImportanceRow label="Children Importance" value={data.pref_children_importance} onChange={(v) => set('pref_children_importance', v)} />
+          </>
+        )}
       </SectionCard>
 
       {/* Physical */}
       <SectionCard title="Physical">
-        <RangeRow label="Height (cm)" minVal={data.pref_min_height} maxVal={data.pref_max_height}
-          onMin={(v) => set('pref_min_height', v)} onMax={(v) => set('pref_max_height', v)} suffix="cm" />
+        <HeightRangeRow label="Height" minCm={data.pref_min_height} maxCm={data.pref_max_height}
+          onMin={(v) => set('pref_min_height', v)} onMax={(v) => set('pref_max_height', v)} />
         <ImportanceRow label="Height Importance" value={data.pref_height_importance} onChange={(v) => set('pref_height_importance', v)} />
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Disability Allowed</span>
@@ -163,38 +237,58 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
       <SectionCard title="Religion & Culture">
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religion</span>
-          <select value={data.pref_religion_id} onChange={(e) => onChange({...data, pref_religion_id: e.target.value ? Number(e.target.value) : '', pref_sect_id: ''})} className={selectClass}>
-            <option value="">Any</option>
-            {religions.map(r => <option key={r.id} value={r.id}>{r.name_en}</option>)}
-          </select>
+          <Select value={data.pref_religion_id ? String(data.pref_religion_id) : ''} onValueChange={(val) => onChange({...data, pref_religion_id: val && val !== 'none' ? Number(val) : '', pref_sect_id: ''})}>
+            <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
+              <SelectValue placeholder="Any" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Any</SelectItem>
+              {religions.map(r => <SelectItem key={r.id} value={String(r.id)}>{r.name_en}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <ImportanceRow label="Religion Importance" value={data.pref_religion_importance} onChange={(v) => set('pref_religion_importance', v)} />
         {availableSects.length > 0 && (
           <>
             <div className="flex items-center justify-between gap-2 py-2">
               <span className="text-[12px] font-medium text-[#4E473D] flex-1">Sect</span>
-              <select value={data.pref_sect_id} onChange={(e) => set('pref_sect_id', e.target.value ? Number(e.target.value) : '')} className={selectClass}>
-                <option value="">Any</option>
-                {availableSects.map(s => <option key={s.id} value={s.id}>{s.name_en}</option>)}
-              </select>
+              <Select value={data.pref_sect_id ? String(data.pref_sect_id) : ''} onValueChange={(val) => set('pref_sect_id', val && val !== 'none' ? Number(val) : '')}>
+                <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
+                  <SelectValue placeholder="Any" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Any</SelectItem>
+                  {availableSects.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name_en}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <ImportanceRow label="Sect Importance" value={data.pref_sect_importance} onChange={(v) => set('pref_sect_importance', v)} />
           </>
         )}
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Caste</span>
-          <select value={data.pref_caste_id} onChange={(e) => set('pref_caste_id', e.target.value ? Number(e.target.value) : '')} className={selectClass}>
-            <option value="">Any</option>
-            {castes.map(c => <option key={c.id} value={c.id}>{c.name_en}</option>)}
-          </select>
+          <Select value={data.pref_caste_id ? String(data.pref_caste_id) : ''} onValueChange={(val) => set('pref_caste_id', val && val !== 'none' ? Number(val) : '')}>
+            <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
+              <SelectValue placeholder="Any" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Any</SelectItem>
+              {castes.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <ImportanceRow label="Caste Importance" value={data.pref_caste_importance} onChange={(v) => set('pref_caste_importance', v)} />
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religious Practice</span>
-          <select value={data.pref_religious_practice} onChange={(e) => set('pref_religious_practice', e.target.value as ReligiousPracticeLevel)} className={selectClass}>
-            <option value="">Any</option>
-            {['HIGHLY_PRACTICING','PRACTICING','MODERATE','OTHER'].map(v => <option key={v} value={v}>{v.replace(/_/g,' ')}</option>)}
-          </select>
+          <Select value={data.pref_religious_practice || ''} onValueChange={(val) => set('pref_religious_practice', val as ReligiousPracticeLevel)}>
+            <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
+              <SelectValue placeholder="Any" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Any</SelectItem>
+              {['HIGHLY_PRACTICING','PRACTICING','MODERATE','OTHER'].map(v => <SelectItem key={v} value={v}>{v.replace(/_/g,' ')}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <ImportanceRow label="Practice Importance" value={data.pref_religious_practice_importance} onChange={(v) => set('pref_religious_practice_importance', v)} />
       </SectionCard>
@@ -210,10 +304,15 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
       <SectionCard title="Location">
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Preferred Country</span>
-          <select value={data.pref_location_country_id} onChange={(e) => set('pref_location_country_id', e.target.value ? Number(e.target.value) : '')} className={selectClass}>
-            <option value="">Any</option>
-            {countries.map(c => <option key={c.id} value={c.id}>{c.name_en}</option>)}
-          </select>
+          <Select value={data.pref_location_country_id ? String(data.pref_location_country_id) : ''} onValueChange={(val) => set('pref_location_country_id', val && val !== 'none' ? Number(val) : '')}>
+            <SelectTrigger className="w-[120px] bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:outline-none h-[32px] shadow-none">
+              <SelectValue placeholder="Any" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Any</SelectItem>
+              {countries.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <ImportanceRow label="Location Importance" value={data.pref_location_importance} onChange={(v) => set('pref_location_importance', v)} />
       </SectionCard>

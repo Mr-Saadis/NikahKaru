@@ -1,6 +1,7 @@
 'use client';
 
 import type { PhysicalInformation } from '@/lib/types/database.types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Step2Data = {
   height_cm: number | '';
@@ -25,6 +26,22 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
   const set = (field: keyof Step2Data, value: Step2Data[keyof Step2Data]) =>
     onChange({ ...data, [field]: value });
 
+  // Compute feet and inches from height_cm
+  const totalInches = data.height_cm ? Math.round(Number(data.height_cm) / 2.54) : 0;
+  const currentFeet = data.height_cm ? Math.floor(totalInches / 12) : '';
+  const currentInches = data.height_cm ? totalInches % 12 : '';
+
+  const handleHeightChange = (feet: number | '', inches: number | '') => {
+    if (feet === '' && inches === '') {
+      set('height_cm', '');
+      return;
+    }
+    const ft = feet === '' ? 0 : feet;
+    const inc = inches === '' ? 0 : inches;
+    const cm = Math.round((ft * 12 + inc) * 2.54);
+    set('height_cm', cm);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -36,18 +53,35 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Height (cm)
+            Height
           </label>
-          <input
-            type="number"
-            min={80}
-            max={250}
-            value={data.height_cm}
-            onChange={(e) => set('height_cm', e.target.value ? Number(e.target.value) : '')}
-            placeholder="e.g. 170"
-            className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
-          />
-          <p className="text-[10px] text-[#A8A296]">Range: 80–250 cm</p>
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <input
+                type="number"
+                min={3}
+                max={8}
+                value={currentFeet === '' ? '' : currentFeet}
+                onChange={(e) => handleHeightChange(e.target.value ? Number(e.target.value) : '', currentInches)}
+                placeholder="Feet"
+                className="w-full bg-white border border-[#EFE9DF] rounded-xl pl-4 pr-8 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#A8A296] pointer-events-none">ft</span>
+            </div>
+            <div className="flex-1 relative">
+              <input
+                type="number"
+                min={0}
+                max={11}
+                value={currentInches === '' ? '' : currentInches}
+                onChange={(e) => handleHeightChange(currentFeet, e.target.value ? Number(e.target.value) : '')}
+                placeholder="Inches"
+                className="w-full bg-white border border-[#EFE9DF] rounded-xl pl-4 pr-8 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#A8A296] pointer-events-none">in</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-[#A8A296]">{data.height_cm ? `Saved as ${data.height_cm} cm` : 'Enter feet and inches'}</p>
         </div>
 
         <div className="space-y-2">
@@ -100,13 +134,13 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
           <button
             type="button"
             onClick={() => set('has_disability', !data.has_disability)}
-            className={`relative w-11 h-6 rounded-full transition-colors ${
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
               data.has_disability ? 'bg-[#064e3b]' : 'bg-[#E9E4DC]'
             }`}
           >
             <span
-              className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                data.has_disability ? 'translate-x-5.5' : 'translate-x-0.5'
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                data.has_disability ? 'translate-x-5' : 'translate-x-0.5'
               }`}
             />
           </button>

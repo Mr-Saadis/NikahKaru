@@ -101,73 +101,75 @@ export default function Step9Review({ step1, step2, step3, step4, step5, step6, 
         </div>
       </div>
 
-      {/* Basic Info */}
-      <ReviewSection icon={User} title="Basic Information" step={1} onEdit={onGoToStep}>
-        <ReviewRow label="Full Name" value={step1.full_name} />
-        <ReviewRow label="Gender" value={step1.gender} />
-        <ReviewRow label="Date of Birth" value={step1.date_of_birth} />
-        <ReviewRow label="Age" value={age ? `${age} years` : null} />
-        <ReviewRow label="Marital Status" value={step1.marital_status?.replace(/_/g, ' ')} />
-        <ReviewRow label="Nationality" value={step1.nationality_country_id ? getCountryById(Number(step1.nationality_country_id))?.name_en : null} />
-        <ReviewRow label="Mother Tongue" value={step1.mother_tongue_id ? getMotherTongueById(Number(step1.mother_tongue_id))?.name_en : null} />
-      </ReviewSection>
+      <div className="grid grid-cols-2 gap-4">
+        {/* Basic Info */}
+        <ReviewSection icon={User} title="Basic Information" step={1} onEdit={onGoToStep}>
+          <ReviewRow label="Full Name" value={step1.full_name} />
+          <ReviewRow label="Gender" value={step1.gender} />
+          <ReviewRow label="Date of Birth" value={step1.date_of_birth} />
+          <ReviewRow label="Age" value={age ? `${age} years` : null} />
+          <ReviewRow label="Marital Status" value={step1.marital_status?.replace(/_/g, ' ')} />
+          <ReviewRow label="Nationality" value={step1.nationality_country_id ? getCountryById(Number(step1.nationality_country_id))?.name_en : null} />
+          <ReviewRow label="Mother Tongue" value={step1.mother_tongue_id ? getMotherTongueById(Number(step1.mother_tongue_id))?.name_en : null} />
+        </ReviewSection>
 
-      {/* Physical */}
-      <ReviewSection icon={Activity} title="Physical" step={2} onEdit={onGoToStep}>
-        <ReviewRow label="Height" value={step2.height_cm ? `${step2.height_cm} cm` : null} />
-        <ReviewRow label="Weight" value={step2.weight_kg ? `${step2.weight_kg} kg` : null} />
-        <ReviewRow label="Complexion" value={step2.complexion} />
-        <ReviewRow label="Has Disability" value={step2.has_disability ? 'Yes' : 'No'} />
-        {step2.has_disability && <ReviewRow label="Disability Details" value={step2.disability_details} />}
-      </ReviewSection>
+        {/* Physical */}
+        <ReviewSection icon={Activity} title="Physical" step={2} onEdit={onGoToStep}>
+          <ReviewRow label="Height" value={step2.height_cm ? `${step2.height_cm} cm` : null} />
+          <ReviewRow label="Weight" value={step2.weight_kg ? `${step2.weight_kg} kg` : null} />
+          <ReviewRow label="Complexion" value={step2.complexion} />
+          <ReviewRow label="Has Disability" value={step2.has_disability ? 'Yes' : 'No'} />
+          {step2.has_disability && <ReviewRow label="Disability Details" value={step2.disability_details} />}
+        </ReviewSection>
 
-      {/* Education */}
-      <ReviewSection icon={GraduationCap} title="Education & Profession" step={3} onEdit={onGoToStep}>
-        <ReviewRow label="Education Records" value={`${step3.education_records.length} record(s)`} />
-        <ReviewRow label="Employment Records" value={`${step3.employment_records.length} record(s)`} />
-        <ReviewRow label="Income Range (PKR)" value={step3.monthly_income_min && step3.monthly_income_max ? `${step3.monthly_income_min.toLocaleString()} – ${step3.monthly_income_max.toLocaleString()}` : null} />
-      </ReviewSection>
+        {/* Education */}
+        <ReviewSection icon={GraduationCap} title="Education & Profession" step={3} onEdit={onGoToStep}>
+          <ReviewRow label="Education Records" value={`${step3.education_records.length} record(s)`} />
+          <ReviewRow label="Employment Records" value={`${step3.employment_records.length} record(s)`} />
+          <ReviewRow label="Income Range (PKR)" value={step3.monthly_income_min && step3.monthly_income_max ? `${step3.monthly_income_min.toLocaleString()} – ${step3.monthly_income_max.toLocaleString()}` : null} />
+        </ReviewSection>
 
-      {/* Religion */}
-      <ReviewSection icon={Star} title="Religion & Culture" step={4} onEdit={onGoToStep}>
-        <ReviewRow label="Religion" value={step4.religion_id ? getReligionById(Number(step4.religion_id))?.name_en : null} />
-        <ReviewRow label="Sect" value={step4.sect_id ? getSectById(Number(step4.sect_id))?.name_en : null} />
-        <ReviewRow label="Caste" value={step4.caste_id ? getCasteById(Number(step4.caste_id))?.name_en : step4.other_caste_text || null} />
-      </ReviewSection>
+        {/* Religion */}
+        <ReviewSection icon={Star} title="Religion & Culture" step={4} onEdit={onGoToStep}>
+          <ReviewRow label="Religion" value={step4.religion_id ? getReligionById(Number(step4.religion_id))?.name_en : null} />
+          <ReviewRow label="Sect" value={step4.sect_id ? getSectById(Number(step4.sect_id))?.name_en : null} />
+          <ReviewRow label="Caste" value={step4.caste_id ? getCasteById(Number(step4.caste_id))?.name_en : step4.other_caste_text || null} />
+        </ReviewSection>
 
-      {/* Location */}
-      <ReviewSection icon={MapPin} title="Location & Residency" step={5} onEdit={onGoToStep}>
-        <ReviewRow label="Current City" value={step5.current_city_id ? getCityById(Number(step5.current_city_id))?.name_en : null} />
-        <ReviewRow label="Current Country" value={step5.current_country_id ? getCountryById(Number(step5.current_country_id))?.name_en : null} />
-        <ReviewRow label="Address" value={step5.current_location_text} />
-        <ReviewRow label="House Status" value={step5.house_status?.replace(/_/g, ' ')} />
-        <ReviewRow label="Family Setup" value={step5.family_setup?.replace(/_/g, ' ')} />
-        <ReviewRow label="Living With" value={step5.living_with?.replace(/_/g, ' ')} />
-      </ReviewSection>
+        {/* Location */}
+        <ReviewSection icon={MapPin} title="Location & Residency" step={5} onEdit={onGoToStep}>
+          <ReviewRow label="Current City" value={step5.current_city_id ? getCityById(Number(step5.current_city_id))?.name_en : null} />
+          <ReviewRow label="Current Country" value={step5.current_country_id ? getCountryById(Number(step5.current_country_id))?.name_en : null} />
+          <ReviewRow label="Address" value={step5.current_location_text} />
+          <ReviewRow label="House Status" value={step5.house_status?.replace(/_/g, ' ')} />
+          <ReviewRow label="Family Setup" value={step5.family_setup?.replace(/_/g, ' ')} />
+          <ReviewRow label="Living With" value={step5.living_with?.replace(/_/g, ' ')} />
+        </ReviewSection>
 
-      {/* Family */}
-      <ReviewSection icon={Users} title="Family Details" step={6} onEdit={onGoToStep}>
-        <ReviewRow label="Parents Added" value={`${step6.parents.length}`} />
-        <ReviewRow label="Siblings" value={`${step6.siblings.length}`} />
-        <ReviewRow label="Family Business" value={step6.family_profession_business} />
-      </ReviewSection>
+        {/* Family */}
+        <ReviewSection icon={Users} title="Family Details" step={6} onEdit={onGoToStep}>
+          <ReviewRow label="Parents Added" value={`${step6.parents.length}`} />
+          <ReviewRow label="Siblings" value={`${step6.siblings.length}`} />
+          <ReviewRow label="Family Business" value={step6.family_profession_business} />
+        </ReviewSection>
 
-      {/* Lifestyle */}
-      <ReviewSection icon={Heart} title="Lifestyle" step={7} onEdit={onGoToStep}>
-        <ReviewRow label="Religious Practice" value={step7.religious_practice?.replace(/_/g, ' ')} />
-        <ReviewRow label="Beard" value={step7.beard} />
-        <ReviewRow label="Hijab" value={step7.hijab} />
-        <ReviewRow label="Smoking" value={step7.smoking} />
-        <ReviewRow label="Willing to Relocate" value={step7.willing_to_relocate} />
-      </ReviewSection>
+        {/* Lifestyle */}
+        <ReviewSection icon={Heart} title="Lifestyle" step={7} onEdit={onGoToStep}>
+          <ReviewRow label="Religious Practice" value={step7.religious_practice?.replace(/_/g, ' ')} />
+          <ReviewRow label="Beard" value={step7.beard} />
+          <ReviewRow label="Hijab" value={step7.hijab} />
+          <ReviewRow label="Smoking" value={step7.smoking} />
+          <ReviewRow label="Willing to Relocate" value={step7.willing_to_relocate} />
+        </ReviewSection>
 
-      {/* Preferences summary */}
-      <ReviewSection icon={Send} title="Partner Preferences" step={8} onEdit={onGoToStep}>
-        <ReviewRow label="Age Range" value={(step8.pref_min_age || step8.pref_max_age) ? `${step8.pref_min_age || '?'} – ${step8.pref_max_age || '?'} yrs` : null} />
-        <ReviewRow label="Income (PKR)" value={(step8.pref_min_income || step8.pref_max_income) ? `${step8.pref_min_income?.toLocaleString() || '?'} – ${step8.pref_max_income?.toLocaleString() || '?'}` : null} />
-        <ReviewRow label="Religion Pref" value={step8.pref_religion_id ? getReligionById(Number(step8.pref_religion_id))?.name_en : null} />
-        <ReviewRow label="Marital Status Pref" value={step8.pref_marital_status?.replace(/_/g, ' ')} />
-      </ReviewSection>
+        {/* Preferences summary */}
+        <ReviewSection icon={Send} title="Partner Preferences" step={8} onEdit={onGoToStep}>
+          <ReviewRow label="Age Range" value={(step8.pref_min_age || step8.pref_max_age) ? `${step8.pref_min_age || '?'} – ${step8.pref_max_age || '?'} yrs` : null} />
+          <ReviewRow label="Income (PKR)" value={(step8.pref_min_income || step8.pref_max_income) ? `${step8.pref_min_income?.toLocaleString() || '?'} – ${step8.pref_max_income?.toLocaleString() || '?'}` : null} />
+          <ReviewRow label="Religion Pref" value={step8.pref_religion_id ? getReligionById(Number(step8.pref_religion_id))?.name_en : null} />
+          <ReviewRow label="Marital Status Pref" value={step8.pref_marital_status?.replace(/_/g, ' ')} />
+        </ReviewSection>
+      </div>
 
       {/* Save notice */}
       <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#E5EFE9] border border-[#d1e3dc]">

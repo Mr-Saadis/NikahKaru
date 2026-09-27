@@ -1,4 +1,5 @@
 'use client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import type { YesNo, ReligiousPracticeLevel, SmokingStatus } from '@/lib/types/database.types';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
@@ -84,37 +85,41 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
         ]}
       />
 
-      {/* Beard — only for males */}
-      {(!gender || gender === 'MALE') && (
-        <ToggleGroup
-          label="Beard"
-          value={data.beard}
-          onChange={(v) => set('beard', v)}
-          options={[{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }]}
-        />
-      )}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Smoking */}
+        <div>
+          <ToggleGroup
+            label="Smoking"
+            value={data.smoking}
+            onChange={(v) => set('smoking', v)}
+            options={[
+              { value: 'NO', label: 'No' },
+              { value: 'YES', label: 'Yes' },
+              { value: 'OCCASIONALLY', label: 'Occasionally' },
+            ]}
+          />
+        </div>
 
-      {/* Hijab — only for females */}
-      {(!gender || gender === 'FEMALE') && (
-        <ToggleGroup
-          label="Hijab"
-          value={data.hijab}
-          onChange={(v) => set('hijab', v)}
-          options={[{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }]}
-        />
-      )}
-
-      {/* Smoking */}
-      <ToggleGroup
-        label="Smoking"
-        value={data.smoking}
-        onChange={(v) => set('smoking', v)}
-        options={[
-          { value: 'NO', label: 'No' },
-          { value: 'YES', label: 'Yes' },
-          { value: 'OCCASIONALLY', label: 'Occasionally' },
-        ]}
-      />
+        {/* Gender Specific */}
+        <div>
+          {gender === 'MALE' && (
+            <ToggleGroup
+              label="Beard"
+              value={data.beard}
+              onChange={(v) => set('beard', v)}
+              options={[{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }]}
+            />
+          )}
+          {gender === 'FEMALE' && (
+            <ToggleGroup
+              label="Hijab"
+              value={data.hijab}
+              onChange={(v) => set('hijab', v)}
+              options={[{ value: 'YES', label: 'Yes' }, { value: 'NO', label: 'No' }]}
+            />
+          )}
+        </div>
+      </div>
 
       {/* Other lifestyle */}
       <div className="space-y-2">
@@ -145,38 +150,50 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Preferred Country</label>
-              <select
-                value={data.preferred_country_id}
-                onChange={(e) => onChange({ ...data, preferred_country_id: e.target.value ? Number(e.target.value) : '', preferred_province_id: '', preferred_city_id: '' })}
-                className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none"
+              <Select
+                value={data.preferred_country_id ? String(data.preferred_country_id) : undefined}
+                onValueChange={(val) => onChange({ ...data, preferred_country_id: val ? Number(val) : '', preferred_province_id: '', preferred_city_id: '' })}
               >
-                <option value="">Any</option>
-                {countries.map((c) => <option key={c.id} value={c.id}>{c.name_en}</option>)}
-              </select>
+                <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none">
+                  <SelectValue placeholder="Any" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Any</SelectItem>
+                  {countries.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Province</label>
-              <select
-                value={data.preferred_province_id}
-                onChange={(e) => onChange({ ...data, preferred_province_id: e.target.value ? Number(e.target.value) : '', preferred_city_id: '' })}
+              <Select
+                value={data.preferred_province_id ? String(data.preferred_province_id) : undefined}
+                onValueChange={(val) => onChange({ ...data, preferred_province_id: val && val !== 'none' ? Number(val) : '', preferred_city_id: '' })}
                 disabled={!prefProvinces.length}
-                className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none disabled:opacity-50"
               >
-                <option value="">Any</option>
-                {prefProvinces.map((p) => <option key={p.id} value={p.id}>{p.name_en}</option>)}
-              </select>
+                <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none disabled:opacity-50">
+                  <SelectValue placeholder="Any" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Any</SelectItem>
+                  {prefProvinces.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.name_en}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">City</label>
-              <select
-                value={data.preferred_city_id}
-                onChange={(e) => set('preferred_city_id', e.target.value ? Number(e.target.value) : '')}
+              <Select
+                value={data.preferred_city_id ? String(data.preferred_city_id) : undefined}
+                onValueChange={(val) => set('preferred_city_id', val && val !== 'none' ? Number(val) : '')}
                 disabled={!prefCities.length}
-                className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none disabled:opacity-50"
               >
-                <option value="">Any</option>
-                {prefCities.map((c) => <option key={c.id} value={c.id}>{c.name_en}</option>)}
-              </select>
+                <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-3 py-2.5 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none disabled:opacity-50">
+                  <SelectValue placeholder="Any" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Any</SelectItem>
+                  {prefCities.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         )}

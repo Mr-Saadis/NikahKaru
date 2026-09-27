@@ -1,4 +1,5 @@
 'use client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
 
@@ -31,80 +32,85 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
         <p className="text-[12px] text-[#7D766C]">Religious and cultural background details.</p>
       </div>
 
-      {/* Religion */}
-      <div className="space-y-2">
-        <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-          Religion
-        </label>
-        <select
-          value={data.religion_id}
-          onChange={(e) => {
-            // Reset sect when religion changes
-            onChange({ ...data, religion_id: e.target.value ? Number(e.target.value) : '', sect_id: '' });
-          }}
-          className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
-        >
-          <option value="">Select religion</option>
-          {religions.map((r) => (
-            <option key={r.id} value={r.id}>{r.name_en}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Sect — only visible if religion is selected */}
-      {data.religion_id && (
+      <div className="grid grid-cols-2 gap-4">
+        {/* Religion */}
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Sect / Denomination
+            Religion
           </label>
-          {availableSects.length > 0 ? (
-            <select
-              value={data.sect_id}
-              onChange={(e) => set('sect_id', e.target.value ? Number(e.target.value) : '')}
-              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
-            >
-              <option value="">Select sect</option>
-              {availableSects.map((s) => (
-                <option key={s.id} value={s.id}>{s.name_en}</option>
+          <Select
+            value={data.religion_id ? String(data.religion_id) : undefined}
+            onValueChange={(val) => {
+              onChange({ ...data, religion_id: val ? Number(val) : '', sect_id: '' });
+            }}
+          >
+            <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px] shadow-none">
+              <SelectValue placeholder="Select religion" />
+            </SelectTrigger>
+            <SelectContent>
+              {religions.map((r) => (
+                <SelectItem key={r.id} value={String(r.id)}>{r.name_en}</SelectItem>
               ))}
-            </select>
-          ) : (
-            <p className="text-[12px] text-[#A8A296] italic px-1">
-              No sects defined for this religion.
-            </p>
-          )}
+            </SelectContent>
+          </Select>
         </div>
-      )}
 
-      {/* Caste */}
-      <div className="space-y-2">
-        <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-          Caste / Lineage
-        </label>
-        <select
-          value={data.caste_id}
-          onChange={(e) => set('caste_id', e.target.value ? Number(e.target.value) : '')}
-          className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
-        >
-          <option value="">Select caste (optional)</option>
-          {castes.map((c) => (
-            <option key={c.id} value={c.id}>{c.name_en}</option>
-          ))}
-        </select>
+        {/* Sect */}
+        <div className="space-y-2">
+          <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
+            Fiqah / Sect
+          </label>
+          <Select
+            value={data.sect_id ? String(data.sect_id) : undefined}
+            onValueChange={(val) => set('sect_id', val ? Number(val) : '')}
+            disabled={!data.religion_id || availableSects.length === 0}
+          >
+            <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px] shadow-none disabled:opacity-50">
+              <SelectValue placeholder={!data.religion_id ? 'Select Religion first' : availableSects.length === 0 ? 'No sects defined' : 'Select sect'} />
+            </SelectTrigger>
+            <SelectContent>
+              {availableSects.map((s) => (
+                <SelectItem key={s.id} value={String(s.id)}>{s.name_en}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Other caste text */}
-      <div className="space-y-2">
-        <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-          Other Caste / Sub-caste (if not listed above)
-        </label>
-        <input
-          type="text"
-          value={data.other_caste_text}
-          onChange={(e) => set('other_caste_text', e.target.value)}
-          placeholder="Enter caste name if not in list"
-          className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
-        />
+      <div className="grid grid-cols-2 gap-4">
+        {/* Caste */}
+        <div className="space-y-2">
+          <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
+            Caste / Lineage
+          </label>
+          <Select
+            value={data.caste_id ? String(data.caste_id) : undefined}
+            onValueChange={(val) => set('caste_id', val ? Number(val) : '')}
+          >
+            <SelectTrigger className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px] shadow-none">
+              <SelectValue placeholder="Select caste (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {castes.map((c) => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.name_en}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Other caste text */}
+        <div className="space-y-2">
+          <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156] truncate">
+            Other Caste (if not listed)
+          </label>
+          <input
+            type="text"
+            value={data.other_caste_text}
+            onChange={(e) => set('other_caste_text', e.target.value)}
+            placeholder="Enter caste name"
+            className="w-full h-[46px] bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+          />
+        </div>
       </div>
     </div>
   );

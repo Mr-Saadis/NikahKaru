@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { createClient } from '@/lib/supabase/client';
@@ -23,6 +24,7 @@ interface SidebarProps {
 
 export default function Sidebar({ activePage }: SidebarProps) {
   const { user, role, roleData } = useAuth();
+  const pathname = usePathname();
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -131,7 +133,10 @@ export default function Sidebar({ activePage }: SidebarProps) {
         </div>
         <nav className="flex flex-col gap-1.5">
           {visibleNavItems.map((item) => {
-            const isActive = activePage === item.id;
+            // For overview, exact match. For others, startsWith to handle sub-routes like /profiles/123
+            const isActive = item.href === '/overview' 
+              ? pathname === '/overview'
+              : pathname.startsWith(item.href);
             return (
               <Link
                 key={item.id}
