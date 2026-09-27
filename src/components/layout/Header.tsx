@@ -33,7 +33,7 @@ export default function Header({
   const router = useRouter();
 
   return (
-    <header className="bg-[#FCF9F4] border-b border-[#E9E4DC] sticky top-0 z-10">
+    <header className="bg-[#FAF8F5] border-b border-[#E9E4DC] sticky top-0 z-10">
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-2 flex items-center justify-between">
 
         {/* Left Section: Icon, Back Button, Title, Subtitle */}
