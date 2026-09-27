@@ -18,7 +18,9 @@ import {
   ShieldCheck,
   LineChart,
   LogOut,
-  ChevronRight,
+  PanelLeftClose,
+  PanelLeft,
+  PanelLeftOpen,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -36,9 +38,9 @@ interface SidebarProps {
   ║  DESIGN TOKENS                                   ║
   ╚══════════════════════════════════════════════════╝
 */
-const SIDEBAR = '#064e3b';   // deep forest green
+const SIDEBAR = '#708c69';   // deep forest green
 const PAGE_BG = 'var(--bg-app)';   // warm off-white — MUST match layout bg
-const ICON_OFF = '#6B8F80';   // muted icon colour
+const ICON_OFF = '#fcf3e3';   // muted icon colour
 const ROW_H = 50;          // nav-row height in px
 const CURVE = 29.15;          // gooey-curve radius in px
 const GAP = 8;          // space between aside right edge and wrapper right edge
@@ -196,7 +198,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
             justifyContent: 'center',
             flexShrink: 0,
             borderRadius: '50%',
-            background: isActive ? SIDEBAR : 'transparent',
+            background: isActive ? '#f4a258' : 'transparent',
             transition: 'background 0.2s',
             transform: 'translateZ(0)', // Prevent sub-pixel jitter during open/close
           }}>
@@ -239,6 +241,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
   const { user, role, roleData } = useAuth();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [isToggleHovered, setIsToggleHovered] = useState(false);
 
   const [optimisticPath, setOptimisticPath] = useState(pathname);
 
@@ -350,17 +353,44 @@ export default function Sidebar({ activePage }: SidebarProps) {
                 justifyContent: 'center',
                 transition: 'color 150ms',
               }}
-              onMouseEnter={e => (e.currentTarget.style.color = PAGE_BG)}
-              onMouseLeave={e => (e.currentTarget.style.color = ICON_OFF)}
+              onMouseEnter={e => {
+                e.currentTarget.style.color = PAGE_BG;
+                setIsToggleHovered(true);
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.color = ICON_OFF;
+                setIsToggleHovered(false);
+              }}
             >
-              <ChevronRight
-                size={22}
-                strokeWidth={2.5}
-                style={{
-                  transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                  transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-                }}
-              />
+              {open ? (
+                isToggleHovered ? (
+                  <PanelLeftClose
+                    size={20}
+                    strokeWidth={2}
+                    style={{ transition: 'opacity 0.2s' }}
+                  />
+                ) : (
+                  <PanelLeft
+                    size={20}
+                    strokeWidth={2}
+                    style={{ transition: 'opacity 0.2s' }}
+                  />
+                )
+              ) : (
+                isToggleHovered ? (
+                  <PanelLeftOpen
+                    size={20}
+                    strokeWidth={2}
+                    style={{ transition: 'opacity 0.2s' }}
+                  />
+                ) : (
+                  <PanelLeft
+                    size={20}
+                    strokeWidth={2}
+                    style={{ transition: 'opacity 0.2s' }}
+                  />
+                )
+              )}
             </button>
           </div>
 
@@ -369,7 +399,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            gap: 12,
+            gap: 0,
             overflow: 'visible',   // NOT auto — gooey needs to escape
           }}>
             {visible.map(item => {
@@ -405,7 +435,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                 width: 36,
                 height: 36,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #A7D5C4, #6B8F80)',
+                background: '#f4a258',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
