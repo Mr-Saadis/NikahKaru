@@ -232,8 +232,8 @@ export default function Step1BasicInfo({ data, onChange }: Step1Props) {
               max={20}
               value={data.number_of_children === undefined ? '' : data.number_of_children}
               onChange={(e) => {
-                const count = e.target.value === '' ? '' : Number(e.target.value);
-                const newData = { ...data, number_of_children: count };
+                const count: number | '' = e.target.value === '' ? '' : Number(e.target.value);
+                const newData: Step1Data = { ...data, number_of_children: count };
                 if (count === 0 || count === '') {
                   newData.children_living_with = '';
                 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -15,16 +16,210 @@ import {
   MessageSquareWarning,
   ShieldCheck,
   LineChart,
-  LogOut
+  LogOut,
+  Menu,
 } from 'lucide-react';
 
 interface SidebarProps {
   activePage: string;
 }
 
+/*
+  ╔══════════════════════════════════════════════════╗
+  ║  DESIGN TOKENS                                   ║
+  ╚══════════════════════════════════════════════════╝
+*/
+const SIDEBAR  = '#064e3b';   // deep forest green
+const PAGE_BG  = 'var(--bg-app)';   // warm off-white — MUST match layout bg
+const ICON_OFF = '#6B8F80';   // muted icon colour
+const ROW_H    = 52;          // nav-row height in px
+const CURVE    = 20;          // gooey-curve radius in px
+const GAP      = 8;           // space between aside right edge and wrapper right edge
+
+export const navItems = [
+  { label: 'Overview',    href: '/overview',         icon: LayoutDashboard,      roles: ['AGENT','MANAGER','HIGH_LEVEL_ADMIN'], id: 'overview'         },
+  { label: 'Profiles',    href: '/profiles',         icon: Users,                roles: ['AGENT','MANAGER','HIGH_LEVEL_ADMIN'], id: 'profiles'         },
+  { label: 'Add Profile', href: '/add-profile',      icon: UserPlus,             roles: ['AGENT'],                             id: 'add-new'          },
+  { label: 'Matching',    href: '/matching',         icon: HeartHandshake,       roles: ['AGENT','MANAGER','HIGH_LEVEL_ADMIN'], id: 'matching'         },
+  { label: 'Releases',    href: '/release-requests', icon: FileCheck,            roles: ['MANAGER','HIGH_LEVEL_ADMIN'],         id: 'release-requests' },
+  { label: 'Proposals',   href: '/proposals',        icon: Send,                 roles: ['AGENT','MANAGER','HIGH_LEVEL_ADMIN'], id: 'proposals'        },
+  { label: 'Feedback',    href: '/feedback',         icon: MessageSquareWarning, roles: ['AGENT','MANAGER','HIGH_LEVEL_ADMIN'], id: 'feedback'         },
+];
+
+export const adminItems = [
+  { label: 'Users',     href: '/admin/users',     icon: ShieldCheck, roles: ['HIGH_LEVEL_ADMIN'], id: 'admin-users'     },
+  { label: 'Analytics', href: '/admin/analytics', icon: LineChart,   roles: ['HIGH_LEVEL_ADMIN'], id: 'admin-analytics' },
+];
+
+/*
+  ┌──────────────────────────────────────────────────────────────┐
+  │  HOW THE GOOEY CUTOUT WORKS                                  │
+  │                                                              │
+  │  4 layers stacked on each active row:                        │
+  │                                                              │
+  │  z:1  PAGE_BG STRIP  — vertical column at right edge,       │
+  │                        extends CURVE px above & below row,   │
+  │                        extends GAP px past aside edge        │
+  │                        → creates the "notch" area            │
+  │                                                              │
+  │  z:2  PAGE_BG PILL   — horizontal pill filling the row,     │
+  │                        rounded left edge,                    │
+  │                        extends GAP px past aside edge        │
+  │                        → the active row background           │
+  │                                                              │
+  │  z:3  GREEN CURVE ×2 — SIDEBAR-coloured squares with one    │
+  │                        rounded corner each, placed on top    │
+  │                        of the strip's upper & lower portions │
+  │                        → their body hides PAGE_BG,           │
+  │                          their rounded corner reveals it     │
+  │                        = the concave gooey transition        │
+  │                                                              │
+  │  z:10 CONTENT        — icon circle + label                  │
+  └──────────────────────────────────────────────────────────────┘
+*/
+
+const NavItem = ({ item, isActive, open }: { item: typeof navItems[0]; isActive: boolean; open: boolean }) => (
+  <Link
+    href={item.href}
+    title={!open ? item.label : undefined}
+    style={{
+      position       : 'relative',
+      display        : 'flex',
+      alignItems     : 'center',
+      height         : ROW_H,
+      overflow       : 'visible',   // gooey curves MUST escape row bounds
+      textDecoration : 'none',
+    }}
+  >
+    {/* ──── GOOEY LAYERS (Always rendered, animated via opacity) ──── */}
+    <>
+      {/* ──── z:1 — PAGE_BG vertical strip (creates notch + gooey area) ──── */}
+      <div 
+        className="transition-all duration-[800ms] ease-in-out"
+        style={{
+          position   : 'absolute',
+          right      : -GAP,
+          top        : -CURVE,
+          bottom     : -CURVE,
+          width      : CURVE + GAP,
+          background : PAGE_BG,
+          opacity    : isActive ? 1 : 0,
+          zIndex     : 1,
+          pointerEvents: 'none',
+        }} 
+      />
+
+      {/* ──── z:2 — PAGE_BG pill (row background) ──── */}
+      <div 
+        className="transition-all duration-[800ms] ease-in-out"
+        style={{
+          position     : 'absolute',
+          left         : open ? 10 : 6,
+          right        : -GAP,
+          top          : 0,
+          bottom       : 0,
+          background   : PAGE_BG,
+          borderRadius : `${ROW_H / 2}px 0 0 ${ROW_H / 2}px`,
+          opacity      : isActive ? 1 : 0,
+          zIndex       : 2,
+          pointerEvents: 'none',
+        }} 
+      />
+
+      {/* ──── z:3 — Green curve TOP ──── */}
+      <div 
+        className="transition-all duration-[800ms] ease-in-out"
+        style={{
+          position                : 'absolute',
+          right                   : 0,
+          top                     : -CURVE,
+          width                   : CURVE,
+          height                  : CURVE,
+          background              : SIDEBAR,
+          borderBottomRightRadius : CURVE,
+          opacity                 : isActive ? 1 : 0,
+          zIndex                  : 3,
+          pointerEvents: 'none',
+        }} 
+      />
+
+      {/* ──── z:3 — Green curve BOTTOM ──── */}
+      <div 
+        className="transition-all duration-[800ms] ease-in-out"
+        style={{
+          position             : 'absolute',
+          right                : 0,
+          bottom               : -CURVE,
+          width                : CURVE,
+          height               : CURVE,
+          background           : SIDEBAR,
+          borderTopRightRadius : CURVE,
+          opacity              : isActive ? 1 : 0,
+          zIndex               : 3,
+          pointerEvents: 'none',
+        }} 
+      />
+    </>
+
+    {/* ──── z:10 — Content: icon + label ──── */}
+    <div 
+      className="transition-all duration-[800ms] ease-in-out"
+      style={{
+        position       : 'relative',
+        zIndex         : 10,
+        display        : 'flex',
+        alignItems     : 'center',
+        height         : '100%',
+        width          : '100%',
+        padding        : open ? '0 16px' : '0',
+        justifyContent : open ? 'flex-start' : 'center',
+      }}
+    >
+      {/* Icon — green circle when active */}
+      <div style={{
+        width          : 36,
+        height         : 36,
+        display        : 'flex',
+        alignItems     : 'center',
+        justifyContent : 'center',
+        flexShrink     : 0,
+        borderRadius   : '50%',
+        background     : isActive ? SIDEBAR : 'transparent',
+        transition     : 'background 200ms',
+      }}>
+        <item.icon
+          size={20}
+          color={isActive ? PAGE_BG : ICON_OFF}
+          strokeWidth={isActive ? 2.5 : 2}
+          className="transition-all duration-[800ms] ease-in-out"
+        />
+      </div>
+
+      {/* Label */}
+      <span 
+        className="transition-all duration-[800ms] ease-in-out"
+        style={{
+          marginLeft : open ? 10 : 0,
+          fontWeight : 700,
+          fontSize   : 14,
+          whiteSpace : 'nowrap',
+          color      : isActive ? SIDEBAR : ICON_OFF,
+          opacity    : open ? 1 : 0,
+          maxWidth   : open ? 150 : 0,
+          overflow   : 'hidden',
+          transform  : open ? 'translateX(0)' : 'translateX(-10px)',
+        }}
+      >
+        {item.label}
+      </span>
+    </div>
+  </Link>
+);
+
 export default function Sidebar({ activePage }: SidebarProps) {
   const { user, role, roleData } = useAuth();
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -33,186 +228,237 @@ export default function Sidebar({ activePage }: SidebarProps) {
     window.location.href = '/login';
   };
 
-  const navItems = [
-    {
-      label: 'Overview',
-      href: '/overview',
-      icon: LayoutDashboard,
-      roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'],
-      id: 'overview'
-    },
-    {
-      label: 'Profiles & Dossiers',
-      href: '/profiles',
-      icon: Users,
-      roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'],
-      id: 'profiles'
-    },
-    {
-      label: 'Add New Profile',
-      href: '/add-profile',
-      icon: UserPlus,
-      roles: ['AGENT'], // Based on PRD, Agent creates profile
-      id: 'add-new'
-    },
-    {
-      label: 'Matching Engine',
-      href: '/matching',
-      icon: HeartHandshake,
-      roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'],
-      id: 'matching'
-    },
-    {
-      label: 'Release Requests',
-      href: '/release-requests',
-      icon: FileCheck,
-      roles: ['MANAGER', 'HIGH_LEVEL_ADMIN'],
-      id: 'release-requests',
-      badge: 3 // Example badge
-    },
-    {
-      label: 'Proposals In Progress',
-      href: '/proposals',
-      icon: Send,
-      roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'],
-      id: 'proposals'
-    },
-    {
-      label: 'Rejection Feedback',
-      href: '/feedback',
-      icon: MessageSquareWarning,
-      roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'],
-      id: 'feedback'
-    }
-  ];
-
-  const adminItems = [
-    {
-      label: 'User Management',
-      href: '/admin/users',
-      icon: ShieldCheck,
-      id: 'admin-users'
-    },
-    {
-      label: 'System Analytics',
-      href: '/admin/analytics',
-      icon: LineChart,
-      id: 'admin-analytics'
-    }
-  ];
-
-  const visibleNavItems = navItems.filter(item => role && item.roles.includes(role));
-
-  // Initials for avatar
+  const visible  = navItems.filter(i => role && i.roles.includes(role));
   const initials = user?.full_name
     ? user.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
     : 'U';
+  /*
+    ╔══════════════════════════════════════════════════════════════╗
+    ║  LAYOUT                                                     ║
+    ║                                                              ║
+    ║  ┌─ wrapper (no bg, controls width) ──────────────────────┐  ║
+    ║  │  padding: 8 left/top/bottom, 0 right                   │  ║
+    ║  │                                                         │  ║
+    ║  │  ┌─ aside (green, rounded ALL corners) ─────────┐  ↕GAP│  ║
+    ║  │  │                                               │      │  ║
+    ║  │  │   overflow: visible                           │      │  ║
+    ║  │  │   → gooey elements can escape bounds          │      │  ║
+    ║  │  │                                               │      │  ║
+    ║  │  └───────────────────────────────────────────────┘      │  ║
+    ║  │                                                         │  ║
+    ║  └─────────────────────────────────────────────────────────┘  ║
+    ║                                                              ║
+    ║  The GAP between aside's right edge and wrapper's right edge ║
+    ║  shows layout bg (PAGE_BG). Active item's PAGE_BG elements   ║
+    ║  extend into this gap → seamless connection to main content. ║
+    ╚══════════════════════════════════════════════════════════════╝
+  */
 
   return (
-    <aside className="hidden md:flex flex-col w-[260px] lg:w-[280px] bg-[#FBF9F5] border-r border-[#EFE9DF] h-full flex-shrink-0 relative z-20">
+    <div 
+      className="transition-all duration-[800ms] ease-in-out"
+      style={{
+        position   : 'relative',
+        flexShrink : 0,
+        width      : open ? '252px' : '88px',
+        padding    : `${GAP}px 0 ${GAP}px ${GAP}px`,   // no right padding
+        overflow   : 'visible',
+      }}
+    >
+      {/* Green sidebar card — rounded ALL corners, overflow: visible */}
+      <aside 
+        className="transition-all duration-[800ms] ease-in-out"
+        style={{
+          width         : `calc(100% - ${GAP}px)`,   // leaves GAP on the right
+          height        : '100%',
+          background    : SIDEBAR,
+          borderRadius  : 28,
+          display       : 'flex',
+          flexDirection : 'column',
+          paddingTop    : 18,
+          paddingBottom : 18,
+          /* Removed box-shadow to prevent it from darkening the page background next to the active pill, which caused a visual seam */
+          overflow      : 'visible',     // CRITICAL — gooey curves must escape
+          position      : 'relative',
+        }}
+      >
 
-      {/* Brand & Logo */}
-      <div className="p-6 pb-4">
-        <div className="flex items-center gap-3.5 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#064e3b] to-[#0f4229] flex items-center justify-center drop-shadow-sm flex-shrink-0">
-            <HeartHandshake className="text-white w-5 h-5" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[17px] font-bold tracking-tight text-[#16382E] leading-tight">
+        {/* ─── Toggle ─── */}
+        <div style={{
+          display        : 'flex',
+          alignItems     : 'center',
+          marginBottom   : 20,
+          padding        : open ? '0 18px' : '0',
+          justifyContent : open ? 'space-between' : 'center',
+        }}>
+          <div 
+            className="transition-all duration-[800ms] ease-in-out"
+            style={{
+              opacity    : open ? 1 : 0,
+              maxWidth   : open ? 200 : 0,
+              overflow   : 'hidden',
+              transform  : open ? 'translateX(0)' : 'translateX(-10px)',
+              whiteSpace : 'nowrap'
+            }}
+          >
+            <span style={{ color: PAGE_BG, fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px' }}>
               NikaahKaro
-            </span>
-            <span className="w-max bg-[#E5EFE9] text-[#125740] text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded mt-0.5">
-              Internal CRM
-            </span>
-          </div>
-        </div>
-
-        {/* Main Navigation */}
-        <div className="text-[10px] font-extrabold text-[#A8A296] uppercase tracking-[0.15em] mb-3 px-2">
-          Main Menu
-        </div>
-        <nav className="flex flex-col gap-1.5">
-          {visibleNavItems.map((item) => {
-            // For overview, exact match. For others, startsWith to handle sub-routes like /profiles/123
-            const isActive = item.href === '/overview' 
-              ? pathname === '/overview'
-              : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                className={`flex items-center justify-between px-4 py-2.5 rounded-2xl transition-all ${isActive
-                    ? 'font-semibold text-white bg-[#064e3b] shadow-sm py-3 text-[14px]'
-                    : 'text-[13.5px] font-medium text-[#676156] hover:bg-[#F2ECE1]'
-                  }`}
-              >
-                <div className="flex items-center gap-3.5">
-                  <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-[#888174]'}`} />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-white text-[#064e3b]' : 'bg-[#EAE2D5] text-[#4E473D]'
-                    }`}>
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Admin Navigation */}
-      {role === 'HIGH_LEVEL_ADMIN' && (
-        <div className="p-6 pt-2 pb-4">
-          <div className="text-[10px] font-extrabold text-[#A8A296] uppercase tracking-[0.15em] mb-3 px-2">
-            System Admin
-          </div>
-          <nav className="flex flex-col gap-1.5">
-            {adminItems.map((item) => {
-              const isActive = activePage.startsWith(item.id);
-              return (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className={`flex items-center gap-3.5 px-4 py-2.5 rounded-2xl transition-all ${isActive
-                      ? 'font-semibold text-white bg-[#064e3b] shadow-sm py-3 text-[14px]'
-                      : 'text-[13.5px] font-medium text-[#676156] hover:bg-[#F2ECE1]'
-                    }`}
-                >
-                  <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-[#888174]'}`} />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      )}
-
-      <div className="mt-auto p-6 pt-2">
-        {/* User Pill */}
-        <div className="bg-white border border-[#EBE4D8] rounded-[22px] p-2.5 flex items-center gap-3 shadow-sm">
-          <div className="w-10 h-10 rounded-full bg-[#115E49] flex items-center justify-center text-white font-bold ring-2 ring-[#E0EEE8] flex-shrink-0">
-            {initials}
-          </div>
-          <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-[13.5px] font-bold text-[#1E2022] truncate">
-              {user?.full_name || 'Loading...'}
-            </span>
-            <span className="bg-[#F7E7CE] text-[#825418] text-[10px] font-semibold rounded-full px-2 py-0.5 w-max mt-0.5">
-              {roleData?.name.replace(/_/g, ' ') || 'AGENT'}
             </span>
           </div>
           <button
-            onClick={handleLogout}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-[#8D867C] hover:text-[#115E49] hover:bg-[#F6F2EA] transition-colors flex-shrink-0"
-            title="Logout"
+            onClick={() => setOpen(v => !v)}
+            style={{
+              background     : 'transparent',
+              border         : 'none',
+              cursor         : 'pointer',
+              color          : ICON_OFF,
+              padding        : 8,
+              borderRadius   : 8,
+              display        : 'flex',
+              alignItems     : 'center',
+              justifyContent : 'center',
+              transition     : 'color 150ms',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = PAGE_BG)}
+            onMouseLeave={e => (e.currentTarget.style.color = ICON_OFF)}
           >
-            <LogOut className="w-4 h-4" />
+            <Menu size={20} strokeWidth={2} />
           </button>
         </div>
-      </div>
 
-    </aside>
+        {/* ─── Nav ─── */}
+        <nav style={{
+          flex          : 1,
+          display       : 'flex',
+          flexDirection : 'column',
+          overflow      : 'visible',   // NOT auto — gooey needs to escape
+        }}>
+          {visible.map(item => {
+            const isActive = item.href === '/overview'
+              ? pathname === '/overview'
+              : pathname.startsWith(item.href);
+            return <NavItem key={item.id} item={item} isActive={isActive} open={open} />;
+          })}
+          {role === 'HIGH_LEVEL_ADMIN' && (
+            <>
+              <div style={{ height: 1, background: 'rgba(250,248,245,0.08)', margin: '6px 16px' }} />
+              {adminItems.map(item => (
+                <NavItem key={item.id} item={item} isActive={activePage.startsWith(item.id)} open={open} />
+              ))}
+            </>
+          )}
+        </nav>
+
+        {/* ─── Bottom: avatar + logout ─── */}
+        <div style={{
+          marginTop     : 'auto',
+          paddingTop    : 14,
+          borderTop     : '1px solid rgba(250,248,245,0.08)',
+          display       : 'flex',
+          flexDirection : 'column',
+          gap           : 10,
+          padding       : open ? '14px 18px 0' : '14px 0 0',
+          alignItems    : open ? 'stretch' : 'center',
+        }}>
+          {/* Avatar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width          : 38,
+              height         : 38,
+              borderRadius   : '50%',
+              background     : 'linear-gradient(135deg, #A7D5C4, #6B8F80)',
+              display        : 'flex',
+              alignItems     : 'center',
+              justifyContent : 'center',
+              color          : PAGE_BG,
+              fontWeight     : 800,
+              fontSize       : 14,
+              flexShrink     : 0,
+            }}>
+              {initials}
+            </div>
+            <div 
+              className="transition-all duration-[800ms] ease-in-out"
+              style={{
+                flex         : 1, 
+                minWidth     : 0,
+                opacity      : open ? 1 : 0,
+                maxWidth     : open ? 200 : 0,
+                overflow     : 'hidden',
+                transform    : open ? 'translateX(0)' : 'translateX(-10px)',
+                marginLeft   : open ? 10 : 0,
+              }}
+            >
+              <div style={{
+                color        : PAGE_BG,
+                fontWeight   : 700,
+                fontSize     : 13,
+                overflow     : 'hidden',
+                textOverflow : 'ellipsis',
+                whiteSpace   : 'nowrap',
+              }}>
+                {user?.full_name || 'Loading...'}
+              </div>
+              <div style={{
+                color          : '#A7D5C4',
+                fontWeight     : 800,
+                fontSize       : 10,
+                textTransform  : 'uppercase',
+                letterSpacing  : '0.08em',
+                marginTop      : 1,
+              }}>
+                {roleData?.name.replace(/_/g, ' ') || 'AGENT'}
+              </div>
+            </div>
+          </div>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            title="Logout"
+            style={{
+              display        : 'flex',
+              alignItems     : 'center',
+              cursor         : 'pointer',
+              border         : 'none',
+              width          : open ? '100%' : 38,
+              height         : 38,
+              padding        : open ? '0 12px' : '0',
+              justifyContent : open ? 'flex-start' : 'center',
+              background     : 'rgba(250,248,245,0.06)',
+              borderRadius   : 10,
+              color          : ICON_OFF,
+              transition     : 'background 150ms, color 150ms',
+              marginBottom   : 2,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(250,248,245,0.15)';
+              e.currentTarget.style.color = PAGE_BG;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(250,248,245,0.06)';
+              e.currentTarget.style.color = ICON_OFF;
+            }}
+          >
+            <LogOut size={18} strokeWidth={2} style={{ transition: 'color 150ms' }} />
+            <span 
+              className="transition-all duration-[800ms] ease-in-out"
+              style={{ 
+                marginLeft : open ? 10 : 0, 
+                fontWeight : 700, 
+                fontSize   : 13,
+                opacity    : open ? 1 : 0,
+                maxWidth   : open ? 100 : 0,
+                overflow   : 'hidden',
+                transform  : open ? 'translateX(0)' : 'translateX(-10px)',
+              }}
+            >
+              Logout
+            </span>
+          </button>
+        </div>
+
+      </aside>
+    </div>
   );
 }
