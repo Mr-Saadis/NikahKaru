@@ -188,6 +188,8 @@
   }
 
   /* Remove all animations for users who prefer reduced motion */
+  /* 
+   * Commented out to ensure user sees animations even if OS has reduced motion enabled
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -195,6 +197,7 @@
       transition-duration: 0.01ms !important;
     }
   }
+  */
 
   /* Fix select chevron positioning */
   select {
@@ -256,4 +259,9 @@
   opacity: 1;
   transform: translateY(0);
   transition: opacity 200ms ease, transform 200ms ease;
+}
+
+/* Sidebar transition overriding any other config */
+.sidebar-trans {
+  transition: all 700ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
