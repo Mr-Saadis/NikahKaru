@@ -60,7 +60,7 @@ export default function ProfileDetailPage() {
   return (
     <div className="flex flex-col min-h-full">
       {/* Dossier Header */}
-      <header className="bg-[#FCF9F4] p-6 lg:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E9E4DC]">
+      <header className="bg-[#FAF8F5] p-6 lg:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E9E4DC]">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white hover:bg-[#F4ECE1] border border-[#E9E4DC] shadow-sm text-[#064e3b] transition-all">
             <ArrowLeft className="w-5 h-5" />
