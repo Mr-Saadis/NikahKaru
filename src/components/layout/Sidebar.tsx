@@ -93,7 +93,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
       textDecoration : 'none',
     }}
   >
-    {/* ──── GOOEY LAYERS (Always rendered, animated via opacity) ──── */}
+    {/* ──── GOOEY LAYERS (Animated structure, instant opacity) ──── */}
     <>
       {/* ──── z:1 — PAGE_BG vertical strip (creates notch + gooey area) ──── */}
       <div 
@@ -107,6 +107,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
           opacity    : isActive ? 1 : 0,
           zIndex     : 1,
           pointerEvents: 'none',
+          transition : 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1), top 0.7s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
         }} 
       />
 
@@ -114,7 +115,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
       <div 
         style={{
           position     : 'absolute',
-          left         : open ? 10 : 6,
+          left         : 6, // Always 6 so it doesn't jump laterally
           right        : -GAP,
           top          : 0,
           bottom       : 0,
@@ -123,6 +124,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
           opacity      : isActive ? 1 : 0,
           zIndex       : 2,
           pointerEvents: 'none',
+          transition : 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
         }} 
       />
 
@@ -139,6 +141,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
           opacity                 : isActive ? 1 : 0,
           zIndex                  : 3,
           pointerEvents: 'none',
+          transition : 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1), top 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
         }} 
       />
 
@@ -155,6 +158,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
           opacity              : isActive ? 1 : 0,
           zIndex               : 3,
           pointerEvents: 'none',
+          transition : 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1), left 0.7s cubic-bezier(0.4, 0, 0.2, 1), right 0.7s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
         }} 
       />
     </>
@@ -169,8 +173,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
         alignItems     : 'center',
         height         : '100%',
         width          : '100%',
-        padding        : open ? '0 16px' : '0',
-        justifyContent : open ? 'flex-start' : 'center',
+        paddingLeft    : 16,
       }}
     >
       {/* Icon — green circle when active */}
@@ -197,7 +200,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
       <span 
         className="sidebar-trans"
         style={{
-          marginLeft : open ? 10 : 0,
+          marginLeft : 10,
           fontWeight : 700,
           fontSize   : 14,
           whiteSpace : 'nowrap',
@@ -205,7 +208,6 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
           opacity    : open ? 1 : 0,
           maxWidth   : open ? 150 : 0,
           overflow   : 'hidden',
-          transform  : open ? 'translateX(0)' : 'translateX(-10px)',
         }}
       >
         {item.label}
@@ -266,7 +268,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
         style={{
           position   : 'relative',
           flexShrink : 0,
-          width      : open ? '252px' : '88px',
+          width      : open ? '232px' : '76px',
           padding    : `${GAP}px 0 ${GAP}px ${GAP}px`,   // no right padding
           overflow   : 'visible',
         }}
@@ -296,17 +298,16 @@ export default function Sidebar({ activePage }: SidebarProps) {
             display        : 'flex',
             alignItems     : 'center',
             marginBottom   : 20,
-            padding        : open ? '0 18px' : '0',
-            justifyContent : open ? 'space-between' : 'center',
+            padding        : '0 16px',
           }}
         >
           <div 
             className="sidebar-trans"
             style={{
+              flex       : 1,
               opacity    : open ? 1 : 0,
               maxWidth   : open ? 200 : 0,
               overflow   : 'hidden',
-              transform  : open ? 'translateX(0)' : 'translateX(-10px)',
               whiteSpace : 'nowrap',
             }}
           >
@@ -321,7 +322,9 @@ export default function Sidebar({ activePage }: SidebarProps) {
               border         : 'none',
               cursor         : 'pointer',
               color          : ICON_OFF,
-              padding        : 8,
+              width          : 36,
+              height         : 36,
+              padding        : 0,
               borderRadius   : 8,
               display        : 'flex',
               alignItems     : 'center',
@@ -363,20 +366,17 @@ export default function Sidebar({ activePage }: SidebarProps) {
           className="sidebar-trans"
           style={{
             marginTop     : 'auto',
-            paddingTop    : 14,
-            borderTop     : '1px solid rgba(250,248,245,0.08)',
             display       : 'flex',
             flexDirection : 'column',
             gap           : 10,
-            padding       : open ? '14px 18px 0' : '14px 0 0',
-            alignItems    : open ? 'stretch' : 'center',
+            padding       : '14px 16px 0 16px',
           }}
         >
           {/* Avatar */}
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <div style={{
-              width          : 38,
-              height         : 38,
+              width          : 36,
+              height         : 36,
               borderRadius   : '50%',
               background     : 'linear-gradient(135deg, #A7D5C4, #6B8F80)',
               display        : 'flex',
@@ -397,8 +397,8 @@ export default function Sidebar({ activePage }: SidebarProps) {
                 opacity      : open ? 1 : 0,
                 maxWidth     : open ? 200 : 0,
                 overflow     : 'hidden',
-                transform    : open ? 'translateX(0)' : 'translateX(-10px)',
-                marginLeft   : open ? 10 : 0,
+                marginLeft   : 10,
+                whiteSpace   : 'nowrap',
               }}
             >
               <div style={{
@@ -433,36 +433,41 @@ export default function Sidebar({ activePage }: SidebarProps) {
               alignItems     : 'center',
               cursor         : 'pointer',
               border         : 'none',
-              width          : open ? '100%' : 38,
+              width          : '100%',
               height         : 38,
-              padding        : open ? '0 12px' : '0',
-              justifyContent : open ? 'flex-start' : 'center',
-              background     : 'rgba(250,248,245,0.06)',
-              borderRadius   : 10,
+              padding        : 0,
+              background     : 'transparent',
               color          : ICON_OFF,
-              transition     : 'background 0.15s, color 0.15s, width 0.7s cubic-bezier(0.4, 0, 0.2, 1), padding 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+              transition     : 'color 0.15s',
               marginBottom   : 2,
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(250,248,245,0.15)';
               e.currentTarget.style.color = PAGE_BG;
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(250,248,245,0.06)';
               e.currentTarget.style.color = ICON_OFF;
             }}
           >
-            <LogOut size={18} strokeWidth={2} style={{ transition: 'color 0.15s' }} />
+            <div style={{
+              width          : 36,
+              height         : 36,
+              display        : 'flex',
+              alignItems     : 'center',
+              justifyContent : 'center',
+              flexShrink     : 0,
+            }}>
+              <LogOut size={20} strokeWidth={2} style={{ transition: 'color 0.15s' }} />
+            </div>
             <span 
               className="sidebar-trans"
               style={{ 
-                marginLeft : open ? 10 : 0, 
+                marginLeft : 10, 
                 fontWeight : 700, 
                 fontSize   : 13,
                 opacity    : open ? 1 : 0,
                 maxWidth   : open ? 100 : 0,
                 overflow   : 'hidden',
-                transform  : open ? 'translateX(0)' : 'translateX(-10px)',
+                whiteSpace : 'nowrap',
               }}
             >
               Logout
