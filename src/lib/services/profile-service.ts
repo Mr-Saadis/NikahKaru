@@ -87,14 +87,7 @@ export class ProfileService {
     if (error) throw error;
   }
 
-  static async updateProfileStatus(profileId: string, status: string): Promise<void> {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('profiles')
-      .update({ status })
-      .eq('id', profileId);
-    if (error) throw error;
-  }
+
 
   /**
    * STEP 1: Personal Information
