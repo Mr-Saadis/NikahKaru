@@ -1,4 +1,5 @@
 'use client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { Plus, Trash2 } from 'lucide-react';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
@@ -112,16 +113,19 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Level</label>
-                <select
-                  value={edu.education_level_id ?? ''}
-                  onChange={(e) => updateEdu(idx, { education_level_id: e.target.value ? Number(e.target.value) : undefined })}
-                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none"
+                <Select
+                  value={edu.education_level_id ? String(edu.education_level_id) : ''}
+                  onValueChange={(val) => updateEdu(idx, { education_level_id: val ? Number(val) : undefined })}
                 >
-                  <option value="">Select level</option>
-                  {educationLevels.map((l) => (
-                    <option key={l.id} value={l.id}>{l.name_en}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none">
+                    <SelectValue placeholder="Select level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {educationLevels.map((l) => (
+                      <SelectItem key={l.id} value={String(l.id)}>{l.name_en}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Qualification</label>
@@ -130,7 +134,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={edu.qualification ?? ''}
                   onChange={(e) => updateEdu(idx, { qualification: e.target.value })}
                   placeholder="e.g. B.Sc Computer Science"
-                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
                 />
               </div>
               <div className="space-y-1.5">
@@ -140,7 +144,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={edu.institution_name ?? ''}
                   onChange={(e) => updateEdu(idx, { institution_name: e.target.value })}
                   placeholder="School / University"
-                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
                 />
               </div>
               <div className="space-y-1.5">
@@ -150,7 +154,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={edu.field_of_study ?? ''}
                   onChange={(e) => updateEdu(idx, { field_of_study: e.target.value })}
                   placeholder="e.g. Engineering"
-                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
                 />
               </div>
             </div>
@@ -205,29 +209,35 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Occupation</label>
-                <select
-                  value={emp.occupation_id ?? ''}
-                  onChange={(e) => updateEmp(idx, { occupation_id: e.target.value ? Number(e.target.value) : undefined })}
-                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none"
+                <Select
+                  value={emp.occupation_id ? String(emp.occupation_id) : ''}
+                  onValueChange={(val) => updateEmp(idx, { occupation_id: val ? Number(val) : undefined })}
                 >
-                  <option value="">Select occupation</option>
-                  {occupations.map((o) => (
-                    <option key={o.id} value={o.id}>{o.name_en}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none">
+                    <SelectValue placeholder="Select occupation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {occupations.map((o) => (
+                      <SelectItem key={o.id} value={String(o.id)}>{o.name_en}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Employment Type</label>
-                <select
-                  value={emp.employment_type ?? ''}
-                  onChange={(e) => updateEmp(idx, { employment_type: e.target.value as EmploymentType || undefined })}
-                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none"
+                <Select
+                  value={emp.employment_type || ''}
+                  onValueChange={(val) => updateEmp(idx, { employment_type: val as EmploymentType || undefined })}
                 >
-                  <option value="">Select type</option>
-                  {EMPLOYMENT_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none h-[42px] shadow-none">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EMPLOYMENT_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Job Title</label>
@@ -236,7 +246,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={emp.job_title ?? ''}
                   onChange={(e) => updateEmp(idx, { job_title: e.target.value })}
                   placeholder="e.g. Software Engineer"
-                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
                 />
               </div>
               <div className="space-y-1.5">
@@ -246,7 +256,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={emp.organization_name ?? ''}
                   onChange={(e) => updateEmp(idx, { organization_name: e.target.value })}
                   placeholder="Company / Org name"
-                  className="w-full bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
                 />
               </div>
             </div>

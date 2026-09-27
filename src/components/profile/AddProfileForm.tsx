@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { ProfileService } from '@/lib/services/profile-service';
 import { PreferenceService } from '@/lib/services/preference-service';
-import HorizontalStepper, { type StepConfig } from './HorizontalStepper';
 import ProfileSidebar from './ProfileSidebar';
 import Step1BasicInfo, { type Step1Data } from './steps/Step1BasicInfo';
 import Step2MaritalPhysical, { type Step2Data } from './steps/Step2MaritalPhysical';
@@ -19,7 +18,7 @@ import Step9Review from './steps/Step9Review';
 import { ArrowLeft, ArrowRight, Save, Loader2 } from 'lucide-react';
 
 // ── Step config ────────────────────────────────────────────────
-const STEPS: StepConfig[] = [
+const STEPS = [
   { id: 1, name: 'Basic Information',        shortName: 'Basic' },
   { id: 2, name: 'Physical',                 shortName: 'Physical' },
   { id: 3, name: 'Education & Profession',   shortName: 'Education' },
@@ -48,11 +47,11 @@ const SIDEBAR_STEPS = STEPS.map((s) => ({
 }));
 
 // ── Default form state ─────────────────────────────────────────
-const defaultStep1 = (): Step1Data => ({ gender: '', full_name: '', date_of_birth: '', marital_status: '', nationality_country_id: '', mother_tongue_id: '' });
+const defaultStep1 = (): Step1Data => ({ gender: '', full_name: '', date_of_birth: '', marital_status: 'NEVER_MARRIED', number_of_children: '', children_living_with: '', nationality_country_id: '', mother_tongue_id: '', profile_picture: '' });
 const defaultStep2 = (): Step2Data => ({ height_cm: '', weight_kg: '', complexion: '', has_disability: false, disability_details: '' });
 const defaultStep3 = (): Step3Data => ({ education_records: [], employment_records: [], monthly_income_min: '', monthly_income_max: '' });
 const defaultStep4 = (): Step4Data => ({ religion_id: '', sect_id: '', caste_id: '', other_caste_text: '' });
-const defaultStep5 = (): Step5Data => ({ current_country_id: '', current_province_id: '', current_city_id: '', permanent_country_id: '', permanent_province_id: '', permanent_city_id: '', current_location_text: '', house_status: '', property_type: '', family_setup: '', living_with: '' });
+const defaultStep5 = (): Step5Data => ({ current_country_id: '', current_province_id: '', current_city_id: '', permanent_country_id: '', permanent_province_id: '', permanent_city_id: '', current_location_text: '', permanent_location_text: '', house_status: '', property_type: '', family_setup: '', living_with: '' });
 const defaultStep6 = (): Step6Data => ({ parents: [], siblings: [], family_profession_business: '', social_background: '', family_values: '', family_introduction: '' });
 const defaultStep7 = (): Step7Data => ({ beard: '', hijab: '', religious_practice: '', smoking: '', other_lifestyle_information: '', willing_to_relocate: '', preferred_country_id: '', preferred_province_id: '', preferred_city_id: '', relocation_details: '' });
 const defaultStep8 = (): Step8Data => ({ pref_min_age: '', pref_max_age: '', pref_age_importance: '', pref_marital_status: '', pref_marital_importance: '', pref_children_allowed: '', pref_children_importance: '', pref_min_height: '', pref_max_height: '', pref_height_importance: '', pref_disability_allowed: '', pref_disability_importance: '', pref_religion_id: '', pref_religion_importance: '', pref_sect_id: '', pref_sect_importance: '', pref_caste_id: '', pref_caste_importance: '', pref_religious_practice: '', pref_religious_practice_importance: '', pref_min_income: '', pref_max_income: '', pref_income_importance: '', pref_location_country_id: '', pref_location_importance: '', pref_family_setup: '', pref_family_setup_importance: '', pref_smoking: '', pref_smoking_importance: '' });
@@ -89,6 +88,120 @@ export default function AddProfileForm() {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
+  // ── Step completion logic ───────────────────────────────────
+  const getStepStats = (stepId: number): { completed: number, total: number, mandatoryComplete: boolean } => {
+    switch (stepId) {
+      case 1: {
+        const total = 6;
+        let completed = 0;
+        if (step1.gender) completed++;
+        if (step1.full_name) completed++;
+        if (step1.date_of_birth) completed++;
+        if (step1.marital_status) completed++;
+        if (step1.nationality_country_id) completed++;
+        if (step1.mother_tongue_id) completed++;
+        const mandatoryComplete = !!(step1.gender && step1.full_name && step1.date_of_birth && step1.marital_status);
+        return { completed, total, mandatoryComplete };
+      }
+      case 2: {
+        let total = 3;
+        let completed = 0;
+        if (step2.height_cm) completed++;
+        if (step2.weight_kg) completed++;
+        if (step2.complexion) completed++;
+        if (step2.has_disability) {
+          total += 1;
+          if (step2.disability_details) completed++;
+        }
+        const mandatoryComplete = !!(step2.height_cm && step2.complexion);
+        return { completed, total, mandatoryComplete };
+      }
+      case 3: {
+        const total = 4;
+        let completed = 0;
+        if (step3.education_records.length > 0) completed++;
+        if (step3.employment_records.length > 0) completed++;
+        if (step3.monthly_income_min) completed++;
+        if (step3.monthly_income_max) completed++;
+        const mandatoryComplete = completed > 0; // All optional, but don't show "Done" if 0%
+        return { completed, total, mandatoryComplete };
+      }
+      case 4: {
+        const total = 4;
+        let completed = 0;
+        if (step4.religion_id) completed++;
+        if (step4.sect_id) completed++;
+        if (step4.caste_id) completed++;
+        if (step4.other_caste_text) completed++;
+        const mandatoryComplete = !!(step4.religion_id);
+        return { completed, total, mandatoryComplete };
+      }
+      case 5: {
+        const total = 11;
+        let completed = 0;
+        if (step5.current_country_id) completed++;
+        if (step5.current_province_id) completed++;
+        if (step5.current_city_id) completed++;
+        if (step5.permanent_country_id) completed++;
+        if (step5.permanent_province_id) completed++;
+        if (step5.permanent_city_id) completed++;
+        if (step5.current_location_text) completed++;
+        if (step5.house_status) completed++;
+        if (step5.property_type) completed++;
+        if (step5.family_setup) completed++;
+        if (step5.living_with) completed++;
+        const mandatoryComplete = !!(step5.current_country_id && step5.current_province_id && step5.current_city_id);
+        return { completed, total, mandatoryComplete };
+      }
+      case 6: {
+        const total = 6;
+        let completed = 0;
+        if (step6.parents.length > 0) completed++;
+        if (step6.siblings.length > 0) completed++;
+        if (step6.family_profession_business) completed++;
+        if (step6.social_background) completed++;
+        if (step6.family_values) completed++;
+        if (step6.family_introduction) completed++;
+        const mandatoryComplete = step6.parents.length > 0;
+        return { completed, total, mandatoryComplete };
+      }
+      case 7: {
+        const total = 10;
+        let completed = 0;
+        if (step7.religious_practice) completed++;
+        if (step7.beard) completed++;
+        if (step7.hijab) completed++;
+        if (step7.smoking) completed++;
+        if (step7.other_lifestyle_information) completed++;
+        if (step7.willing_to_relocate) completed++;
+        if (step7.preferred_country_id) completed++;
+        if (step7.preferred_province_id) completed++;
+        if (step7.preferred_city_id) completed++;
+        if (step7.relocation_details) completed++;
+        const mandatoryComplete = !!(step7.religious_practice);
+        return { completed, total, mandatoryComplete };
+      }
+      case 8: {
+        const total = 29;
+        const completed = Object.values(step8).filter(v => v !== '' && v !== null && v !== undefined).length;
+        const mandatoryComplete = true;
+        return { completed, total, mandatoryComplete };
+      }
+      default:
+        return { completed: 1, total: 1, mandatoryComplete: true };
+    }
+  };
+
+  const dynamicSidebarSteps = SIDEBAR_STEPS.map(s => {
+    const stats = getStepStats(s.id);
+    return {
+      ...s,
+      completedFields: stats.completed,
+      totalFields: stats.total,
+      mandatoryComplete: stats.mandatoryComplete
+    };
+  });
+
   // ── Final save ─────────────────────────────────────────────
   const handleSave = async () => {
     if (!user) return;
@@ -107,7 +220,7 @@ export default function AddProfileForm() {
         marital_status: step1.marital_status || 'NEVER_MARRIED',
         nationality_country_id: step1.nationality_country_id ? Number(step1.nationality_country_id) : null,
         mother_tongue_id: step1.mother_tongue_id ? Number(step1.mother_tongue_id) : null,
-        number_of_children: 0,
+        number_of_children: step1.number_of_children ? Number(step1.number_of_children) : 0,
       });
 
       await Promise.all([
@@ -335,11 +448,6 @@ export default function AddProfileForm() {
         <div className="lg:col-span-8">
           <div className="bg-white rounded-[32px] border border-[#E9E4DC] shadow-[0_2px_14px_-3px_rgba(0,0,0,0.04),0_1px_4px_-1px_rgba(0,0,0,0.02)] overflow-hidden">
 
-            {/* Horizontal stepper */}
-            <div className="border-b border-[#F0EBE2]">
-              <HorizontalStepper steps={STEPS} currentStep={currentStep} />
-            </div>
-
             {/* Step content */}
             <div className="p-8">
               {error && (
@@ -396,12 +504,13 @@ export default function AddProfileForm() {
         {/* ── Profile sidebar ── */}
         <div className="lg:col-span-4">
           <ProfileSidebar
-            steps={SIDEBAR_STEPS}
+            steps={dynamicSidebarSteps}
             currentStep={currentStep}
             completedSteps={completedSteps}
             onStepClick={goToStep}
             profileName={step1.full_name || undefined}
             gender={step1.gender || undefined}
+            profilePicture={step1.profile_picture || undefined}
           />
         </div>
       </div>
