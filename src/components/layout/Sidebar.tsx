@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -78,9 +79,10 @@ export const adminItems = [
   └──────────────────────────────────────────────────────────────┘
 */
 
-const NavItem = ({ item, isActive, open }: { item: typeof navItems[0]; isActive: boolean; open: boolean }) => (
+const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; isActive: boolean; open: boolean; onClick: () => void }) => (
   <Link
     href={item.href}
+    onClick={onClick}
     title={!open ? item.label : undefined}
     style={{
       position       : 'relative',
@@ -95,7 +97,6 @@ const NavItem = ({ item, isActive, open }: { item: typeof navItems[0]; isActive:
     <>
       {/* ──── z:1 — PAGE_BG vertical strip (creates notch + gooey area) ──── */}
       <div 
-        className="transition-all duration-[800ms] ease-in-out"
         style={{
           position   : 'absolute',
           right      : -GAP,
@@ -111,7 +112,6 @@ const NavItem = ({ item, isActive, open }: { item: typeof navItems[0]; isActive:
 
       {/* ──── z:2 — PAGE_BG pill (row background) ──── */}
       <div 
-        className="transition-all duration-[800ms] ease-in-out"
         style={{
           position     : 'absolute',
           left         : open ? 10 : 6,
@@ -128,7 +128,6 @@ const NavItem = ({ item, isActive, open }: { item: typeof navItems[0]; isActive:
 
       {/* ──── z:3 — Green curve TOP ──── */}
       <div 
-        className="transition-all duration-[800ms] ease-in-out"
         style={{
           position                : 'absolute',
           right                   : 0,
@@ -145,7 +144,6 @@ const NavItem = ({ item, isActive, open }: { item: typeof navItems[0]; isActive:
 
       {/* ──── z:3 — Green curve BOTTOM ──── */}
       <div 
-        className="transition-all duration-[800ms] ease-in-out"
         style={{
           position             : 'absolute',
           right                : 0,
@@ -163,7 +161,7 @@ const NavItem = ({ item, isActive, open }: { item: typeof navItems[0]; isActive:
 
     {/* ──── z:10 — Content: icon + label ──── */}
     <div 
-      className="transition-all duration-[800ms] ease-in-out"
+      className="sidebar-trans"
       style={{
         position       : 'relative',
         zIndex         : 10,
@@ -185,19 +183,19 @@ const NavItem = ({ item, isActive, open }: { item: typeof navItems[0]; isActive:
         flexShrink     : 0,
         borderRadius   : '50%',
         background     : isActive ? SIDEBAR : 'transparent',
-        transition     : 'background 200ms',
+        transition     : 'background 0.2s',
       }}>
         <item.icon
           size={20}
           color={isActive ? PAGE_BG : ICON_OFF}
           strokeWidth={isActive ? 2.5 : 2}
-          className="transition-all duration-[800ms] ease-in-out"
+          className="sidebar-trans"
         />
       </div>
 
       {/* Label */}
       <span 
-        className="transition-all duration-[800ms] ease-in-out"
+        className="sidebar-trans"
         style={{
           marginLeft : open ? 10 : 0,
           fontWeight : 700,
@@ -220,6 +218,13 @@ export default function Sidebar({ activePage }: SidebarProps) {
   const { user, role, roleData } = useAuth();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  const [optimisticPath, setOptimisticPath] = useState(pathname);
+  
+  // Keep it synced if the pathname changes externally
+  useEffect(() => {
+    setOptimisticPath(pathname);
+  }, [pathname]);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -255,50 +260,54 @@ export default function Sidebar({ activePage }: SidebarProps) {
   */
 
   return (
-    <div 
-      className="transition-all duration-[800ms] ease-in-out"
-      style={{
-        position   : 'relative',
-        flexShrink : 0,
-        width      : open ? '252px' : '88px',
-        padding    : `${GAP}px 0 ${GAP}px ${GAP}px`,   // no right padding
-        overflow   : 'visible',
-      }}
-    >
-      {/* Green sidebar card — rounded ALL corners, overflow: visible */}
-      <aside 
-        className="transition-all duration-[800ms] ease-in-out"
+    <>
+      <div 
+        className="sidebar-trans"
         style={{
-          width         : `calc(100% - ${GAP}px)`,   // leaves GAP on the right
-          height        : '100%',
-          background    : SIDEBAR,
-          borderRadius  : 28,
-          display       : 'flex',
-          flexDirection : 'column',
-          paddingTop    : 18,
-          paddingBottom : 18,
-          /* Removed box-shadow to prevent it from darkening the page background next to the active pill, which caused a visual seam */
-          overflow      : 'visible',     // CRITICAL — gooey curves must escape
-          position      : 'relative',
+          position   : 'relative',
+          flexShrink : 0,
+          width      : open ? '252px' : '88px',
+          padding    : `${GAP}px 0 ${GAP}px ${GAP}px`,   // no right padding
+          overflow   : 'visible',
         }}
       >
+        {/* Green sidebar card — rounded ALL corners, overflow: visible */}
+        <aside 
+          className="sidebar-trans"
+          style={{
+            width         : `calc(100% - ${GAP}px)`,   // leaves GAP on the right
+            height        : '100%',
+            background    : SIDEBAR,
+            borderRadius  : 28,
+            display       : 'flex',
+            flexDirection : 'column',
+            paddingTop    : 18,
+            paddingBottom : 18,
+            /* Removed box-shadow to prevent it from darkening the page background next to the active pill, which caused a visual seam */
+            overflow      : 'visible',     // CRITICAL — gooey curves must escape
+            position      : 'relative',
+          }}
+        >
 
         {/* ─── Toggle ─── */}
-        <div style={{
-          display        : 'flex',
-          alignItems     : 'center',
-          marginBottom   : 20,
-          padding        : open ? '0 18px' : '0',
-          justifyContent : open ? 'space-between' : 'center',
-        }}>
+        <div 
+          className="sidebar-trans"
+          style={{
+            display        : 'flex',
+            alignItems     : 'center',
+            marginBottom   : 20,
+            padding        : open ? '0 18px' : '0',
+            justifyContent : open ? 'space-between' : 'center',
+          }}
+        >
           <div 
-            className="transition-all duration-[800ms] ease-in-out"
+            className="sidebar-trans"
             style={{
               opacity    : open ? 1 : 0,
               maxWidth   : open ? 200 : 0,
               overflow   : 'hidden',
               transform  : open ? 'translateX(0)' : 'translateX(-10px)',
-              whiteSpace : 'nowrap'
+              whiteSpace : 'nowrap',
             }}
           >
             <span style={{ color: PAGE_BG, fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px' }}>
@@ -335,33 +344,36 @@ export default function Sidebar({ activePage }: SidebarProps) {
         }}>
           {visible.map(item => {
             const isActive = item.href === '/overview'
-              ? pathname === '/overview'
-              : pathname.startsWith(item.href);
-            return <NavItem key={item.id} item={item} isActive={isActive} open={open} />;
+              ? optimisticPath === '/overview' || optimisticPath === '/'
+              : optimisticPath.startsWith(item.href);
+            return <NavItem key={item.id} item={item} isActive={isActive} open={open} onClick={() => flushSync(() => setOptimisticPath(item.href))} />;
           })}
           {role === 'HIGH_LEVEL_ADMIN' && (
             <>
               <div style={{ height: 1, background: 'rgba(250,248,245,0.08)', margin: '6px 16px' }} />
               {adminItems.map(item => (
-                <NavItem key={item.id} item={item} isActive={activePage.startsWith(item.id)} open={open} />
+                <NavItem key={item.id} item={item} isActive={optimisticPath.startsWith(item.href)} open={open} onClick={() => flushSync(() => setOptimisticPath(item.href))} />
               ))}
             </>
           )}
         </nav>
 
         {/* ─── Bottom: avatar + logout ─── */}
-        <div style={{
-          marginTop     : 'auto',
-          paddingTop    : 14,
-          borderTop     : '1px solid rgba(250,248,245,0.08)',
-          display       : 'flex',
-          flexDirection : 'column',
-          gap           : 10,
-          padding       : open ? '14px 18px 0' : '14px 0 0',
-          alignItems    : open ? 'stretch' : 'center',
-        }}>
+        <div 
+          className="sidebar-trans"
+          style={{
+            marginTop     : 'auto',
+            paddingTop    : 14,
+            borderTop     : '1px solid rgba(250,248,245,0.08)',
+            display       : 'flex',
+            flexDirection : 'column',
+            gap           : 10,
+            padding       : open ? '14px 18px 0' : '14px 0 0',
+            alignItems    : open ? 'stretch' : 'center',
+          }}
+        >
           {/* Avatar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             <div style={{
               width          : 38,
               height         : 38,
@@ -378,7 +390,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
               {initials}
             </div>
             <div 
-              className="transition-all duration-[800ms] ease-in-out"
+              className="sidebar-trans"
               style={{
                 flex         : 1, 
                 minWidth     : 0,
@@ -428,7 +440,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
               background     : 'rgba(250,248,245,0.06)',
               borderRadius   : 10,
               color          : ICON_OFF,
-              transition     : 'background 150ms, color 150ms',
+              transition     : 'background 0.15s, color 0.15s, width 0.7s cubic-bezier(0.4, 0, 0.2, 1), padding 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
               marginBottom   : 2,
             }}
             onMouseEnter={e => {
@@ -440,9 +452,9 @@ export default function Sidebar({ activePage }: SidebarProps) {
               e.currentTarget.style.color = ICON_OFF;
             }}
           >
-            <LogOut size={18} strokeWidth={2} style={{ transition: 'color 150ms' }} />
+            <LogOut size={18} strokeWidth={2} style={{ transition: 'color 0.15s' }} />
             <span 
-              className="transition-all duration-[800ms] ease-in-out"
+              className="sidebar-trans"
               style={{ 
                 marginLeft : open ? 10 : 0, 
                 fontWeight : 700, 
@@ -460,5 +472,6 @@ export default function Sidebar({ activePage }: SidebarProps) {
 
       </aside>
     </div>
+    </>
   );
 }
