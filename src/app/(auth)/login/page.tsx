@@ -43,6 +43,77 @@ function LoginForm() {
   };
 
   return (
+    <div className="flex-1 flex flex-col justify-center items-center p-8 sm:p-12 lg:p-20 relative">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center md:text-left space-y-2">
+          <h2 className="text-3xl font-bold text-[#16382E]">Welcome Back</h2>
+          <p className="text-[15px] text-[#7D766C]">
+            Sign in to your account to continue
+          </p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-6">
+          {error && (
+            <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-medium">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label 
+              htmlFor="email" 
+              className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]"
+            >
+              Email Address
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3.5 text-[14px] placeholder:text-[#A8A296] focus:border-[#115E49] focus:ring-1 focus:ring-[#115E49] focus:outline-none shadow-sm transition-all"
+              placeholder="Enter your email"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label 
+              htmlFor="password" 
+              className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3.5 text-[14px] placeholder:text-[#A8A296] focus:border-[#115E49] focus:ring-1 focus:ring-[#115E49] focus:outline-none shadow-sm transition-all"
+              placeholder="Enter your password"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-[#16382E] hover:bg-[#064e3b] text-white font-semibold py-3.5 rounded-xl shadow-[0_4px_14px_0_rgba(22,56,46,0.39)] hover:shadow-[0_6px_20px_rgba(22,56,46,0.23)] hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            {isLoading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+      </div>
+
+      <div className="text-[12px] text-[#A8A296] font-medium absolute bottom-8 text-center">
+        Developed by zscorelabs.
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
     <div className="min-h-screen flex w-full bg-[#FAF8F5]">
       {/* LEFT PANEL */}
       <div className="hidden md:flex w-[45%] bg-[#16382E] flex-col justify-center items-center overflow-hidden relative">
@@ -78,73 +149,9 @@ function LoginForm() {
         </div>
       </div>
 
-      {/* RIGHT PANEL */}
-      <div className="flex-1 flex flex-col justify-center items-center p-8 sm:p-12 lg:p-20 relative">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center md:text-left space-y-2">
-            <h2 className="text-3xl font-bold text-[#16382E]">Welcome Back</h2>
-            <p className="text-[15px] text-[#7D766C]">
-              Sign in to your account to continue
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            {error && (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-medium">
-                {error}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label 
-                htmlFor="email" 
-                className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]"
-              >
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3.5 text-[14px] placeholder:text-[#A8A296] focus:border-[#115E49] focus:ring-1 focus:ring-[#115E49] focus:outline-none shadow-sm transition-all"
-                placeholder="Enter your email"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label 
-                htmlFor="password" 
-                className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3.5 text-[14px] placeholder:text-[#A8A296] focus:border-[#115E49] focus:ring-1 focus:ring-[#115E49] focus:outline-none shadow-sm transition-all"
-                placeholder="Enter your password"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-[#16382E] hover:bg-[#064e3b] text-white font-semibold py-3.5 rounded-xl shadow-[0_4px_14px_0_rgba(22,56,46,0.39)] hover:shadow-[0_6px_20px_rgba(22,56,46,0.23)] hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
-            >
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
-        </div>
-
-        <div className="text-[12px] text-[#A8A296] font-medium absolute bottom-8 text-center">
-          Developed by zscorelabs.
-        </div>
-      </div>
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-[#16382E] font-medium">Loading...</div>}>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }
