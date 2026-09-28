@@ -962,10 +962,10 @@ export default function ProfilesListPage() {
                 <div key={tab.value} className="flex-1 flex items-center justify-center relative">
                   <button
                     onClick={() => handleTabChange(tab.value)}
-                    className={`w-full flex items-center justify-center text-[10px] tracking-tight whitespace-nowrap font-bold transition-all duration-300 ${
+                    className={`w-full flex items-center justify-center text-[10.5px] tracking-tight whitespace-nowrap font-extrabold transition-all duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-bottom ${
                       isActive
-                        ? 'h-[28px] bg-white text-[#064e3b] border border-[#E5DFD4] border-b-white rounded-t-lg relative z-10'
-                        : 'h-[28px] text-[#8B8479] border border-transparent hover:text-[#064e3b] hover:bg-white/60 rounded-md'
+                        ? 'h-[30px] bg-white text-[#064e3b] border border-[#E5DFD4] border-b-white rounded-t-lg relative z-10 scale-[1.12] shadow-[0_-3px_10px_rgba(0,0,0,0.03)] translate-y-[1px]'
+                        : 'h-[28px] text-[#8B8479] border border-transparent hover:text-[#064e3b] hover:bg-white/60 rounded-md scale-[0.92] opacity-70 hover:opacity-100 hover:scale-[0.96]'
                     }`}
                   >
                     {tab.label}
@@ -979,8 +979,14 @@ export default function ProfilesListPage() {
           </div>
 
           {/* ─── Profile List (scrollable) ─── */}
-          <div className="flex-1 overflow-y-auto px-2 py-1.5 space-y-1 custom-scrollbar">
-            {loading ? (
+          <div className="flex-1 overflow-y-auto px-2 py-1.5 space-y-1 custom-scrollbar relative">
+            {loading && profiles.length > 0 && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-start pt-10 bg-[#FCFDFD]/50 backdrop-blur-[1px]">
+                <Loader2 className="w-6 h-6 animate-spin text-[#064e3b]" />
+              </div>
+            )}
+            
+            {loading && profiles.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-[#8B8479] gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span className="text-[11px] font-medium">Loading…</span>
