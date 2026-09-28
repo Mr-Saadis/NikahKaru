@@ -509,7 +509,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                     marginBottom: 2,
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.color = PAGE_BG;
+                    e.currentTarget.style.color = pageBg;
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.color = ICON_OFF;
