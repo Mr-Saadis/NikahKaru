@@ -400,7 +400,7 @@ export class ProfileService {
     let query = supabase
       .from('profiles')
       .select(`
-        id, gender, status, created_at, updated_at, current_agent_id,
+        id, gender, status, profile_URL, created_at, updated_at, current_agent_id,
         personal_information ( full_name, date_of_birth, marital_status ),
         profile_locations ( current_city_id )
       `, { count: 'exact' });
@@ -444,6 +444,27 @@ export class ProfileService {
     }
 
     return { data: results, count: count || results.length };
+  }
+
+  /**
+   * READ: Get profile counts by status (head-only queries, very lightweight)
+   */
+  static async getProfileStats(): Promise<{ total: number; active: number; draft: number; paused: number; archived: number }> {
+    const supabase = createClient();
+    const [total, active, draft, paused, archived] = await Promise.all([
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE'),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'DRAFT'),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'PAUSED'),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'ARCHIVED'),
+    ]);
+    return {
+      total: total.count || 0,
+      active: active.count || 0,
+      draft: draft.count || 0,
+      paused: paused.count || 0,
+      archived: archived.count || 0,
+    };
   }
 
   /**
