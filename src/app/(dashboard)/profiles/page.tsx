@@ -119,25 +119,62 @@ function StatusBadge({ status, size = 'sm' }: { status: ProfileStatus; size?: 's
   }
 }
 
-/** Stat card (2×2 grid item at top of left panel) */
-function StatCard({
-  icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  accent: string;
-}) {
+/** Fanned out animated stat deck (replaces 2x2 grid) */
+function StatDeck({ stats }: { stats: { total: number; active: number; draft: number; paused: number } }) {
   return (
-    <div className="bg-white rounded-2xl border border-[#ECE5D9] px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${accent}`}>{icon}</div>
-        <span className="text-[10.5px] font-semibold text-[#8B8479] uppercase tracking-wide">{label}</span>
+    <div className="relative w-full h-[170px] flex items-center justify-center group perspective-1000 overflow-visible">
+      {/* Card 4: Paused (Bottom layer) */}
+      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_16px_32px_rgba(0,0,0,0.12)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+        group-hover:translate-x-[65px] group-hover:translate-y-[42px] group-hover:rotate-0
+        translate-x-[45px] -translate-y-[5px] rotate-[12deg] z-10 cursor-default hover:!scale-105"
+      >
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <PauseCircle className="w-3.5 h-3.5 text-[#dc2626]" />
+          <span className="text-[9px] font-extrabold text-[#8B8479] uppercase tracking-widest">Paused</span>
+        </div>
+        <span className="text-[20px] font-black text-[#1E1F22] leading-none">{stats.paused}</span>
       </div>
-      <span className="text-[22px] font-extrabold text-[#1E1F22] leading-none pl-0.5">{value}</span>
+
+      {/* Card 3: Draft */}
+      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_12px_24px_rgba(0,0,0,0.1)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+        group-hover:translate-x-[-65px] group-hover:translate-y-[42px] group-hover:rotate-0
+        -translate-x-[45px] translate-y-[5px] rotate-[-8deg] z-20 cursor-default hover:!scale-105"
+      >
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <FileText className="w-3.5 h-3.5 text-[#d97706]" />
+          <span className="text-[9px] font-extrabold text-[#8B8479] uppercase tracking-widest">Draft</span>
+        </div>
+        <span className="text-[20px] font-black text-[#1E1F22] leading-none">{stats.draft}</span>
+      </div>
+
+      {/* Card 2: Active */}
+      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_8px_20px_rgba(0,0,0,0.08)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+        group-hover:translate-x-[65px] group-hover:translate-y-[-42px] group-hover:rotate-0
+        translate-x-[15px] translate-y-[10px] rotate-[6deg] z-30 cursor-default hover:!scale-105"
+      >
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <CheckCircle className="w-3.5 h-3.5 text-[#16a34a]" />
+          <span className="text-[9px] font-extrabold text-[#8B8479] uppercase tracking-widest">Active</span>
+        </div>
+        <span className="text-[20px] font-black text-[#1E1F22] leading-none">{stats.active}</span>
+      </div>
+
+      {/* Card 1: Total (Top layer) */}
+      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_8px_20px_rgba(0,0,0,0.06)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+        group-hover:translate-x-[-65px] group-hover:translate-y-[-42px] group-hover:rotate-0
+        -translate-x-[5px] translate-y-[20px] rotate-[-2deg] z-40 cursor-default hover:!scale-105"
+      >
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <Users className="w-3.5 h-3.5 text-[#064e3b]" />
+          <span className="text-[9px] font-extrabold text-[#8B8479] uppercase tracking-widest">Total</span>
+        </div>
+        <span className="text-[20px] font-black text-[#1E1F22] leading-none">{stats.total}</span>
+      </div>
+      
+      {/* Hover Instruction Overlay */}
+      <div className="absolute bottom-1 text-[9px] font-black text-[#8B8479]/40 tracking-[0.2em] uppercase opacity-100 group-hover:opacity-0 transition-opacity duration-300 pointer-events-none">
+        Hover to view
+      </div>
     </div>
   );
 }
@@ -274,8 +311,8 @@ export default function ProfilesListPage() {
     const average = getAverageScore(results);
     const highest = getHighestScore(results);
     const highCount = getHighMatchCount(results);
-    // Top 5 by score, displayed in ASCENDING order
-    const top5 = results.slice(0, 5).sort((a, b) => a.score - b.score);
+    // Top 5 by score, displayed in DESCENDING order (highest first)
+    const top5 = results.slice(0, 5).sort((a, b) => b.score - a.score);
 
     return { results, distribution, average, highest, highCount, totalCompared: results.length, top5 };
   }, [selectedId, profiles]);
@@ -436,15 +473,15 @@ export default function ProfilesListPage() {
     ];
 
     return (
-      <div className="h-full flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
        
         {/* ═══ Main grid: Overview (3/5) + Distribution & Request (2/5) ═══ */}
-        <div className="grid grid-cols-5 gap-3 flex-1 min-h-0">
+        <div className="grid grid-cols-5 gap-4">
 
           {/* ── LEFT: Compatibility Overview ── */}
-          <div className="col-span-3 flex flex-col">
-            <section className="bg-white rounded-2xl border border-[#ECE5D9] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden flex-1 flex flex-col">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-[#F3EEE5] shrink-0">
+          <div className="col-span-3">
+            <section className="bg-white rounded-2xl border border-[#ECE5D9] shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-full flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#F3EEE5]">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-md bg-[#E5EFE9] flex items-center justify-center text-[#064e3b]">
                     <BarChart3 className="w-3.5 h-3.5" />
@@ -454,49 +491,49 @@ export default function ProfilesListPage() {
                 <span className="text-[9px] text-[#8B8479] font-medium">vs {totalCompared} profiles</span>
               </div>
 
-              <div className="px-4 py-3 flex-1 flex flex-col min-h-0">
+              <div className="px-4 py-4 flex-1 flex flex-col">
                 {/* Stat sub-cards */}
-                <div className="grid grid-cols-3 gap-2 mb-3 shrink-0">
-                  <div className="bg-gradient-to-br from-[#E5EFE9] to-[#D4EDDB] rounded-xl p-3 flex flex-col gap-1">
-                    <span className="text-[8.5px] font-bold text-[#064e3b]/60 uppercase tracking-wider">Total Compared</span>
-                    <span className="text-[26px] font-extrabold text-[#064e3b] leading-none">{totalCompared}</span>
-                    <div className="flex items-center gap-1">
-                      <span className="w-1 h-1 rounded-full bg-[#16a34a]" />
-                      <span className="text-[8.5px] text-[#064e3b]/60 font-medium">Profiles</span>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="bg-gradient-to-br from-[#E5EFE9] to-[#D4EDDB] rounded-xl p-3.5 flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-[#064e3b]/60 uppercase tracking-wider">Total Compared</span>
+                    <span className="text-[28px] font-extrabold text-[#064e3b] leading-none">{totalCompared}</span>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]" />
+                      <span className="text-[9px] text-[#064e3b]/60 font-medium">Profiles</span>
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-br from-[#E0F2FE] to-[#CCE8FA] rounded-xl p-3 flex flex-col gap-1">
-                    <span className="text-[8.5px] font-bold text-[#0C4A6E]/60 uppercase tracking-wider">High Matches</span>
-                    <span className="text-[26px] font-extrabold text-[#0C4A6E] leading-none">{highCount}</span>
-                    <div className="flex items-center gap-1">
-                      <span className="w-1 h-1 rounded-full bg-[#0EA5E9]" />
-                      <span className="text-[8.5px] text-[#0C4A6E]/60 font-medium">80%+ match</span>
+                  <div className="bg-gradient-to-br from-[#E0F2FE] to-[#CCE8FA] rounded-xl p-3.5 flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-[#0C4A6E]/60 uppercase tracking-wider">High Matches</span>
+                    <span className="text-[28px] font-extrabold text-[#0C4A6E] leading-none">{highCount}</span>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#0EA5E9]" />
+                      <span className="text-[9px] text-[#0C4A6E]/60 font-medium">80%+ match</span>
                     </div>
                   </div>
 
-                  <div className="bg-[#FAFAF8] rounded-xl p-3 border border-[#F0EBE3] flex flex-col gap-1">
-                    <span className="text-[8.5px] font-bold text-[#8B8479] uppercase tracking-wider">Score Range</span>
-                    <div className="flex items-end gap-3">
+                  <div className="bg-[#FAFAF8] rounded-xl p-3.5 border border-[#F0EBE3] flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-[#8B8479] uppercase tracking-wider">Score Range</span>
+                    <div className="flex items-end gap-3 mt-1">
                       <div>
-                        <span className="text-[8px] text-[#8B8479]">Avg</span>
-                        <div className="text-[18px] font-extrabold text-[#064e3b] leading-none">{average}%</div>
+                        <span className="text-[9px] text-[#8B8479]">Avg</span>
+                        <div className="text-[20px] font-extrabold text-[#064e3b] leading-none mt-0.5">{average}%</div>
                       </div>
                       <div>
-                        <span className="text-[8px] text-[#8B8479]">Best</span>
-                        <div className="text-[18px] font-extrabold leading-none" style={{ color: getScoreColor(highest) }}>{highest}%</div>
+                        <span className="text-[9px] text-[#8B8479]">Best</span>
+                        <div className="text-[20px] font-extrabold leading-none mt-0.5" style={{ color: getScoreColor(highest) }}>{highest}%</div>
                       </div>
                     </div>
-                    <div className="w-full bg-[#E5EFE9] rounded-full h-1 overflow-hidden mt-0.5">
+                    <div className="w-full bg-[#E5EFE9] rounded-full h-1 overflow-hidden mt-1.5">
                       <div className="h-full rounded-full bg-[#064e3b] transition-all duration-500" style={{ width: `${average}%` }} />
                     </div>
                   </div>
                 </div>
 
                 {/* Individual compatibility bars */}
-                <h4 className="text-[9px] font-bold text-[#8B8479] uppercase tracking-wider mb-1.5 shrink-0">Individual Compatibility</h4>
-                <div className="space-y-1 flex-1 overflow-hidden">
-                  {results.slice(0, 4).map((match) => {
+                <h4 className="text-[10px] font-bold text-[#8B8479] uppercase tracking-wider mb-2">Individual Compatibility</h4>
+                <div className="space-y-1.5">
+                  {results.slice(0, 5).map((match) => {
                     const cp = findProfile(match.candidateId);
                     if (!cp) return null;
                     const name = cp.personal_information?.full_name || 'Unknown';
@@ -872,39 +909,15 @@ export default function ProfilesListPage() {
       <div className="flex-1 flex min-h-0">
         {/* ═══════════════ LEFT PANEL: Profile Directory ═══════════════ */}
         <div className="w-[290px] min-w-[270px] shrink-0 flex flex-col border-r border-[#E5DFD4] bg-[#FAF8F5]">
-          {/* ─── Stat Cards (2×2 grid) ─── */}
-          <div className="p-3 grid grid-cols-2 gap-2 border-b border-[#E5DFD4]">
-            <StatCard
-              icon={<Users className="w-3 h-3" />}
-              label="Total"
-              value={stats.total}
-              accent="bg-[#E5EFE9] text-[#064e3b]"
-            />
-            <StatCard
-              icon={<CheckCircle className="w-3 h-3" />}
-              label="Active"
-              value={stats.active}
-              accent="bg-[#DCFCE7] text-[#16a34a]"
-            />
-            <StatCard
-              icon={<FileText className="w-3 h-3" />}
-              label="Draft"
-              value={stats.draft}
-              accent="bg-[#FEF3C7] text-[#d97706]"
-            />
-            <StatCard
-              icon={<PauseCircle className="w-3 h-3" />}
-              label="Paused"
-              value={stats.paused}
-              accent="bg-[#FEE2E2] text-[#dc2626]"
-            />
+          {/* ─── Stat Deck (Animated Hover Spread) ─── */}
+          <div className="h-[197px] px-3 flex items-center justify-center border-b border-[#E5DFD4] shrink-0">
+            <StatDeck stats={stats} />
           </div>
 
           {/* ─── Directory Header ─── */}
-          <div className="px-3.5 py-2.5 flex items-center justify-between border-b border-[#E5DFD4]">
+          <div className="px-3.5 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-[13px] font-bold text-[#1F1E1B]">Profiles</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#8B8479]" />
             </div>
             <button
               onClick={() => setShowSearch(!showSearch)}
@@ -916,7 +929,7 @@ export default function ProfilesListPage() {
 
           {/* ─── Search (toggled) ─── */}
           {showSearch && (
-            <div className="px-3 py-2 border-b border-[#E5DFD4]">
+            <div className="px-3 py-2">
               <form onSubmit={handleSearch} className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8B8479]" />
                 <input
@@ -932,19 +945,28 @@ export default function ProfilesListPage() {
           )}
 
           {/* ─── Status Filter Tabs ─── */}
-          <div className="px-3 py-2 flex flex-wrap gap-1 border-b border-[#E5DFD4]">
-            {STATUS_TABS.map((tab) => {
+          <div className="flex items-end w-full px-1.5 pt-2 pb-1 shrink-0">
+            {STATUS_TABS.map((tab, index) => {
               const isActive = filters.status === tab.value || (!filters.status && tab.value === 'ALL');
+              const isNextActive = index < STATUS_TABS.length - 1 && (filters.status === STATUS_TABS[index + 1].value || (!filters.status && STATUS_TABS[index + 1].value === 'ALL'));
+              const showDivider = !isActive && !isNextActive && index < STATUS_TABS.length - 1;
+
               return (
-                <button
-                  key={tab.value}
-                  onClick={() => handleTabChange(tab.value)}
-                  className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold transition-all ${
-                    isActive ? 'bg-[#16382E] text-white' : 'bg-[#F0EBE3] text-[#6D6558] hover:bg-[#E5DFD4]'
-                  }`}
-                >
-                  {tab.label}
-                </button>
+                <div key={tab.value} className="flex-1 flex items-center justify-center relative">
+                  <button
+                    onClick={() => handleTabChange(tab.value)}
+                    className={`w-full flex items-center justify-center text-[10px] tracking-tight whitespace-nowrap font-bold transition-all duration-300 ${
+                      isActive
+                        ? 'h-[28px] bg-white text-[#064e3b] border border-[#E5DFD4] border-b-white rounded-t-lg relative z-10'
+                        : 'h-[28px] text-[#8B8479] border border-transparent hover:text-[#064e3b] hover:bg-white/60 rounded-md'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                  {showDivider && (
+                    <div className="w-[1px] h-[12px] bg-[#D1C9BE] absolute right-0 z-0" />
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1023,10 +1045,6 @@ export default function ProfilesListPage() {
                       )}
                     </div>
 
-                    {/* Chevron indicator */}
-                    {isSelected && (
-                      <ChevronRight className="w-3.5 h-3.5 text-white/40 shrink-0 absolute right-2" />
-                    )}
                   </button>
                 );
               })
@@ -1077,24 +1095,18 @@ export default function ProfilesListPage() {
           ) : (
             <>
               {/* ─── Profile Header (reference-matched) ─── */}
-              <div className="bg-white border-b border-[#E5DFD4] px-6 py-3 shrink-0">
-                <div className="flex items-center gap-5">
-                  {/* Photo / Avatar — larger, gradient ring like reference */}
-                  <div className="shrink-0 rounded-2xl p-[3px] bg-gradient-to-br from-[#064e3b] via-[#16a34a] to-[#D4AF37] shadow-md">
+              <div className="bg-white px-8 pt-8 shrink-0">
+                <div className="flex items-center gap-6">
+                  {/* Photo / Avatar — soft square like reference */}
+                  <div className="w-[100px] h-[100px] rounded-[24px] bg-[#F4F6F8] flex items-center justify-center shrink-0 overflow-hidden">
                     {selectedProfile.profile_URL ? (
                       <img
                         src={selectedProfile.profile_URL}
                         alt={selectedProfile.personal_information?.full_name || 'Profile'}
-                        className="w-[82px] h-[82px] rounded-[13px] object-cover bg-white"
+                        className="w-full h-full object-cover mix-blend-multiply"
                       />
                     ) : (
-                      <div
-                        className={`w-[82px] h-[82px] rounded-[13px] flex items-center justify-center font-extrabold text-[28px] ${
-                          selectedProfile.gender === 'MALE'
-                            ? 'bg-[#E5EFE9] text-[#064e3b]'
-                            : 'bg-[#FCE2DF] text-[#A6372A]'
-                        }`}
-                      >
+                      <div className="text-[36px] font-bold text-[#8B8479]">
                         {selectedProfile.personal_information?.full_name?.charAt(0).toUpperCase() || '?'}
                       </div>
                     )}
@@ -1102,82 +1114,70 @@ export default function ProfilesListPage() {
 
                   {/* Name + Meta */}
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-[22px] font-extrabold text-[#002b17] tracking-tight leading-tight">
-                      {selectedProfile.personal_information?.full_name || 'Unnamed Profile'}
-                    </h2>
-                    <p className="text-[12px] text-[#717972] font-medium mt-0.5">
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-[28px] font-bold text-[#111827] tracking-tight leading-none">
+                        {selectedProfile.personal_information?.full_name || 'Unnamed Profile'}
+                      </h2>
+                      <StatusBadge status={selectedProfile.status} size="md" />
+                    </div>
+                    <p className="text-[14px] text-[#6B7280] mt-1.5 font-medium">
                       {buildSubtitle(selectedProfile)}
                     </p>
 
                     {/* Quick-info icon row */}
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2 text-[11px] text-[#717972]">
-                      {selectedProfile.personal_information?.date_of_birth && (
-                        <span className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-[#064e3b]" />
-                          {new Date(selectedProfile.personal_information.date_of_birth).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          <span className="text-[#A8A296]">({computeAge(selectedProfile.personal_information.date_of_birth)} yrs)</span>
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1.5">
-                        <User2 className="w-3.5 h-3.5 text-[#064e3b]" />
-                        <span className="font-semibold text-[#2d4035]">{formatEnum(selectedProfile.gender)}</span>
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-[13px] text-[#6B7280]">
+                      <span className="flex items-center gap-2">
+                        <User2 className="w-4 h-4 text-[#9CA3AF]" />
+                        {formatEnum(selectedProfile.gender)}
                       </span>
                       {selectedProfile.profile_locations?.current_city_id && (
-                        <span className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-[#064e3b]" />
+                        <span className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-[#9CA3AF]" />
                           {getCityById(selectedProfile.profile_locations.current_city_id)?.name_en || '-'}
                           {selectedProfile.profile_locations.current_country_id &&
                             `, ${getCountryById(selectedProfile.profile_locations.current_country_id)?.name_en || ''}`}
                         </span>
                       )}
-                      <span className="flex items-center gap-1.5">
-                        <Heart className="w-3.5 h-3.5 text-[#064e3b]" />
+                      {selectedProfile.personal_information?.date_of_birth && (
+                        <span className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-[#9CA3AF]" />
+                          {new Date(selectedProfile.personal_information.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-2">
+                        <Heart className="w-4 h-4 text-[#9CA3AF]" />
                         {formatEnum(selectedProfile.personal_information?.marital_status)}
                       </span>
-                      <span className="font-mono bg-[#E5EFE9] border border-[#d1e3dc] text-[10px] font-bold rounded-md px-1.5 py-0.5 text-[#064e3b]">
-                        {selectedProfile.id.substring(0, 8).toUpperCase()}
-                      </span>
                     </div>
-                  </div>
-
-                  {/* Actions + Status Badge */}
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <Link href={`/profiles/${selectedProfile.id}`}>
-                        <button className="flex items-center gap-1.5 bg-[#064e3b] text-white hover:bg-[#0f4229] font-bold text-[11.5px] px-4 py-2 rounded-full shadow-sm hover:-translate-y-0.5 transition-all">
-                          <Eye className="w-3.5 h-3.5" /> Full View
-                        </button>
-                      </Link>
-                      <button className="w-8 h-8 flex items-center justify-center rounded-full border border-[#E5DFD4] hover:bg-[#F0EBE3] text-[#787167] transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <StatusBadge status={selectedProfile.status} size="md" />
                   </div>
                 </div>
               </div>
 
-              {/* ─── Horizontal Navigation Tabs ─── */}
-              <div className="bg-white border-b border-[#E5DFD4] px-6 shrink-0">
-                <div className="flex items-center gap-1 py-1.5">
-                  {PROFILE_TABS.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`rounded-full px-4 py-1.5 text-[12px] font-bold transition-all ${
-                        activeTab === tab.id
-                          ? 'bg-[#064e3b] text-white shadow-sm'
-                          : 'text-[#6D6558] hover:bg-[#F0EBE3]'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
+              {/* ─── Horizontal Navigation Tabs (Chrome Browser Style) ─── */}
+              <div className="bg-white px-8 pt-6 shrink-0">
+                <div className="flex items-end gap-1.5 border-b border-[#E5DFD4]">
+                  {PROFILE_TABS.map((tab) => {
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`px-5 py-2.5 text-[13px] font-bold rounded-t-xl border transition-all relative ${
+                          isActive
+                            ? 'bg-[#F5F3F0] text-[#064e3b] border-[#E5DFD4] border-b-[#F5F3F0] z-10'
+                            : 'bg-transparent text-[#8B8479] border-transparent hover:bg-[#FAFAF8] hover:text-[#1F1E1B] z-0'
+                        }`}
+                        style={{ marginBottom: '-1px' }}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* ─── Dashboard Workspace ─── */}
-              <div className={`flex-1 p-4 ${activeTab === 'overview' ? 'overflow-hidden' : 'overflow-y-auto custom-scrollbar'}`}>
+              <div className="flex-1 p-5 overflow-y-auto custom-scrollbar">
                 {renderTabContent()}
               </div>
             </>
