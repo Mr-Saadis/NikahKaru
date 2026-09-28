@@ -1,7 +1,7 @@
 'use client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Camera, User } from 'lucide-react';
+import { Camera, User, Loader2 } from 'lucide-react';
 import { useRef } from 'react';
 import CustomDatePicker from '@/components/ui/custom-date-picker';
 import { compressImage } from '@/lib/imageUtils';
@@ -25,6 +25,8 @@ type Step1Data = {
 interface Step1Props {
   data: Step1Data;
   onChange: (data: Step1Data) => void;
+  onImageUpload?: (compressedFile: File, previewDataUrl: string) => void;
+  isUploadingImage?: boolean;
 }
 
 const MARITAL_OPTIONS: { value: MaritalStatus; label: string }[] = [
@@ -37,7 +39,7 @@ const MARITAL_OPTIONS: { value: MaritalStatus; label: string }[] = [
 
 export type { Step1Data };
 
-export default function Step1BasicInfo({ data, onChange }: Step1Props) {
+export default function Step1BasicInfo({ data, onChange, onImageUpload, isUploadingImage }: Step1Props) {
   const { countries, motherTongues } = useReferenceData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,12 +65,16 @@ export default function Step1BasicInfo({ data, onChange }: Step1Props) {
         const compressedFile = await compressImage(file);
         const reader = new FileReader();
         reader.onloadend = () => {
-          // Set BOTH at the same time to avoid stale closure issues
+          const previewUrl = reader.result as string;
+          // Set preview immediately for UI feedback
           onChange({
             ...data,
-            profile_picture_file: compressedFile,
-            profile_picture: reader.result as string,
+            profile_picture: previewUrl,
           });
+          // Trigger parent upload callback (handles bucket upload)
+          if (onImageUpload) {
+            onImageUpload(compressedFile, previewUrl);
+          }
         };
         reader.readAsDataURL(compressedFile);
       } catch (err) {
@@ -97,16 +103,23 @@ export default function Step1BasicInfo({ data, onChange }: Step1Props) {
           <button 
             type="button" 
             onClick={() => fileInputRef.current?.click()}
-            className="group relative w-[52px] h-[52px] rounded-full bg-[#F7F3EA] border border-[#ECC066]/60 flex flex-col items-center justify-center text-[#725b24] overflow-hidden hover:border-[#ECC066] transition-colors shadow-sm"
+            disabled={isUploadingImage}
+            className="group relative w-[52px] h-[52px] rounded-full bg-[#F7F3EA] border border-[#ECC066]/60 flex flex-col items-center justify-center text-[#725b24] overflow-hidden hover:border-[#ECC066] transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {data.profile_picture ? (
               <img src={data.profile_picture} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               <User className="w-6 h-6 opacity-70" />
             )}
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera className="w-5 h-5 text-white" />
-            </div>
+            {isUploadingImage ? (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              </div>
+            ) : (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="w-5 h-5 text-white" />
+              </div>
+            )}
           </button>
         </div>
         

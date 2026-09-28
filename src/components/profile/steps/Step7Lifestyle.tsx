@@ -29,7 +29,7 @@ export type { Step7Data };
 function ToggleGroup<T extends string>({
   label, options, value, onChange,
 }: {
-  label: string;
+  label: React.ReactNode;
   options: { value: T; label: string }[];
   value: T | '';
   onChange: (v: T | '') => void;
@@ -75,7 +75,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
 
       {/* Religious Practice */}
       <ToggleGroup
-        label="Religious Practice Level"
+        label={<>Religious Practice Level <span className="text-red-500">*</span></>}
         value={data.religious_practice}
         onChange={(v) => set('religious_practice', v)}
         options={[
@@ -90,7 +90,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
         {/* Smoking */}
         <div>
           <ToggleGroup
-            label="Smoking"
+            label={<>Smoking <span className="text-red-500">*</span></>}
             value={data.smoking}
             onChange={(v) => set('smoking', v)}
             options={[

@@ -14,7 +14,7 @@ const IMPORTANCE_OPTS: { value: PreferenceImportance; label: string; color: stri
 ];
 
 function ImportanceRow({ label, value, onChange }: {
-  label: string;
+  label: React.ReactNode;
   value: PreferenceImportance | '';
   onChange: (v: PreferenceImportance | '') => void;
 }) {
@@ -39,18 +39,24 @@ function ImportanceRow({ label, value, onChange }: {
 }
 
 function RangeRow({ label, minVal, maxVal, onMin, onMax, suffix = '' }: {
-  label: string; minVal: number | ''; maxVal: number | '';
+  label: React.ReactNode; minVal: number | ''; maxVal: number | '';
   onMin: (v: number | '') => void; onMax: (v: number | '') => void;
   suffix?: string;
 }) {
-  const inputClass = "w-24 bg-white border border-[#EFE9DF] rounded-lg px-2.5 py-1.5 text-[12px] focus:border-[#064e3b] focus:outline-none";
+  const inputClass = "w-28 bg-white border border-[#EFE9DF] rounded-lg px-2.5 py-1.5 text-[12px] focus:border-[#064e3b] focus:outline-none";
   return (
     <div className="flex items-center justify-between gap-2 py-2">
       <span className="text-[12px] font-medium text-[#4E473D] flex-1">{label}</span>
       <div className="flex items-center gap-2">
-        <input type="number" value={minVal} onChange={(e) => onMin(e.target.value ? Number(e.target.value) : '')} placeholder="Min" className={inputClass} />
+        <input type="text" inputMode="numeric" value={minVal === '' ? '' : minVal} onChange={(e) => {
+          const val = e.target.value.replace(/[^0-9]/g, '');
+          onMin(val ? Number(val) : '');
+        }} placeholder="Min" className={inputClass} />
         <span className="text-[11px] text-[#888174]">—</span>
-        <input type="number" value={maxVal} onChange={(e) => onMax(e.target.value ? Number(e.target.value) : '')} placeholder="Max" className={inputClass} />
+        <input type="text" inputMode="numeric" value={maxVal === '' ? '' : maxVal} onChange={(e) => {
+          const val = e.target.value.replace(/[^0-9]/g, '');
+          onMax(val ? Number(val) : '');
+        }} placeholder="Max" className={inputClass} />
         {suffix && <span className="text-[11px] text-[#888174]">{suffix}</span>}
       </div>
     </div>
@@ -69,10 +75,10 @@ function SectionCard({ title, children }: { title: string; children: React.React
 }
 
 function HeightRangeRow({ label, minCm, maxCm, onMin, onMax }: {
-  label: string; minCm: number | ''; maxCm: number | '';
+  label: React.ReactNode; minCm: number | ''; maxCm: number | '';
   onMin: (v: number | '') => void; onMax: (v: number | '') => void;
 }) {
-  const inputClass = "w-[42px] bg-white border border-[#EFE9DF] rounded-lg px-1.5 py-1.5 text-[12px] text-center focus:border-[#064e3b] focus:outline-none";
+  const inputClass = "w-[56px] bg-white border border-[#EFE9DF] rounded-lg px-1.5 py-1.5 text-[12px] text-center focus:border-[#064e3b] focus:outline-none";
   
   const parseCm = (cm: number | '') => {
     if (!cm) return { ft: '', in: '' };
@@ -103,17 +109,17 @@ function HeightRangeRow({ label, minCm, maxCm, onMin, onMax }: {
       <div className="flex items-center gap-1.5">
         {/* Min */}
         <div className="flex items-center gap-1">
-          <input type="number" value={min.ft} onChange={e => handleChange('min', 'ft', e.target.value)} placeholder="ft" className={inputClass} />
+          <input type="text" inputMode="numeric" value={min.ft === '' ? '' : min.ft} onChange={e => handleChange('min', 'ft', e.target.value.replace(/[^0-9]/g, ''))} placeholder="ft" className={inputClass} />
           <span className="text-[11px] text-[#888174]">'</span>
-          <input type="number" value={min.in} onChange={e => handleChange('min', 'in', e.target.value)} placeholder="in" className={inputClass} />
+          <input type="text" inputMode="numeric" value={min.in === '' ? '' : min.in} onChange={e => handleChange('min', 'in', e.target.value.replace(/[^0-9]/g, ''))} placeholder="in" className={inputClass} />
           <span className="text-[11px] text-[#888174]">"</span>
         </div>
         <span className="text-[11px] text-[#888174] mx-1">—</span>
         {/* Max */}
         <div className="flex items-center gap-1">
-          <input type="number" value={max.ft} onChange={e => handleChange('max', 'ft', e.target.value)} placeholder="ft" className={inputClass} />
+          <input type="text" inputMode="numeric" value={max.ft === '' ? '' : max.ft} onChange={e => handleChange('max', 'ft', e.target.value.replace(/[^0-9]/g, ''))} placeholder="ft" className={inputClass} />
           <span className="text-[11px] text-[#888174]">'</span>
-          <input type="number" value={max.in} onChange={e => handleChange('max', 'in', e.target.value)} placeholder="in" className={inputClass} />
+          <input type="text" inputMode="numeric" value={max.in === '' ? '' : max.in} onChange={e => handleChange('max', 'in', e.target.value.replace(/[^0-9]/g, ''))} placeholder="in" className={inputClass} />
           <span className="text-[11px] text-[#888174]">"</span>
         </div>
       </div>
@@ -176,12 +182,12 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
 
       {/* Basic */}
       <SectionCard title="Age & Marital Status">
-        <RangeRow label="Age Range" minVal={data.pref_min_age} maxVal={data.pref_max_age}
+        <RangeRow label={<>Age Range <span className="text-red-500">*</span></>} minVal={data.pref_min_age} maxVal={data.pref_max_age}
           onMin={(v) => set('pref_min_age', v)} onMax={(v) => set('pref_max_age', v)} suffix="yrs" />
-        <ImportanceRow label="Age Importance" value={data.pref_age_importance} onChange={(v) => set('pref_age_importance', v)} />
+        <ImportanceRow label={<>Age Importance <span className="text-red-500">*</span></>} value={data.pref_age_importance} onChange={(v) => set('pref_age_importance', v)} />
         <div className="flex items-center justify-between gap-2 py-2">
-          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Marital Status</span>
-          <div className="w-[160px]">
+          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Marital Status <span className="text-red-500">*</span></span>
+          <div className="w-[220px]">
             <SearchableSelect
               value={data.pref_marital_status || ''}
               onChange={(val) => {
@@ -199,12 +205,12 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
             />
           </div>
         </div>
-        <ImportanceRow label="Marital Status Importance" value={data.pref_marital_importance} onChange={(v) => set('pref_marital_importance', v)} />
+        <ImportanceRow label={<>Marital Status Importance <span className="text-red-500">*</span></>} value={data.pref_marital_importance} onChange={(v) => set('pref_marital_importance', v)} />
         
         {['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(data.pref_marital_status as string) && (
           <>
             <div className="flex items-center justify-between gap-2 py-2">
-              <span className="text-[12px] font-medium text-[#4E473D] flex-1">Children Allowed</span>
+              <span className="text-[12px] font-medium text-[#4E473D] flex-1">Children Allowed <span className="text-red-500">*</span></span>
               <div className="flex gap-1.5">
                 {[['YES','Yes'],['NO','No']].map(([v,l]) => (
                   <button key={v} type="button" onClick={() => set('pref_children_allowed', data.pref_children_allowed === v ? '' : v as YesNo)}
@@ -212,18 +218,18 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 ))}
               </div>
             </div>
-            <ImportanceRow label="Children Importance" value={data.pref_children_importance} onChange={(v) => set('pref_children_importance', v)} />
+            <ImportanceRow label={<>Children Importance <span className="text-red-500">*</span></>} value={data.pref_children_importance} onChange={(v) => set('pref_children_importance', v)} />
           </>
         )}
       </SectionCard>
 
       {/* Physical */}
       <SectionCard title="Physical">
-        <HeightRangeRow label="Height" minCm={data.pref_min_height} maxCm={data.pref_max_height}
+        <HeightRangeRow label={<>Height <span className="text-red-500">*</span></>} minCm={data.pref_min_height} maxCm={data.pref_max_height}
           onMin={(v) => set('pref_min_height', v)} onMax={(v) => set('pref_max_height', v)} />
-        <ImportanceRow label="Height Importance" value={data.pref_height_importance} onChange={(v) => set('pref_height_importance', v)} />
+        <ImportanceRow label={<>Height Importance <span className="text-red-500">*</span></>} value={data.pref_height_importance} onChange={(v) => set('pref_height_importance', v)} />
         <div className="flex items-center justify-between gap-2 py-2">
-          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Disability Allowed</span>
+          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Disability Allowed <span className="text-red-500">*</span></span>
           <div className="flex gap-1.5">
             {[['YES','Yes'],['NO','No']].map(([v,l]) => (
               <button key={v} type="button" onClick={() => set('pref_disability_allowed', data.pref_disability_allowed === v ? '' : v as YesNo)}
@@ -231,14 +237,14 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
             ))}
           </div>
         </div>
-        <ImportanceRow label="Disability Importance" value={data.pref_disability_importance} onChange={(v) => set('pref_disability_importance', v)} />
+        <ImportanceRow label={<>Disability Importance <span className="text-red-500">*</span></>} value={data.pref_disability_importance} onChange={(v) => set('pref_disability_importance', v)} />
       </SectionCard>
 
       {/* Religion */}
       <SectionCard title="Religion & Culture">
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religion</span>
-          <div className="w-[160px]">
+          <div className="w-[220px]">
             <SearchableSelect
               value={data.pref_religion_id ? String(data.pref_religion_id) : ''}
               onChange={(val) => onChange({...data, pref_religion_id: val && val !== 'none' ? Number(val) : '', pref_sect_id: ''})}
@@ -253,7 +259,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
           <>
             <div className="flex items-center justify-between gap-2 py-2">
               <span className="text-[12px] font-medium text-[#4E473D] flex-1">Sect</span>
-              <div className="w-[160px]">
+              <div className="w-[220px]">
                 <SearchableSelect
                   value={data.pref_sect_id ? String(data.pref_sect_id) : ''}
                   onChange={(val) => set('pref_sect_id', val && val !== 'none' ? Number(val) : '')}
@@ -267,8 +273,8 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
           </>
         )}
         <div className="flex items-center justify-between gap-2 py-2">
-          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Caste</span>
-          <div className="w-[160px]">
+          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Caste <span className="text-red-500">*</span></span>
+          <div className="w-[220px]">
             <SearchableSelect
               value={data.pref_caste_id ? String(data.pref_caste_id) : ''}
               onChange={(val) => set('pref_caste_id', val && val !== 'none' ? Number(val) : '')}
@@ -278,10 +284,10 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
             />
           </div>
         </div>
-        <ImportanceRow label="Caste Importance" value={data.pref_caste_importance} onChange={(v) => set('pref_caste_importance', v)} />
+        <ImportanceRow label={<>Caste Importance <span className="text-red-500">*</span></>} value={data.pref_caste_importance} onChange={(v) => set('pref_caste_importance', v)} />
         <div className="flex items-center justify-between gap-2 py-2">
-          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religious Practice</span>
-          <div className="w-[160px]">
+          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religious Practice <span className="text-red-500">*</span></span>
+          <div className="w-[220px]">
             <SearchableSelect
               value={data.pref_religious_practice || ''}
               onChange={(val) => set('pref_religious_practice', val as ReligiousPracticeLevel)}
@@ -291,21 +297,21 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
             />
           </div>
         </div>
-        <ImportanceRow label="Practice Importance" value={data.pref_religious_practice_importance} onChange={(v) => set('pref_religious_practice_importance', v)} />
+        <ImportanceRow label={<>Practice Importance <span className="text-red-500">*</span></>} value={data.pref_religious_practice_importance} onChange={(v) => set('pref_religious_practice_importance', v)} />
       </SectionCard>
 
       {/* Income */}
       <SectionCard title="Income & Career">
-        <RangeRow label="Monthly Income (PKR)" minVal={data.pref_min_income} maxVal={data.pref_max_income}
+        <RangeRow label={<>Monthly Income (PKR) <span className="text-red-500">*</span></>} minVal={data.pref_min_income} maxVal={data.pref_max_income}
           onMin={(v) => set('pref_min_income', v)} onMax={(v) => set('pref_max_income', v)} />
-        <ImportanceRow label="Income Importance" value={data.pref_income_importance} onChange={(v) => set('pref_income_importance', v)} />
+        <ImportanceRow label={<>Income Importance <span className="text-red-500">*</span></>} value={data.pref_income_importance} onChange={(v) => set('pref_income_importance', v)} />
       </SectionCard>
 
       {/* Location */}
       <SectionCard title="Location">
         <div className="flex items-center justify-between gap-2 py-2">
-          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Preferred Country</span>
-          <div className="w-[160px]">
+          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Preferred Country <span className="text-red-500">*</span></span>
+          <div className="w-[220px]">
             <SearchableSelect
               value={data.pref_location_country_id ? String(data.pref_location_country_id) : ''}
               onChange={(val) => set('pref_location_country_id', val && val !== 'none' ? Number(val) : '')}
@@ -315,13 +321,13 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
             />
           </div>
         </div>
-        <ImportanceRow label="Location Importance" value={data.pref_location_importance} onChange={(v) => set('pref_location_importance', v)} />
+        <ImportanceRow label={<>Location Importance <span className="text-red-500">*</span></>} value={data.pref_location_importance} onChange={(v) => set('pref_location_importance', v)} />
       </SectionCard>
 
       {/* Lifestyle pref */}
       <SectionCard title="Lifestyle">
         <div className="flex items-center justify-between gap-2 py-2">
-          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Family Setup</span>
+          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Family Setup <span className="text-red-500">*</span></span>
           <div className="flex gap-1.5">
             {[['JOINT','Joint'],['SEPARATE','Separate']].map(([v,l]) => (
               <button key={v} type="button" onClick={() => set('pref_family_setup', data.pref_family_setup === v ? '' : v as FamilySetup)}
@@ -329,9 +335,9 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
             ))}
           </div>
         </div>
-        <ImportanceRow label="Family Setup Importance" value={data.pref_family_setup_importance} onChange={(v) => set('pref_family_setup_importance', v)} />
+        <ImportanceRow label={<>Family Setup Importance <span className="text-red-500">*</span></>} value={data.pref_family_setup_importance} onChange={(v) => set('pref_family_setup_importance', v)} />
         <div className="flex items-center justify-between gap-2 py-2">
-          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Smoking Preference</span>
+          <span className="text-[12px] font-medium text-[#4E473D] flex-1">Smoking Preference <span className="text-red-500">*</span></span>
           <div className="flex gap-1.5">
             {[['NO','Non-smoker'],['YES','Smoker'],['OCCASIONALLY','Occasional']].map(([v,l]) => (
               <button key={v} type="button" onClick={() => set('pref_smoking', data.pref_smoking === v ? '' : v as SmokingStatus)}
@@ -339,7 +345,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
             ))}
           </div>
         </div>
-        <ImportanceRow label="Smoking Importance" value={data.pref_smoking_importance} onChange={(v) => set('pref_smoking_importance', v)} />
+        <ImportanceRow label={<>Smoking Importance <span className="text-red-500">*</span></>} value={data.pref_smoking_importance} onChange={(v) => set('pref_smoking_importance', v)} />
       </SectionCard>
     </div>
   );

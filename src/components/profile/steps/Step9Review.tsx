@@ -170,14 +170,6 @@ export default function Step9Review({ step1, step2, step3, step4, step5, step6, 
           <ReviewRow label="Marital Status Pref" value={step8.pref_marital_status?.replace(/_/g, ' ')} />
         </ReviewSection>
       </div>
-
-      {/* Save notice */}
-      <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#E5EFE9] border border-[#d1e3dc]">
-        <CheckCircle size={18} className="text-[#064e3b] flex-shrink-0" />
-        <p className="text-[12px] text-[#064e3b] font-medium">
-          Profile will be saved as <strong>DRAFT</strong>. You can activate it later from the profile detail page.
-        </p>
-      </div>
     </div>
   );
 }

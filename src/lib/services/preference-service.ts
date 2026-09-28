@@ -100,7 +100,7 @@ export class PreferenceService {
       .select('id')
       .eq('profile_id', profileId)
       .eq('is_current', true)
-      .single();
+      .maybeSingle();
 
     if (error || !prefSet) return null;
 
@@ -109,15 +109,15 @@ export class PreferenceService {
     const [
       basicReq, physicalReq, eduReq, profReq, relReq, locReq, famReq, lifeReq, relocReq
     ] = await Promise.all([
-      supabase.from('basic_preferences').select('*').eq('preference_set_id', setId).single(),
-      supabase.from('physical_preferences').select('*').eq('preference_set_id', setId).single(),
-      supabase.from('education_preferences').select('*').eq('preference_set_id', setId).single(),
-      supabase.from('profession_preferences').select('*').eq('preference_set_id', setId).single(),
-      supabase.from('religion_preferences').select('*').eq('preference_set_id', setId).single(),
-      supabase.from('location_preferences').select('*').eq('preference_set_id', setId).single(),
-      supabase.from('family_preferences').select('*').eq('preference_set_id', setId).single(),
-      supabase.from('lifestyle_preferences').select('*').eq('preference_set_id', setId).single(),
-      supabase.from('relocation_preferences').select('*').eq('preference_set_id', setId).single(),
+      supabase.from('basic_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
+      supabase.from('physical_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
+      supabase.from('education_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
+      supabase.from('profession_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
+      supabase.from('religion_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
+      supabase.from('location_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
+      supabase.from('family_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
+      supabase.from('lifestyle_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
+      supabase.from('relocation_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
     ]);
 
     return {
