@@ -40,7 +40,7 @@ interface SidebarProps {
   ╚══════════════════════════════════════════════════╝
 */
 const SIDEBAR = '#1F3B34'; //'#708c69';   // deep forest green
-const PAGE_BG = 'var(--bg-app)';   // warm off-white — MUST match layout bg
+// PAGE_BG is now dynamic based on pathname
 const ICON_OFF = '#fcf3e3';   // muted icon colour
 const ORANGE = '#A3B18A';   // muted icon colour
 const ROW_H = 50;          // nav-row height in px
@@ -89,7 +89,7 @@ export const adminItems = [
   └──────────────────────────────────────────────────────────────┘
 */
 
-const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; isActive: boolean; open: boolean; onClick: () => void }) => {
+const NavItem = ({ item, isActive, open, onClick, pageBg }: { item: typeof navItems[0]; isActive: boolean; open: boolean; onClick: () => void; pageBg: string }) => {
   const [tooltipOpen, setTooltipOpen] = useState(false);
 
   return (
@@ -118,7 +118,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
               top: -CURVE,
               bottom: -CURVE,
               width: CURVE + GAP,
-              background: PAGE_BG,
+              background: pageBg,
               opacity: isActive ? 1 : 0,
               zIndex: 1,
               pointerEvents: 'none',
@@ -134,7 +134,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
               right: -GAP,
               top: 0,
               bottom: 0,
-              background: PAGE_BG,
+              background: pageBg,
               borderRadius: `${ROW_H / 2}px 0 0 ${ROW_H / 2}px`,
               opacity: isActive ? 1 : 0,
               zIndex: 2,
@@ -206,7 +206,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
           }}>
             <item.icon
               size={20}
-              color={isActive ? PAGE_BG : ICON_OFF}
+              color={isActive ? pageBg : ICON_OFF}
               strokeWidth={isActive ? 2.5 : 2}
               className="sidebar-trans"
             />
@@ -246,6 +246,9 @@ export default function Sidebar({ activePage }: SidebarProps) {
   const [isToggleHovered, setIsToggleHovered] = useState(false);
 
   const [optimisticPath, setOptimisticPath] = useState(pathname);
+
+  // Determine dynamic background color for the active curve
+  const pageBg = pathname.startsWith('/profiles') ? '#FCFDFD' : 'var(--bg-app)';
 
   // Keep it synced if the pathname changes externally
   useEffect(() => {
@@ -336,7 +339,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
               }}
             >
               <Image src="/nikah_icon_w.png" alt="nikahkaru_logo" width={35} height={35}/>
-              <span style={{ color: PAGE_BG, fontFamily: 'var(--font-poppins)', fontWeight: 600 , fontSize: 17, marginTop:5 , letterSpacing: '-0.3px' }}>
+              <span style={{ color: pageBg, fontFamily: 'var(--font-poppins)', fontWeight: 600 , fontSize: 17, marginTop:5 , letterSpacing: '-0.3px' }}>
                 Nikah Karu 
               </span>
             </div>
@@ -357,7 +360,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                 transition: 'color 150ms',
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.color = PAGE_BG;
+                e.currentTarget.style.color = pageBg;
                 setIsToggleHovered(true);
               }}
               onMouseLeave={e => {
@@ -412,13 +415,13 @@ export default function Sidebar({ activePage }: SidebarProps) {
               const isActive = item.href === '/overview'
                 ? optimisticPath === '/overview' || optimisticPath === '/'
                 : optimisticPath.startsWith(item.href);
-              return <NavItem key={item.id} item={item} isActive={isActive} open={open} onClick={() => flushSync(() => setOptimisticPath(item.href))} />;
+              return <NavItem key={item.id} item={item} isActive={isActive} open={open} pageBg={pageBg} onClick={() => flushSync(() => setOptimisticPath(item.href))} />;
             })}
             {role === 'HIGH_LEVEL_ADMIN' && (
               <>
                 <div style={{ height: 1, background: 'rgba(250,248,245,0.08)', margin: '0 16px' }} />
                 {adminItems.map(item => (
-                  <NavItem key={item.id} item={item} isActive={optimisticPath.startsWith(item.href)} open={open} onClick={() => flushSync(() => setOptimisticPath(item.href))} />
+                  <NavItem key={item.id} item={item} isActive={optimisticPath.startsWith(item.href)} open={open} pageBg={pageBg} onClick={() => flushSync(() => setOptimisticPath(item.href))} />
                 ))}
               </>
             )}
@@ -445,7 +448,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: PAGE_BG,
+                color: pageBg,
                 fontWeight: 800,
                 fontSize: 14,
                 flexShrink: 0,
@@ -465,7 +468,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                 }}
               >
                 <div style={{
-                  color: PAGE_BG,
+                  color: pageBg,
                   fontWeight: 700,
                   fontSize: 13,
                   overflow: 'hidden',

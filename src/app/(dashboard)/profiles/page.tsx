@@ -36,6 +36,8 @@ import {
   Zap,
   Send,
   Award,
+  Mars,
+  Venus,
 } from 'lucide-react';
 import { ProfileService, type ProfileFilters } from '@/lib/services/profile-service';
 import type { ProfileListItem, ProfileStatus, FullProfile } from '@/lib/types/database.types';
@@ -124,7 +126,7 @@ function StatDeck({ stats }: { stats: { total: number; active: number; draft: nu
   return (
     <div className="relative w-full h-[170px] flex items-center justify-center group perspective-1000 overflow-visible">
       {/* Card 4: Paused (Bottom layer) */}
-      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_16px_32px_rgba(0,0,0,0.12)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_12px_24px_rgba(220,38,38,0.15)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
         group-hover:translate-x-[65px] group-hover:translate-y-[42px] group-hover:rotate-0
         translate-x-[45px] -translate-y-[5px] rotate-[12deg] z-10 cursor-default hover:!scale-105"
       >
@@ -136,7 +138,7 @@ function StatDeck({ stats }: { stats: { total: number; active: number; draft: nu
       </div>
 
       {/* Card 3: Draft */}
-      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_12px_24px_rgba(0,0,0,0.1)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_12px_24px_rgba(217,119,6,0.15)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
         group-hover:translate-x-[-65px] group-hover:translate-y-[42px] group-hover:rotate-0
         -translate-x-[45px] translate-y-[5px] rotate-[-8deg] z-20 cursor-default hover:!scale-105"
       >
@@ -148,7 +150,7 @@ function StatDeck({ stats }: { stats: { total: number; active: number; draft: nu
       </div>
 
       {/* Card 2: Active */}
-      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_8px_20px_rgba(0,0,0,0.08)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_12px_24px_rgba(22,163,74,0.15)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
         group-hover:translate-x-[65px] group-hover:translate-y-[-42px] group-hover:rotate-0
         translate-x-[15px] translate-y-[10px] rotate-[6deg] z-30 cursor-default hover:!scale-105"
       >
@@ -160,7 +162,7 @@ function StatDeck({ stats }: { stats: { total: number; active: number; draft: nu
       </div>
 
       {/* Card 1: Total (Top layer) */}
-      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_8px_20px_rgba(0,0,0,0.06)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+      <div className="absolute w-[125px] h-[75px] bg-white/95 backdrop-blur-md rounded-[20px] shadow-[0_12px_24px_rgba(6,78,59,0.15)] border-[4px] border-white ring-1 ring-black/[0.03] flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
         group-hover:translate-x-[-65px] group-hover:translate-y-[-42px] group-hover:rotate-0
         -translate-x-[5px] translate-y-[20px] rotate-[-2deg] z-40 cursor-default hover:!scale-105"
       >
@@ -503,10 +505,11 @@ export default function ProfilesListPage() {
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-br from-[#E0F2FE] to-[#CCE8FA] rounded-xl p-3.5 flex flex-col gap-1">
-                    <span className="text-[9px] font-bold text-[#0C4A6E]/60 uppercase tracking-wider">High Matches</span>
-                    <span className="text-[28px] font-extrabold text-[#0C4A6E] leading-none">{highCount}</span>
-                    <div className="flex items-center gap-1 mt-1">
+                  <div className="bg-gradient-to-br from-[#E0F2FE] to-[#CCE8FA] rounded-xl p-3.5 flex flex-col gap-1 relative overflow-hidden">
+                    <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-blue-400/20 rounded-full blur-xl pointer-events-none" />
+                    <span className="text-[9px] font-bold text-[#0C4A6E]/60 uppercase tracking-wider relative z-10">High Matches</span>
+                    <span className="text-[28px] font-extrabold text-[#0C4A6E] leading-none relative z-10">{highCount}</span>
+                    <div className="flex items-center gap-1 mt-1 relative z-10">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#0EA5E9]" />
                       <span className="text-[9px] text-[#0C4A6E]/60 font-medium">80%+ match</span>
                     </div>
@@ -572,9 +575,10 @@ export default function ProfilesListPage() {
           <div className="col-span-2 flex flex-col gap-3">
 
             {/* Match Distribution */}
-            <section className="bg-white rounded-2xl border border-[#ECE5D9] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-2 border-b border-[#F3EEE5]">
-                <div className="w-6 h-6 rounded-md bg-[#E5EFE9] flex items-center justify-center text-[#064e3b]">
+            <section className="bg-white rounded-2xl border border-[#ECE5D9] shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden relative">
+              <div className="absolute top-[-20px] left-[-20px] w-24 h-24 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-100/40 to-transparent pointer-events-none" />
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-[#F3EEE5] relative z-10">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-[#E5EFE9] to-[#D5E6DB] flex items-center justify-center text-[#064e3b] shadow-inner">
                   <Target className="w-3.5 h-3.5" />
                 </div>
                 <h3 className="text-[12px] font-bold text-[#1F1E1B]">Match Distribution</h3>
@@ -608,34 +612,37 @@ export default function ProfilesListPage() {
             </section>
 
             {/* Request Match Analysis */}
-            <section className="bg-white rounded-2xl border border-[#ECE5D9] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden flex-1 flex flex-col">
-              <div className="px-4 py-3 flex-1 flex flex-col justify-center">
+            <section className="relative rounded-2xl border border-emerald-500/20 shadow-[0_15px_40px_rgba(6,78,59,0.15)] overflow-hidden flex-1 flex flex-col bg-gradient-to-br from-[#064e3b] via-[#047857] to-[#059669]">
+              {/* Decorative Mesh */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/15 to-transparent translate-x-1/3 -translate-y-1/3 pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-400/30 to-transparent -translate-x-1/2 translate-y-1/2 pointer-events-none" />
+              
+              <div className="px-4 py-3 flex-1 flex flex-col justify-center relative z-10">
                 <div className="flex items-start gap-3">
                   <div className="flex-1">
-                    <h3 className="text-[14px] font-extrabold text-[#064e3b] leading-tight">Request Match<br/>Analysis</h3>
-                    <p className="text-[10.5px] text-[#8B8479] mt-1.5 leading-relaxed">
+                    <h3 className="text-[14px] font-extrabold text-white leading-tight">Request Match<br/>Analysis</h3>
+                    <p className="text-[10.5px] text-emerald-100/90 mt-1.5 leading-relaxed">
                       Request a detailed compatibility analysis for this profile.
                     </p>
                     {matchRequested ? (
                       <div className="mt-2.5 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#E5EFE9] text-[#064e3b]">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-white/20 text-white backdrop-blur-md">
                           <CheckCircle className="w-3 h-3" /> Recorded
                         </span>
-                        <span className="text-[8px] text-[#A8A296]">Demo</span>
                       </div>
                     ) : (
                       <button
                         onClick={handleRequestMatch}
                         disabled={matchRequesting}
-                        className="mt-2.5 inline-flex items-center gap-1.5 bg-[#064e3b] text-white hover:bg-[#0a3d2f] font-bold text-[11px] px-4 py-1.5 rounded-full shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-60"
+                        className="mt-2.5 inline-flex items-center gap-1.5 bg-white text-[#064e3b] hover:bg-emerald-50 font-bold text-[11px] px-4 py-1.5 rounded-full shadow-lg transition-colors disabled:opacity-60"
                       >
                         {matchRequesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                         {matchRequesting ? 'Submitting…' : 'Request Match'}
                       </button>
                     )}
                   </div>
-                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#E5EFE9] via-[#D4EDDB] to-[#FDF0D8] flex items-center justify-center shrink-0">
-                    <Heart className="w-8 h-8 text-[#064e3b]/25" />
+                  <div className="w-16 h-16 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/20 shadow-inner">
+                    <Heart className="w-8 h-8 text-white" />
                   </div>
                 </div>
               </div>
@@ -662,7 +669,7 @@ export default function ProfilesListPage() {
                 <button
                   key={match.candidateId}
                   onClick={() => setSelectedId(match.candidateId)}
-                  className="bg-white rounded-xl border border-[#ECE5D9] shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-3 flex flex-col gap-2 text-left hover:shadow-md hover:-translate-y-0.5 transition-all group"
+                  className="bg-white rounded-xl border border-[#ECE5D9] shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-3 flex flex-col gap-2 text-left hover:shadow-md transition-shadow group"
                 >
                   <div className="flex items-center gap-2">
                     {cp.profile_URL ? (
@@ -908,7 +915,7 @@ export default function ProfilesListPage() {
 
       <div className="flex-1 flex min-h-0">
         {/* ═══════════════ LEFT PANEL: Profile Directory ═══════════════ */}
-        <div className="w-[290px] min-w-[270px] shrink-0 flex flex-col border-r border-[#E5DFD4] bg-[#FAF8F5]">
+        <div className="w-[290px] min-w-[270px] shrink-0 flex flex-col border-r border-[#E5DFD4] bg-[#FCFDFD]">
           {/* ─── Stat Deck (Animated Hover Spread) ─── */}
           <div className="h-[197px] px-3 flex items-center justify-center border-b border-[#E5DFD4] shrink-0">
             <StatDeck stats={stats} />
@@ -994,9 +1001,9 @@ export default function ProfilesListPage() {
                   <button
                     key={profile.id}
                     onClick={() => setSelectedId(profile.id)}
-                    className={`w-full text-left rounded-2xl px-3 py-2.5 flex items-center gap-2.5 transition-all group relative ${
+                    className={`w-full text-left rounded-2xl px-3 py-2.5 flex items-center gap-2.5 transition-all duration-300 group relative ${
                       isSelected
-                        ? 'bg-[#064e3b] text-white shadow-lg shadow-[#064e3b]/20'
+                        ? 'bg-gradient-to-r from-[#064e3b] to-[#047857] text-white shadow-xl shadow-emerald-900/20 scale-[0.98]'
                         : 'bg-transparent hover:bg-white text-[#1E1F22] hover:shadow-sm'
                     }`}
                   >
@@ -1076,7 +1083,10 @@ export default function ProfilesListPage() {
         </div>
 
         {/* ═══════════════ RIGHT PANEL: Profile Workspace ═══════════════ */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#F5F3F0]">
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-gradient-to-br from-[#FAFAFB] to-[#F3F7F5] relative">
+          {/* Subtle background glow for the entire workspace */}
+          <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-200/15 via-transparent to-transparent pointer-events-none" />
+          
           {detailLoading ? (
             <div className="flex-1 flex items-center justify-center text-[#8B8479] gap-2">
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -1094,11 +1104,12 @@ export default function ProfilesListPage() {
             </div>
           ) : (
             <>
-              {/* ─── Profile Header (reference-matched) ─── */}
-              <div className="bg-white px-8 pt-8 shrink-0">
-                <div className="flex items-center gap-6">
-                  {/* Photo / Avatar — soft square like reference */}
-                  <div className="w-[100px] h-[100px] rounded-[24px] bg-[#F4F6F8] flex items-center justify-center shrink-0 overflow-hidden">
+              {/* ─── Profile Header & Navigation Tabs (Unified Container for Alignment) ─── */}
+              <div className="bg-[#F2F2F2] shrink-0 relative flex flex-col h-[197px] border-b border-[#E5DFD4]">
+                {/* Profile Info (Flex-1 centers it in the available space above tabs) */}
+                <div className="px-8 flex-1 flex items-center gap-8 relative z-10 shrink-0">
+                  {/* Photo / Avatar */}
+                  <div className="w-[110px] h-[110px] rounded-[28px] bg-white shadow-xl shadow-black/5 flex items-center justify-center shrink-0 overflow-hidden relative">
                     {selectedProfile.profile_URL ? (
                       <img
                         src={selectedProfile.profile_URL}
@@ -1106,66 +1117,69 @@ export default function ProfilesListPage() {
                         className="w-full h-full object-cover mix-blend-multiply"
                       />
                     ) : (
-                      <div className="text-[36px] font-bold text-[#8B8479]">
+                      <div className="text-[40px] font-black text-gray-300">
                         {selectedProfile.personal_information?.full_name?.charAt(0).toUpperCase() || '?'}
                       </div>
                     )}
                   </div>
 
-                  {/* Name + Meta */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-4">
-                      <h2 className="text-[28px] font-bold text-[#111827] tracking-tight leading-none">
-                        {selectedProfile.personal_information?.full_name || 'Unnamed Profile'}
-                      </h2>
-                      <StatusBadge status={selectedProfile.status} size="md" />
-                    </div>
-                    <p className="text-[14px] text-[#6B7280] mt-1.5 font-medium">
-                      {buildSubtitle(selectedProfile)}
-                    </p>
-
-                    {/* Quick-info icon row */}
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-[13px] text-[#6B7280]">
-                      <span className="flex items-center gap-2">
-                        <User2 className="w-4 h-4 text-[#9CA3AF]" />
-                        {formatEnum(selectedProfile.gender)}
+                  {/* Name + Meta (Porsche Reference Layout) */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    {/* Top Pill Badges */}
+                    <div className="flex items-center gap-1.5 mb-2.5">
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white shadow-sm border border-gray-100" title={formatEnum(selectedProfile.gender)}>
+                        {selectedProfile.gender === 'MALE' ? (
+                          <Mars className="w-3 h-3 text-sky-600" />
+                        ) : (
+                          <Venus className="w-3 h-3 text-pink-600" />
+                        )}
                       </span>
-                      {selectedProfile.profile_locations?.current_city_id && (
-                        <span className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-[#9CA3AF]" />
-                          {getCityById(selectedProfile.profile_locations.current_city_id)?.name_en || '-'}
-                          {selectedProfile.profile_locations.current_country_id &&
-                            `, ${getCountryById(selectedProfile.profile_locations.current_country_id)?.name_en || ''}`}
-                        </span>
-                      )}
                       {selectedProfile.personal_information?.date_of_birth && (
-                        <span className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-[#9CA3AF]" />
-                          {new Date(selectedProfile.personal_information.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white text-[9px] font-extrabold text-gray-600 shadow-sm border border-gray-100">
+                          <Calendar className="w-2.5 h-2.5 text-gray-400" /> {computeAge(selectedProfile.personal_information.date_of_birth)}y
                         </span>
                       )}
-                      <span className="flex items-center gap-2">
-                        <Heart className="w-4 h-4 text-[#9CA3AF]" />
-                        {formatEnum(selectedProfile.personal_information?.marital_status)}
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white text-[9px] font-extrabold text-gray-600 shadow-sm border border-gray-100">
+                        <Heart className="w-2.5 h-2.5 text-gray-400" /> {formatEnum(selectedProfile.personal_information?.marital_status)}
                       </span>
                     </div>
+
+                    {/* Stacked Title & Subtitle */}
+                    <div className="flex flex-col leading-none">
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-[28px] font-black text-black tracking-tighter">
+                          {selectedProfile.personal_information?.full_name || 'Unnamed Profile'}
+                        </h2>
+                        <StatusBadge status={selectedProfile.status} />
+                      </div>
+                      <h3 className="text-[26px] font-black text-gray-400 tracking-tighter mt-1">
+                        {buildSubtitle(selectedProfile) || 'Matrimonial Profile'}
+                      </h3>
+                    </div>
+
+                    {/* Small Description */}
+                    <p className="text-[10px] text-gray-500 font-medium leading-relaxed max-w-lg mt-3">
+                      {selectedProfile.profile_locations?.current_city_id ? (
+                        <>Residing in {getCityById(selectedProfile.profile_locations.current_city_id)?.name_en}
+                        {selectedProfile.profile_locations.current_country_id && `, ${getCountryById(selectedProfile.profile_locations.current_country_id)?.name_en}`}. </>
+                      ) : null}
+                      Verified matrimonial dossier managed securely on the platform.
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* ─── Horizontal Navigation Tabs (Chrome Browser Style) ─── */}
-              <div className="bg-white px-8 pt-6 shrink-0">
-                <div className="flex items-end gap-1.5 border-b border-[#E5DFD4]">
+                {/* Horizontal Navigation Tabs (Normal Folder Style, Small) */}
+                <div className="flex items-end px-8 relative z-10 gap-2 shrink-0">
                   {PROFILE_TABS.map((tab) => {
                     const isActive = activeTab === tab.id;
                     return (
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`px-5 py-2.5 text-[13px] font-bold rounded-t-xl border transition-all relative ${
+                        className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wider rounded-t-xl transition-all duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)] border border-b-0 relative origin-bottom ${
                           isActive
-                            ? 'bg-[#F5F3F0] text-[#064e3b] border-[#E5DFD4] border-b-[#F5F3F0] z-10'
-                            : 'bg-transparent text-[#8B8479] border-transparent hover:bg-[#FAFAF8] hover:text-[#1F1E1B] z-0'
+                            ? 'bg-[#FAFAFB] text-[#064e3b] border-[#E5DFD4] z-20 shadow-[0_-4px_12px_rgba(6,78,59,0.06)] scale-[1.08] translate-y-[1px]'
+                            : 'bg-transparent text-[#8B8479] border-transparent hover:bg-[#F3F7F5]/80 hover:text-[#1F1E1B] z-0 hover:scale-[1.03]'
                         }`}
                         style={{ marginBottom: '-1px' }}
                       >
