@@ -400,13 +400,13 @@ export default function ProfilesListPage() {
 
   const renderOverviewTab = () => {
     if (!sp || !matchData) return (
-      <div className="flex items-center justify-center py-16 text-[#A8A296] text-[13px]">No matching data available.</div>
+      <div className="flex items-center justify-center h-full text-[#A8A296] text-[13px]">No matching data available.</div>
     );
 
     const { results, distribution, average, highest, highCount, totalCompared, top5 } = matchData;
 
     // ── SVG Donut Chart ─────────────────────────────────────────
-    const DonutSvg = ({ pct, size = 130, sw = 11, color = '#064e3b' }: { pct: number; size?: number; sw?: number; color?: string }) => {
+    const DonutSvg = ({ pct, size = 100, sw = 9, color = '#064e3b' }: { pct: number; size?: number; sw?: number; color?: string }) => {
       const r = (size - sw) / 2;
       const c = 2 * Math.PI * r;
       const off = c * (1 - pct / 100);
@@ -414,105 +414,95 @@ export default function ProfilesListPage() {
       return (
         <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
           <svg width={size} height={size} className="-rotate-90">
-            <circle cx={cx} cy={cx} r={r} fill="none" stroke="#F0EBE3" strokeWidth={sw} />
+            <circle cx={cx} cy={cx} r={r} fill="none" stroke="#E5EFE9" strokeWidth={sw} />
             <circle cx={cx} cy={cx} r={r} fill="none" stroke={color} strokeWidth={sw}
               strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round"
               className="transition-all duration-700 ease-out" />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[28px] font-extrabold text-[#1E1F22] leading-none">{pct}</span>
-            <span className="text-[10px] text-[#8B8479] font-medium -mt-0.5">% avg</span>
+            <span className="text-[22px] font-extrabold text-[#064e3b] leading-none">{pct}</span>
+            <span className="text-[9px] text-[#8B8479] font-semibold -mt-0.5">% avg</span>
           </div>
         </div>
       );
     };
 
-    // Distribution bar helper
-    const distBars: { label: string; count: number; color: string; bg: string }[] = [
-      { label: 'Excellent (90%+)', count: distribution.excellent, color: '#16a34a', bg: '#DCFCE7' },
-      { label: 'High (80–89%)', count: distribution.high, color: '#064e3b', bg: '#E5EFE9' },
-      { label: 'Good (70–79%)', count: distribution.good, color: '#d97706', bg: '#FEF3C7' },
-      { label: 'Moderate (60–69%)', count: distribution.moderate, color: '#ea580c', bg: '#FFEDD5' },
-      { label: 'Lower (<60%)', count: distribution.lower, color: '#dc2626', bg: '#FEE2E2' },
+    const distBars: { label: string; count: number; color: string }[] = [
+      { label: 'Excellent (90%+)', count: distribution.excellent, color: '#16a34a' },
+      { label: 'High (80–89%)', count: distribution.high, color: '#064e3b' },
+      { label: 'Good (70–79%)', count: distribution.good, color: '#D4AF37' },
+      { label: 'Moderate (60–69%)', count: distribution.moderate, color: '#ea580c' },
+      { label: 'Lower (<60%)', count: distribution.lower, color: '#dc2626' },
     ];
-    const maxDistCount = Math.max(...distBars.map((d) => d.count), 1);
 
     return (
-      <>
+      <div className="h-full flex flex-col gap-3">
         {/* Demo badge */}
-        <div className="mb-4 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#FEF3C7] text-[#92400E] border border-[#F6E1BA]">
-            <Info className="w-3 h-3" /> Demo Matching — Algorithm Pending
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="inline-flex items-center gap-1.5 text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#FDF0D8] text-[#92400E] border border-[#F5C770]/40">
+            <Info className="w-2.5 h-2.5" /> Demo Matching — Algorithm Pending
           </span>
         </div>
 
-        {/* ═══ Row 1: Compatibility Overview (3/5) + Distribution & Request (2/5) ═══ */}
-        <div className="grid grid-cols-5 gap-4">
+        {/* ═══ Main grid: Overview (3/5) + Distribution & Request (2/5) ═══ */}
+        <div className="grid grid-cols-5 gap-3 flex-1 min-h-0">
 
-          {/* ── LEFT: Compatibility Overview (large card) ── */}
-          <div className="col-span-3">
-            <section className="bg-white rounded-[20px] border border-[#ECE5D9] shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden h-full flex flex-col">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-[#F3EEE5]">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-[#E5EFE9] flex items-center justify-center text-[#064e3b]">
-                    <BarChart3 className="w-4 h-4" />
+          {/* ── LEFT: Compatibility Overview ── */}
+          <div className="col-span-3 flex flex-col">
+            <section className="bg-white rounded-2xl border border-[#ECE5D9] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden flex-1 flex flex-col">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-[#F3EEE5] shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-[#E5EFE9] flex items-center justify-center text-[#064e3b]">
+                    <BarChart3 className="w-3.5 h-3.5" />
                   </div>
-                  <h3 className="text-[13px] font-bold text-[#1F1E1B]">Compatibility Overview</h3>
+                  <h3 className="text-[12px] font-bold text-[#1F1E1B]">Compatibility Overview</h3>
                 </div>
-                <span className="text-[10px] text-[#8B8479] font-medium">vs {totalCompared} profiles</span>
+                <span className="text-[9px] text-[#8B8479] font-medium">vs {totalCompared} profiles</span>
               </div>
 
-              <div className="p-5 flex-1 flex flex-col">
-                {/* Stat sub-cards (reference: Settings cards) */}
-                <div className="grid grid-cols-3 gap-3 mb-5">
-                  {/* Total Compared */}
-                  <div className="bg-gradient-to-br from-[#E8F5EE] to-[#D4EDDB] rounded-2xl p-4 flex flex-col justify-between min-h-[100px]">
-                    <span className="text-[10px] font-bold text-[#064e3b]/70 uppercase tracking-wider">Total Compared</span>
-                    <div>
-                      <span className="text-[32px] font-extrabold text-[#064e3b] leading-none">{totalCompared}</span>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <span className="w-[5px] h-[5px] rounded-full bg-[#16a34a]" />
-                        <span className="text-[10px] text-[#064e3b]/70 font-medium">Profiles</span>
-                      </div>
+              <div className="px-4 py-3 flex-1 flex flex-col min-h-0">
+                {/* Stat sub-cards */}
+                <div className="grid grid-cols-3 gap-2 mb-3 shrink-0">
+                  <div className="bg-gradient-to-br from-[#E5EFE9] to-[#D4EDDB] rounded-xl p-3 flex flex-col gap-1">
+                    <span className="text-[8.5px] font-bold text-[#064e3b]/60 uppercase tracking-wider">Total Compared</span>
+                    <span className="text-[26px] font-extrabold text-[#064e3b] leading-none">{totalCompared}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="w-1 h-1 rounded-full bg-[#16a34a]" />
+                      <span className="text-[8.5px] text-[#064e3b]/60 font-medium">Profiles</span>
                     </div>
                   </div>
 
-                  {/* High Matches */}
-                  <div className="bg-gradient-to-br from-[#E0F2FE] to-[#CCE8FA] rounded-2xl p-4 flex flex-col justify-between min-h-[100px]">
-                    <span className="text-[10px] font-bold text-[#0C4A6E]/70 uppercase tracking-wider">High Matches</span>
-                    <div>
-                      <span className="text-[32px] font-extrabold text-[#0C4A6E] leading-none">{highCount}</span>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <span className="w-[5px] h-[5px] rounded-full bg-[#0EA5E9]" />
-                        <span className="text-[10px] text-[#0C4A6E]/70 font-medium">80%+ match</span>
-                      </div>
+                  <div className="bg-gradient-to-br from-[#E0F2FE] to-[#CCE8FA] rounded-xl p-3 flex flex-col gap-1">
+                    <span className="text-[8.5px] font-bold text-[#0C4A6E]/60 uppercase tracking-wider">High Matches</span>
+                    <span className="text-[26px] font-extrabold text-[#0C4A6E] leading-none">{highCount}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="w-1 h-1 rounded-full bg-[#0EA5E9]" />
+                      <span className="text-[8.5px] text-[#0C4A6E]/60 font-medium">80%+ match</span>
                     </div>
                   </div>
 
-                  {/* Average & Highest */}
-                  <div className="bg-[#FAFAF8] rounded-2xl p-4 border border-[#F0EBE3] flex flex-col justify-between min-h-[100px]">
-                    <span className="text-[10px] font-bold text-[#8B8479] uppercase tracking-wider">Score Range</span>
-                    <div className="flex items-end gap-4">
+                  <div className="bg-[#FAFAF8] rounded-xl p-3 border border-[#F0EBE3] flex flex-col gap-1">
+                    <span className="text-[8.5px] font-bold text-[#8B8479] uppercase tracking-wider">Score Range</span>
+                    <div className="flex items-end gap-3">
                       <div>
-                        <span className="text-[10px] text-[#8B8479]">Avg</span>
-                        <div className="text-[22px] font-extrabold text-[#1E1F22] leading-none">{average}%</div>
+                        <span className="text-[8px] text-[#8B8479]">Avg</span>
+                        <div className="text-[18px] font-extrabold text-[#064e3b] leading-none">{average}%</div>
                       </div>
                       <div>
-                        <span className="text-[10px] text-[#8B8479]">Best</span>
-                        <div className="text-[22px] font-extrabold leading-none" style={{ color: getScoreColor(highest) }}>{highest}%</div>
+                        <span className="text-[8px] text-[#8B8479]">Best</span>
+                        <div className="text-[18px] font-extrabold leading-none" style={{ color: getScoreColor(highest) }}>{highest}%</div>
                       </div>
                     </div>
-                    {/* Mini progress bar for avg */}
-                    <div className="mt-2 w-full bg-[#F0EBE3] rounded-full h-[5px] overflow-hidden">
+                    <div className="w-full bg-[#E5EFE9] rounded-full h-1 overflow-hidden mt-0.5">
                       <div className="h-full rounded-full bg-[#064e3b] transition-all duration-500" style={{ width: `${average}%` }} />
                     </div>
                   </div>
                 </div>
 
                 {/* Individual compatibility bars */}
-                <h4 className="text-[10.5px] font-bold text-[#8B8479] uppercase tracking-wider mb-2.5">Individual Compatibility</h4>
-                <div className="space-y-2 flex-1">
-                  {results.slice(0, 5).map((match) => {
+                <h4 className="text-[9px] font-bold text-[#8B8479] uppercase tracking-wider mb-1.5 shrink-0">Individual Compatibility</h4>
+                <div className="space-y-1 flex-1 overflow-hidden">
+                  {results.slice(0, 4).map((match) => {
                     const cp = findProfile(match.candidateId);
                     if (!cp) return null;
                     const name = cp.personal_information?.full_name || 'Unknown';
@@ -521,21 +511,21 @@ export default function ProfilesListPage() {
                       <button
                         key={match.candidateId}
                         onClick={() => setSelectedId(match.candidateId)}
-                        className="w-full flex items-center gap-3 group hover:bg-[#FAFAF8] rounded-xl px-2 py-1.5 -mx-2 transition-colors"
+                        className="w-full flex items-center gap-2.5 group hover:bg-[#FAFAF8] rounded-lg px-1.5 py-1 -mx-1.5 transition-colors"
                       >
                         {cp.profile_URL ? (
-                          <img src={cp.profile_URL} alt={name} className="w-8 h-8 rounded-full object-cover border border-[#ECE5D9] shrink-0" />
+                          <img src={cp.profile_URL} alt={name} className="w-7 h-7 rounded-full object-cover border border-[#ECE5D9] shrink-0" />
                         ) : (
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                            cp.gender === 'MALE' ? 'bg-[#E5EFE9] text-[#165842]' : 'bg-[#FCE2DF] text-[#A6372A]'
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                            cp.gender === 'MALE' ? 'bg-[#E5EFE9] text-[#064e3b]' : 'bg-[#FCE2DF] text-[#A6372A]'
                           }`}>{initial}</div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11.5px] font-semibold text-[#1E1F22] truncate">{name}</span>
-                            <span className="text-[11px] font-bold shrink-0 ml-2" style={{ color: getScoreColor(match.score) }}>{match.score}%</span>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[10.5px] font-semibold text-[#1E1F22] truncate">{name}</span>
+                            <span className="text-[10px] font-bold shrink-0 ml-2" style={{ color: getScoreColor(match.score) }}>{match.score}%</span>
                           </div>
-                          <div className="w-full bg-[#F0EBE3] rounded-full h-[5px] overflow-hidden">
+                          <div className="w-full bg-[#E5EFE9] rounded-full h-1 overflow-hidden">
                             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${match.score}%`, backgroundColor: getScoreColor(match.score) }} />
                           </div>
                         </div>
@@ -548,82 +538,73 @@ export default function ProfilesListPage() {
           </div>
 
           {/* ── RIGHT: Distribution + Request (stacked) ── */}
-          <div className="col-span-2 flex flex-col gap-4">
+          <div className="col-span-2 flex flex-col gap-3">
 
-            {/* Match Distribution (reference: Logged Commits) */}
-            <section className="bg-white rounded-[20px] border border-[#ECE5D9] shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
-              <div className="flex items-center gap-2.5 px-5 py-3 border-b border-[#F3EEE5]">
-                <div className="w-7 h-7 rounded-lg bg-[#E5EFE9] flex items-center justify-center text-[#064e3b]">
-                  <Target className="w-4 h-4" />
+            {/* Match Distribution */}
+            <section className="bg-white rounded-2xl border border-[#ECE5D9] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-[#F3EEE5]">
+                <div className="w-6 h-6 rounded-md bg-[#E5EFE9] flex items-center justify-center text-[#064e3b]">
+                  <Target className="w-3.5 h-3.5" />
                 </div>
-                <h3 className="text-[13px] font-bold text-[#1F1E1B]">Match Distribution</h3>
+                <h3 className="text-[12px] font-bold text-[#1F1E1B]">Match Distribution</h3>
               </div>
-              <div className="px-5 py-4 flex gap-5">
-                {/* Legend + bars */}
-                <div className="flex-1 space-y-2">
+              <div className="px-4 py-3 flex gap-4">
+                <div className="flex-1 space-y-1.5">
                   {distBars.map((d) => (
-                    <div key={d.label} className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                      <span className="text-[11px] text-[#6D6558] flex-1 truncate">{d.label}</span>
-                      <span className="text-[11px] font-bold text-[#1E1F22] w-5 text-right">{d.count}</span>
+                    <div key={d.label} className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                      <span className="text-[10px] text-[#6D6558] flex-1 truncate">{d.label}</span>
+                      <span className="text-[10px] font-bold text-[#1E1F22] w-4 text-right">{d.count}</span>
                     </div>
                   ))}
                 </div>
-                {/* Donut */}
                 <div className="shrink-0 flex items-center">
-                  <DonutSvg pct={average} size={110} sw={10} />
+                  <DonutSvg pct={average} size={90} sw={8} />
                 </div>
               </div>
-              {/* Distribution bar */}
-              <div className="px-5 pb-4">
-                <div className="flex rounded-full h-[6px] overflow-hidden bg-[#F0EBE3]">
+              <div className="px-4 pb-3">
+                <div className="flex rounded-full h-1.5 overflow-hidden bg-[#E5EFE9]">
                   {distBars.map((d) => (
                     d.count > 0 && (
-                      <div
-                        key={d.label}
-                        className="h-full transition-all duration-500"
-                        style={{ width: `${(d.count / totalCompared) * 100}%`, backgroundColor: d.color }}
-                      />
+                      <div key={d.label} className="h-full transition-all duration-500" style={{ width: `${(d.count / totalCompared) * 100}%`, backgroundColor: d.color }} />
                     )
                   ))}
                 </div>
-                <div className="flex justify-between mt-1.5 text-[9px] text-[#A8A296] font-medium">
-                  <span>0</span>
-                  <span>{totalCompared} profiles</span>
+                <div className="flex justify-between mt-1 text-[8px] text-[#A8A296] font-medium">
+                  <span>0</span><span>{totalCompared} profiles</span>
                 </div>
               </div>
             </section>
 
-            {/* Request Match Analysis (reference: Requesting New Services) */}
-            <section className="bg-white rounded-[20px] border border-[#ECE5D9] shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden flex-1 flex flex-col">
-              <div className="px-5 py-5 flex-1 flex flex-col justify-center">
-                <div className="flex items-start gap-4">
+            {/* Request Match Analysis */}
+            <section className="bg-white rounded-2xl border border-[#ECE5D9] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden flex-1 flex flex-col">
+              <div className="px-4 py-3 flex-1 flex flex-col justify-center">
+                <div className="flex items-start gap-3">
                   <div className="flex-1">
-                    <h3 className="text-[16px] font-extrabold text-[#1F1E1B] leading-tight">Request Match<br/>Analysis</h3>
-                    <p className="text-[11.5px] text-[#8B8479] mt-2 leading-relaxed">
-                      Would you like to request a detailed compatibility analysis for this profile?
+                    <h3 className="text-[14px] font-extrabold text-[#064e3b] leading-tight">Request Match<br/>Analysis</h3>
+                    <p className="text-[10.5px] text-[#8B8479] mt-1.5 leading-relaxed">
+                      Request a detailed compatibility analysis for this profile.
                     </p>
                     {matchRequested ? (
-                      <div className="mt-3 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-[#E5EFE9] text-[#064e3b]">
-                          <CheckCircle className="w-3.5 h-3.5" /> Request Recorded
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#E5EFE9] text-[#064e3b]">
+                          <CheckCircle className="w-3 h-3" /> Recorded
                         </span>
-                        <span className="text-[9px] text-[#A8A296]">Demo — backend pending</span>
+                        <span className="text-[8px] text-[#A8A296]">Demo</span>
                       </div>
                     ) : (
                       <button
                         onClick={handleRequestMatch}
                         disabled={matchRequesting}
-                        className="mt-3 inline-flex items-center gap-2 bg-[#064e3b] text-white hover:bg-[#0f4229] font-bold text-[12px] px-5 py-2 rounded-full shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="mt-2.5 inline-flex items-center gap-1.5 bg-[#064e3b] text-white hover:bg-[#0a3d2f] font-bold text-[11px] px-4 py-1.5 rounded-full shadow-sm hover:-translate-y-0.5 transition-all disabled:opacity-60"
                       >
-                        {matchRequesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                        {matchRequesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                         {matchRequesting ? 'Submitting…' : 'Request Match'}
                       </button>
                     )}
                   </div>
-                  {/* Decorative icon */}
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#E5EFE9] to-[#D4EDDB] flex items-center justify-center shrink-0">
-                    <Heart className="w-10 h-10 text-[#064e3b]/30" />
+                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#E5EFE9] via-[#D4EDDB] to-[#FDF0D8] flex items-center justify-center shrink-0">
+                    <Heart className="w-8 h-8 text-[#064e3b]/25" />
                   </div>
                 </div>
               </div>
@@ -631,12 +612,12 @@ export default function ProfilesListPage() {
           </div>
         </div>
 
-        {/* ═══ Row 2: Top Matching Profiles (max 5, ascending order) ═══ */}
-        <div className="mt-5">
-          <h4 className="text-[10.5px] font-bold text-[#8B8479] uppercase tracking-wider mb-3 flex items-center gap-2">
-            <Award className="w-3.5 h-3.5" /> Top Matching Profiles
+        {/* ═══ Bottom: Top Matching Profiles (max 5, ascending) ═══ */}
+        <div className="shrink-0">
+          <h4 className="text-[9px] font-bold text-[#8B8479] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Award className="w-3 h-3" /> Top Matching Profiles
           </h4>
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-5 gap-2">
             {top5.map((match) => {
               const cp = findProfile(match.candidateId);
               if (!cp) return null;
@@ -646,61 +627,50 @@ export default function ProfilesListPage() {
               const city = resolveCity(cp);
               const scoreColor = getScoreColor(match.score);
               const scoreLabel = getScoreLabel(match.score);
-
               return (
                 <button
                   key={match.candidateId}
                   onClick={() => setSelectedId(match.candidateId)}
-                  className="bg-white rounded-[18px] border border-[#ECE5D9] shadow-[0_1px_3px_rgba(0,0,0,0.03)] p-4 flex flex-col gap-3 text-left hover:shadow-md hover:-translate-y-0.5 transition-all group"
+                  className="bg-white rounded-xl border border-[#ECE5D9] shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-3 flex flex-col gap-2 text-left hover:shadow-md hover:-translate-y-0.5 transition-all group"
                 >
-                  {/* Avatar + Name */}
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2">
                     {cp.profile_URL ? (
-                      <img src={cp.profile_URL} alt={name} className="w-9 h-9 rounded-full object-cover border border-[#ECE5D9] shrink-0" />
+                      <img src={cp.profile_URL} alt={name} className="w-8 h-8 rounded-full object-cover border border-[#ECE5D9] shrink-0" />
                     ) : (
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                        cp.gender === 'MALE' ? 'bg-[#E5EFE9] text-[#165842]' : 'bg-[#FCE2DF] text-[#A6372A]'
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                        cp.gender === 'MALE' ? 'bg-[#E5EFE9] text-[#064e3b]' : 'bg-[#FCE2DF] text-[#A6372A]'
                       }`}>{initial}</div>
                     )}
                     <div className="min-w-0">
-                      <div className="text-[12px] font-bold text-[#1F1E1B] truncate">{name}</div>
-                      <div className="text-[10px] text-[#8B8479] truncate">
-                        {age !== '-' ? `${age}y` : ''}
-                        {age !== '-' && city ? ' · ' : ''}
-                        {city || ''}
+                      <div className="text-[11px] font-bold text-[#1F1E1B] truncate">{name}</div>
+                      <div className="text-[9px] text-[#8B8479] truncate">
+                        {age !== '-' ? `${age}y` : ''}{age !== '-' && city ? ' · ' : ''}{city || ''}
                       </div>
                     </div>
                   </div>
-
-                  {/* Score */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: scoreColor }} />
-                    <span className="text-[10.5px] font-semibold" style={{ color: scoreColor }}>{scoreLabel}</span>
-                    <span className="text-[10.5px] font-bold text-[#1E1F22] ml-auto">{match.score}%</span>
+                  <div className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: scoreColor }} />
+                    <span className="text-[9px] font-semibold" style={{ color: scoreColor }}>{scoreLabel}</span>
+                    <span className="text-[10px] font-bold text-[#1E1F22] ml-auto">{match.score}%</span>
                   </div>
-
-                  {/* Progress bar */}
-                  <div className="w-full bg-[#F0EBE3] rounded-full h-[5px] overflow-hidden">
+                  <div className="w-full bg-[#E5EFE9] rounded-full h-1 overflow-hidden">
                     <div className="h-full rounded-full transition-all duration-500" style={{ width: `${match.score}%`, backgroundColor: scoreColor }} />
                   </div>
-
-                  {/* ID */}
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[9px] text-[#A8A296]">{cp.id.substring(0, 8).toUpperCase()}</span>
-                    <Info className="w-3 h-3 text-[#d1ccc0] group-hover:text-[#8B8479] transition-colors" />
+                    <span className="font-mono text-[8px] text-[#A8A296]">{cp.id.substring(0, 8).toUpperCase()}</span>
+                    <Info className="w-2.5 h-2.5 text-[#d1ccc0] group-hover:text-[#8B8479] transition-colors" />
                   </div>
                 </button>
               );
             })}
-            {/* Fill remaining slots if fewer than 5 */}
             {top5.length < 5 && Array.from({ length: 5 - top5.length }).map((_, i) => (
-              <div key={`empty-${i}`} className="bg-[#FAFAF8] rounded-[18px] border border-dashed border-[#E5DFD4] p-4 flex items-center justify-center min-h-[140px]">
-                <span className="text-[10px] text-[#C5BEB2] font-medium">No match</span>
+              <div key={`empty-${i}`} className="bg-[#FAFAF8] rounded-xl border border-dashed border-[#E5DFD4] p-3 flex items-center justify-center">
+                <span className="text-[9px] text-[#C5BEB2] font-medium">No match</span>
               </div>
             ))}
           </div>
         </div>
-      </>
+      </div>
     );
   };
 
@@ -1112,72 +1082,72 @@ export default function ProfilesListPage() {
             </div>
           ) : (
             <>
-              {/* ─── Profile Header ─── */}
-              <div className="bg-white border-b border-[#E5DFD4] px-6 py-4 shrink-0">
-                <div className="flex items-start gap-5">
-                  {/* Photo / Avatar */}
-                  {selectedProfile.profile_URL ? (
-                    <img
-                      src={selectedProfile.profile_URL}
-                      alt={selectedProfile.personal_information?.full_name || 'Profile'}
-                      className="w-[76px] h-[76px] rounded-2xl object-cover border-2 border-[#ECE5D9] shadow-sm shrink-0"
-                    />
-                  ) : (
-                    <div
-                      className={`w-[76px] h-[76px] rounded-2xl flex items-center justify-center font-extrabold text-2xl shrink-0 border-2 shadow-sm ${
-                        selectedProfile.gender === 'MALE'
-                          ? 'bg-[#E5EFE9] text-[#165842] border-[#d1e3dc]'
-                          : 'bg-[#FCE2DF] text-[#A6372A] border-[#F5C5C0]'
-                      }`}
-                    >
-                      {selectedProfile.personal_information?.full_name?.charAt(0).toUpperCase() || '?'}
-                    </div>
-                  )}
+              {/* ─── Profile Header (reference-matched) ─── */}
+              <div className="bg-white border-b border-[#E5DFD4] px-6 py-3 shrink-0">
+                <div className="flex items-center gap-5">
+                  {/* Photo / Avatar — larger, gradient ring like reference */}
+                  <div className="shrink-0 rounded-2xl p-[3px] bg-gradient-to-br from-[#064e3b] via-[#16a34a] to-[#D4AF37] shadow-md">
+                    {selectedProfile.profile_URL ? (
+                      <img
+                        src={selectedProfile.profile_URL}
+                        alt={selectedProfile.personal_information?.full_name || 'Profile'}
+                        className="w-[82px] h-[82px] rounded-[13px] object-cover bg-white"
+                      />
+                    ) : (
+                      <div
+                        className={`w-[82px] h-[82px] rounded-[13px] flex items-center justify-center font-extrabold text-[28px] ${
+                          selectedProfile.gender === 'MALE'
+                            ? 'bg-[#E5EFE9] text-[#064e3b]'
+                            : 'bg-[#FCE2DF] text-[#A6372A]'
+                        }`}
+                      >
+                        {selectedProfile.personal_information?.full_name?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Name + Meta */}
-                  <div className="flex-1 min-w-0 pt-0.5">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h2 className="text-[20px] font-extrabold text-[#002b17] tracking-tight leading-tight">
-                        {selectedProfile.personal_information?.full_name || 'Unnamed Profile'}
-                      </h2>
-                    </div>
-                    <p className="text-[12.5px] text-[#717972] font-medium mt-0.5">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-[22px] font-extrabold text-[#002b17] tracking-tight leading-tight">
+                      {selectedProfile.personal_information?.full_name || 'Unnamed Profile'}
+                    </h2>
+                    <p className="text-[12px] text-[#717972] font-medium mt-0.5">
                       {buildSubtitle(selectedProfile)}
                     </p>
 
                     {/* Quick-info icon row */}
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2.5 text-[11.5px] text-[#717972]">
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2 text-[11px] text-[#717972]">
                       {selectedProfile.personal_information?.date_of_birth && (
                         <span className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-[#8B8479]" />
+                          <Calendar className="w-3.5 h-3.5 text-[#064e3b]" />
                           {new Date(selectedProfile.personal_information.date_of_birth).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                           <span className="text-[#A8A296]">({computeAge(selectedProfile.personal_information.date_of_birth)} yrs)</span>
                         </span>
                       )}
                       <span className="flex items-center gap-1.5">
-                        <User2 className="w-3.5 h-3.5 text-[#8B8479]" />
-                        <span className="font-semibold text-[#4E473D]">{formatEnum(selectedProfile.gender)}</span>
+                        <User2 className="w-3.5 h-3.5 text-[#064e3b]" />
+                        <span className="font-semibold text-[#2d4035]">{formatEnum(selectedProfile.gender)}</span>
                       </span>
                       {selectedProfile.profile_locations?.current_city_id && (
                         <span className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-[#8B8479]" />
+                          <MapPin className="w-3.5 h-3.5 text-[#064e3b]" />
                           {getCityById(selectedProfile.profile_locations.current_city_id)?.name_en || '-'}
                           {selectedProfile.profile_locations.current_country_id &&
                             `, ${getCountryById(selectedProfile.profile_locations.current_country_id)?.name_en || ''}`}
                         </span>
                       )}
                       <span className="flex items-center gap-1.5">
-                        <Heart className="w-3.5 h-3.5 text-[#8B8479]" />
+                        <Heart className="w-3.5 h-3.5 text-[#064e3b]" />
                         {formatEnum(selectedProfile.personal_information?.marital_status)}
                       </span>
-                      <span className="font-mono bg-[#F4EFE7] border border-[#E9E4DC] text-[10px] font-bold rounded-md px-1.5 py-0.5 text-[#6D6558]">
+                      <span className="font-mono bg-[#E5EFE9] border border-[#d1e3dc] text-[10px] font-bold rounded-md px-1.5 py-0.5 text-[#064e3b]">
                         {selectedProfile.id.substring(0, 8).toUpperCase()}
                       </span>
                     </div>
                   </div>
 
                   {/* Actions + Status Badge */}
-                  <div className="flex flex-col items-end gap-2 shrink-0 pt-0.5">
+                  <div className="flex flex-col items-end gap-2 shrink-0">
                     <div className="flex items-center gap-2">
                       <Link href={`/profiles/${selectedProfile.id}`}>
                         <button className="flex items-center gap-1.5 bg-[#064e3b] text-white hover:bg-[#0f4229] font-bold text-[11.5px] px-4 py-2 rounded-full shadow-sm hover:-translate-y-0.5 transition-all">
@@ -1213,7 +1183,7 @@ export default function ProfilesListPage() {
               </div>
 
               {/* ─── Dashboard Workspace ─── */}
-              <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+              <div className={`flex-1 p-4 ${activeTab === 'overview' ? 'overflow-hidden' : 'overflow-y-auto custom-scrollbar'}`}>
                 {renderTabContent()}
               </div>
             </>
