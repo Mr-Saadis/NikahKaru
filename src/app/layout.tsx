@@ -25,8 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${plusJakartaSans.variable} ${poppins.variable} font-sans h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#FAF8F5] text-[#1E2022]">
+    <html lang="en" suppressHydrationWarning className={`${plusJakartaSans.variable} ${poppins.variable} font-sans h-full antialiased`}>
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-[#FAF8F5] text-[#1E2022]">
         <AuthProvider>
           {children}
         </AuthProvider>

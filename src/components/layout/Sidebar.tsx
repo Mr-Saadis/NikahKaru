@@ -231,7 +231,7 @@ const NavItem = ({ item, isActive, open, onClick }: { item: typeof navItems[0]; 
         </div>
       </TooltipTrigger>
       {!open && (
-        <TooltipContent side="right" sideOffset={12} className="border-none bg-[#064e3b] text-[#FAF8F5] font-semibold text-sm">
+        <TooltipContent side="right" sideOffset={12} className="border-none bg-[#1F3B34] text-[#FAF8F5] font-semibold text-sm">
           {item.label}
         </TooltipContent>
       )}
@@ -326,7 +326,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
             }}
           >
             <div
-              className="sidebar-trans flex item-center gap-2"
+              className="sidebar-trans flex item-center gap-2" suppressHydrationWarning
               style={{
                 flex: 1,
                 opacity: open ? 1 : 0,
@@ -335,7 +335,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                 whiteSpace: 'nowrap',
               }}
             >
-              <Image src="/nikah_icon_w.png" alt="nikahkaru_logo" width={35} height={35}/>
+              <Image src="/nikah_icon_w.png" alt="nikahkaru_logo" width={35} height={35} suppressHydrationWarning/>
               <span style={{ color: PAGE_BG, fontFamily: 'var(--font-poppins)', fontWeight: 600 , fontSize: 17, marginTop:5 , letterSpacing: '-0.3px' }}>
                 Nikah Karu 
               </span>
@@ -387,7 +387,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                     style={{ transition: 'opacity 0.2s' }}
                   />
                 ) : (
-                  <Image src="/nikah_icon_w.png" alt="nikahkaru_logo" width={35} height={35}/>
+                  <Image src="/nikah_icon_w.png" alt="nikahkaru_logo" width={35} height={35} suppressHydrationWarning/>
                     
                  
                   // <PanelLeft
@@ -521,7 +521,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                   justifyContent: 'center',
                   flexShrink: 0,
                 }}>
-                  <LogOut size={20} strokeWidth={2} style={{ transition: 'color 0.15s' }} />
+                  <LogOut size={16} strokeWidth={2} style={{ transition: 'color 0.15s' }} />
                 </div>
                 <span
                   className="sidebar-trans"
@@ -539,7 +539,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                 </span>
               </TooltipTrigger>
               {!open && (
-                <TooltipContent side="right" sideOffset={12} className="border-none bg-[#064e3b] text-[#FAF8F5] font-semibold text-sm">
+                <TooltipContent side="right" sideOffset={12} className="border-none  bg-[#1F3B34] text-[#FAF8F5] font-semibold text-sm">
                   Logout
                 </TooltipContent>
               )}
