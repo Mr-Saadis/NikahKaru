@@ -71,12 +71,11 @@ export default function Header({
   }, [isDraftsOpen]); // Re-fetch when drafts dialog is closed/opened
 
   return (
-    <header className="bg-[#FAF8F5] border-b border-[#E9E4DC] sticky top-0 z-10">
-      <div className="w-full px-6 lg:px-8 py-2 flex items-center justify-between">
+    <header className="bg-[#FAF8F5] sticky top-0 z-10">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-2 flex items-center justify-between">
 
-        {/* Left Section: Icon, Back Button, Title, Subtitle */}
+        {/* Left Section: Back Button Only */}
         <div className="flex items-center gap-4">
-
           {showBackButton && (
             <button
               onClick={() => router.back()}
@@ -86,31 +85,6 @@ export default function Header({
             </button>
           )}
 
-          {icon && !showBackButton && (
-            <div className="w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] shadow-sm text-[#064e3b] flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4">
-              {icon}
-            </div>
-          )}
-
-          <div className="flex items-center gap-3">
-            <h1 className="text-[18px] font-extrabold text-[#002b17] tracking-tight">
-              {title}
-            </h1>
-
-
-            {idBadge && (
-              <span className="bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc] text-[11px] font-bold px-2 py-0.5 rounded-full">
-                {idBadge}
-              </span>
-            )}
-
-            {isLive && (
-              <div className="bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc] text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#16a34a] animate-pulse" />
-                LIVE
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Right Section: Actions & Notifications */}

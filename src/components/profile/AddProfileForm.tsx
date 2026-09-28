@@ -806,16 +806,13 @@ export default function AddProfileForm() {
         const total = 29;
         const completed = Object.values(step8).filter(v => v !== '' && v !== null && v !== undefined).length;
 
-        const reqBasic = !!(step8.pref_min_age && step8.pref_max_age && step8.pref_age_importance && step8.pref_marital_status && step8.pref_marital_importance);
-        const needsChildren = ['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(step8.pref_marital_status as string);
-        const reqChildren = needsChildren ? !!(step8.pref_children_allowed && step8.pref_children_importance) : true;
-        const reqPhys = !!(step8.pref_min_height && step8.pref_max_height && step8.pref_height_importance && step8.pref_disability_allowed && step8.pref_disability_importance);
-        const reqRel = !!(step8.pref_caste_id && step8.pref_caste_importance && step8.pref_religious_practice && step8.pref_religious_practice_importance);
-        const reqProf = !!(step8.pref_min_income && step8.pref_max_income && step8.pref_income_importance);
-        const reqLoc = !!(step8.pref_location_country_id && step8.pref_location_importance);
-        const reqLife = !!(step8.pref_family_setup && step8.pref_family_setup_importance && step8.pref_smoking && step8.pref_smoking_importance);
-
-        const mandatoryComplete = reqBasic && reqChildren && reqPhys && reqRel && reqProf && reqLoc && reqLife;
+        // Age and Height are the only strict numeric ranges without an "Any" option, so we require them.
+        const reqBasic = !!(step8.pref_min_age && step8.pref_max_age && step8.pref_age_importance);
+        const reqPhys = !!(step8.pref_min_height && step8.pref_max_height && step8.pref_height_importance);
+        
+        // For other fields, "Any" sets them to '', so we cannot strictly require them to be truthy 
+        // without blocking the user. We will just require the most critical ones (Age and Height).
+        const mandatoryComplete = reqBasic && reqPhys;
         return { completed, total, mandatoryComplete };
       }
       default:
