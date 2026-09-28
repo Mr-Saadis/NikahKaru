@@ -37,7 +37,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
         {/* Religion */}
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Religion
+            Religion <span className="text-red-500">*</span>
           </label>
           <SearchableSelect
             value={data.religion_id ? String(data.religion_id) : ''}
@@ -52,7 +52,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
         {/* Sect */}
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Fiqah / Sect
+            Fiqah / Sect <span className="text-red-500">*</span>
           </label>
           <SearchableSelect
             value={data.sect_id ? String(data.sect_id) : ''}
@@ -69,7 +69,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
         {/* Caste */}
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Caste / Lineage
+            Caste / Lineage <span className="text-red-500">*</span>
           </label>
           <SearchableSelect
             value={data.caste_id ? String(data.caste_id) : ''}
@@ -84,7 +84,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
         {!data.caste_id && (
           <div className="space-y-2">
             <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156] truncate">
-              Other Caste (if not listed)
+              Other Caste (if not listed) <span className="text-red-500">*</span>
             </label>
             <input
               type="text"

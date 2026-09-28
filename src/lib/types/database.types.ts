@@ -758,6 +758,7 @@ export interface ProfileListItem {
   id: string;
   gender: ProfileGender;
   status: ProfileStatus;
+  profile_URL: string | null;
   created_at: string;
   updated_at: string;
   current_agent_id: string | null;

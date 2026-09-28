@@ -53,16 +53,18 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Height
+            Height <span className="text-red-500">*</span>
           </label>
           <div className="flex gap-2">
             <div className="flex-1 relative">
               <input
-                type="number"
-                min={3}
-                max={8}
+                type="text"
+                inputMode="numeric"
                 value={currentFeet === '' ? '' : currentFeet}
-                onChange={(e) => handleHeightChange(e.target.value ? Number(e.target.value) : '', currentInches)}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  handleHeightChange(val ? Number(val) : '', currentInches);
+                }}
                 placeholder="Feet"
                 className="w-full bg-white border border-[#EFE9DF] rounded-xl pl-4 pr-8 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
               />
@@ -70,11 +72,13 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
             </div>
             <div className="flex-1 relative">
               <input
-                type="number"
-                min={0}
-                max={11}
+                type="text"
+                inputMode="numeric"
                 value={currentInches === '' ? '' : currentInches}
-                onChange={(e) => handleHeightChange(currentFeet, e.target.value ? Number(e.target.value) : '')}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  handleHeightChange(currentFeet, val ? Number(val) : '');
+                }}
                 placeholder="Inches"
                 className="w-full bg-white border border-[#EFE9DF] rounded-xl pl-4 pr-8 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
               />
@@ -86,14 +90,16 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
 
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Weight (kg)
+            Weight (kg) <span className="text-red-500">*</span>
           </label>
           <input
-            type="number"
-            min={20}
-            max={400}
-            value={data.weight_kg}
-            onChange={(e) => set('weight_kg', e.target.value ? Number(e.target.value) : '')}
+            type="text"
+            inputMode="numeric"
+            value={data.weight_kg === '' ? '' : data.weight_kg}
+            onChange={(e) => {
+              const val = e.target.value.replace(/[^0-9]/g, '');
+              set('weight_kg', val ? Number(val) : '');
+            }}
             placeholder="e.g. 65"
             className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
           />

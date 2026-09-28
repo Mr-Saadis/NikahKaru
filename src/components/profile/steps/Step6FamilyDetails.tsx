@@ -85,7 +85,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
       {/* Parents */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h4 className="text-[13px] font-bold text-[#232326]">Parents</h4>
+          <h4 className="text-[13px] font-bold text-[#232326]">Parents <span className="text-red-500">*</span></h4>
           <div className="flex gap-2">
             {!hasFather && (
               <button type="button" onClick={() => addParent('FATHER')}
@@ -103,7 +103,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
         </div>
 
         {data.parents.map((parent, idx) => (
-          <div key={parent._tempId} className="p-4 rounded-xl border border-[#E9E4DC] bg-white space-y-3">
+          <div key={parent._tempId || idx} className="p-4 rounded-xl border border-[#E9E4DC] bg-white space-y-3">
             <div className="flex items-center justify-between">
               <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${
                 parent.parent_type === 'FATHER' ? 'bg-[#E5EFE9] text-[#064e3b]' : 'bg-[#FCE7CE] text-[#8C5216]'
@@ -129,13 +129,13 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Full Name</label>
+              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Full Name {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
                 <input type="text" value={parent.full_name} onChange={(e) => updateParent(idx, { full_name: e.target.value })} placeholder="Name" className={inputClass} /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Age</label>
                 <input type="number" value={parent.age} onChange={(e) => updateParent(idx, { age: e.target.value ? Number(e.target.value) : '' })} placeholder="Age" className={inputClass} /></div>
-              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession</label>
+              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
                 <input type="text" value={parent.profession} onChange={(e) => updateParent(idx, { profession: e.target.value })} placeholder="e.g. Retired" className={inputClass} /></div>
-              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Education</label>
+              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Education {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
                 <input type="text" value={parent.education} onChange={(e) => updateParent(idx, { education: e.target.value })} placeholder="e.g. Matric" className={inputClass} /></div>
             </div>
           </div>
@@ -157,7 +157,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
         )}
 
         {data.siblings.map((sib, idx) => (
-          <div key={sib._tempId} className="p-4 rounded-xl border border-[#E9E4DC] bg-white">
+          <div key={sib._tempId || idx} className="p-4 rounded-xl border border-[#E9E4DC] bg-white">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-bold text-[#888174] uppercase tracking-wider">Sibling #{idx + 1}</span>
               <button type="button" onClick={() => set('siblings', data.siblings.filter((_, i) => i !== idx))}

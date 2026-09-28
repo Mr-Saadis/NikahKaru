@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/lib/stores/auth-store';
@@ -8,7 +8,7 @@ import { User, EyeOff, Eye, ShieldCheck, Sparkles, Heart } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirectTo') || '/overview';
@@ -25,8 +25,18 @@ export default function LoginPage() {
     setError(null);
     try {
       const supabase = createClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) throw signInError;
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        throw signInError;
+      }
+
+      // The AuthProvider will automatically pick up the session change,
+      // fetch user data, and update the Zustand store.
+      // We just need to redirect the user to the correct page.
       router.push(redirectTo);
     } catch (err: any) {
       setError(err.message || 'Invalid credentials. Please try again.');
@@ -228,4 +238,10 @@ export default function LoginPage() {
   );
 }
 
-{/* ══════════════ GLOBAL CSS ANIMATIONS ══════════════ */ }
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-[#1F3B34] font-medium">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
+  );
+}

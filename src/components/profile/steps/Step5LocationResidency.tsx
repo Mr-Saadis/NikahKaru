@@ -39,6 +39,7 @@ function LocationRow({
   provinceText, onProvinceTextChange,
   cityText, onCityTextChange,
   locationText, onLocationTextChange,
+  isMandatory,
 }: {
   label: string;
   headerRight?: React.ReactNode;
@@ -48,6 +49,7 @@ function LocationRow({
   provinceText?: string; onProvinceTextChange?: (v: string) => void;
   cityText?: string; onCityTextChange?: (v: string) => void;
   locationText: string; onLocationTextChange: (v: string) => void;
+  isMandatory?: boolean;
 }) {
   const { countries } = useReferenceData();
   const isPakistan = countryVal === 131;
@@ -55,12 +57,16 @@ function LocationRow({
   return (
     <div className="space-y-3 p-4 rounded-xl bg-[#FAF8F5] border border-[#E9E4DC]">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-[#888174]">{label}</p>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-[#888174]">
+          {label} {isMandatory && <span className="text-red-500">*</span>}
+        </p>
         {headerRight}
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">Country</label>
+          <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">
+            Country {isMandatory && <span className="text-red-500">*</span>}
+          </label>
           <SearchableSelect
             value={countryVal ? String(countryVal) : ''}
             onChange={(val) => onCountry(val ? Number(val) : '')}
@@ -70,7 +76,9 @@ function LocationRow({
           />
         </div>
         <div>
-          <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">Province / State</label>
+          <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">
+            Province / State {isMandatory && isPakistan && <span className="text-red-500">*</span>}
+          </label>
           {isPakistan ? (
             <SearchableSelect
               value={provinceVal ? String(provinceVal) : ''}
@@ -92,7 +100,9 @@ function LocationRow({
           )}
         </div>
         <div>
-          <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">City</label>
+          <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">
+            City {isMandatory && isPakistan && <span className="text-red-500">*</span>}
+          </label>
           {isPakistan ? (
             <SearchableSelect
               value={cityVal ? String(cityVal) : ''}
@@ -116,7 +126,7 @@ function LocationRow({
       </div>
       <div className="pt-2">
         <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">
-          Address / Area Details
+          Address / Area Details {isMandatory && !isPakistan && <span className="text-red-500">*</span>}
         </label>
         <input
           type="text"
@@ -150,6 +160,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
 
       <LocationRow
         label="Current Location"
+        isMandatory={true}
         countryVal={data.current_country_id}
         onCountry={(v) => onChange({ ...data, current_country_id: v, current_province_id: '', current_city_id: '', current_province_text: '', current_city_text: '' })}
         provinceOptions={currentProvinces}

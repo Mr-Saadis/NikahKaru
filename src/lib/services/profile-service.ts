@@ -87,6 +87,33 @@ export class ProfileService {
     if (error) throw error;
   }
 
+  /**
+   * DELETE PROFILE PICTURE from storage bucket
+   */
+  static async deleteProfilePicture(publicUrl: string): Promise<void> {
+    const supabase = createClient();
+    try {
+      // Extract file name from public URL (everything after the last slash)
+      const url = new URL(publicUrl);
+      const pathParts = url.pathname.split('/');
+      let fileName = pathParts[pathParts.length - 1];
+      
+      // Remove any query params just in case
+      fileName = fileName.split('?')[0];
+
+      if (!fileName) return;
+      
+      const { error } = await supabase.storage
+        .from('Profile_Picture')
+        .remove([fileName]);
+      
+      if (error) {
+        console.error('Failed to delete old profile picture:', error);
+      }
+    } catch (e) {
+      console.error('Error parsing profile picture URL for deletion:', e);
+    }
+  }
 
 
   /**
@@ -96,7 +123,7 @@ export class ProfileService {
     const supabase = createClient();
     
     // Check if exists
-    const { data: existing } = await supabase.from('personal_information').select('id').eq('profile_id', profileId).single();
+    const { data: existing } = await supabase.from('personal_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     
     let result;
     if (existing) {
@@ -116,7 +143,7 @@ export class ProfileService {
    */
   static async savePhysicalInfo(profileId: string, data: Partial<PhysicalInformation>): Promise<PhysicalInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('physical_information').select('id').eq('profile_id', profileId).single();
+    const { data: existing } = await supabase.from('physical_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     
     let result;
     if (existing) {
@@ -170,7 +197,7 @@ export class ProfileService {
    */
   static async saveIncomeInfo(profileId: string, data: Partial<IncomeInformation>): Promise<IncomeInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('income_information').select('id').eq('profile_id', profileId).single();
+    const { data: existing } = await supabase.from('income_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     let result;
     if (existing) {
       const { data: updated, error } = await supabase.from('income_information').update(data).eq('profile_id', profileId).select().single();
@@ -189,7 +216,7 @@ export class ProfileService {
    */
   static async saveReligionInfo(profileId: string, data: Partial<ReligionInformation>): Promise<ReligionInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('religion_information').select('id').eq('profile_id', profileId).single();
+    const { data: existing } = await supabase.from('religion_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     let result;
     if (existing) {
       const { data: updated, error } = await supabase.from('religion_information').update(data).eq('profile_id', profileId).select().single();
@@ -208,7 +235,7 @@ export class ProfileService {
    */
   static async saveLocations(profileId: string, data: Partial<ProfileLocation>): Promise<ProfileLocation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('profile_locations').select('id').eq('profile_id', profileId).single();
+    const { data: existing } = await supabase.from('profile_locations').select('profile_id').eq('profile_id', profileId).maybeSingle();
     let result;
     if (existing) {
       const { data: updated, error } = await supabase.from('profile_locations').update(data).eq('profile_id', profileId).select().single();
@@ -227,7 +254,7 @@ export class ProfileService {
    */
   static async saveResidencyInfo(profileId: string, data: Partial<ResidencyInformation>): Promise<ResidencyInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('residency_information').select('id').eq('profile_id', profileId).single();
+    const { data: existing } = await supabase.from('residency_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     let result;
     if (existing) {
       const { data: updated, error } = await supabase.from('residency_information').update(data).eq('profile_id', profileId).select().single();
@@ -274,7 +301,7 @@ export class ProfileService {
    */
   static async saveFamilyInfo(profileId: string, data: Partial<FamilyInformation>): Promise<FamilyInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('family_information').select('id').eq('profile_id', profileId).single();
+    const { data: existing } = await supabase.from('family_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     let result;
     if (existing) {
       const { data: updated, error } = await supabase.from('family_information').update(data).eq('profile_id', profileId).select().single();
@@ -293,7 +320,7 @@ export class ProfileService {
    */
   static async saveLifestyleInfo(profileId: string, data: Partial<LifestyleInformation>): Promise<LifestyleInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('lifestyle_information').select('id').eq('profile_id', profileId).single();
+    const { data: existing } = await supabase.from('lifestyle_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     let result;
     if (existing) {
       const { data: updated, error } = await supabase.from('lifestyle_information').update(data).eq('profile_id', profileId).select().single();
@@ -312,7 +339,7 @@ export class ProfileService {
    */
   static async saveRelocationInfo(profileId: string, data: Partial<RelocationInformation>): Promise<RelocationInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('relocation_information').select('id').eq('profile_id', profileId).single();
+    const { data: existing } = await supabase.from('relocation_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     let result;
     if (existing) {
       const { data: updated, error } = await supabase.from('relocation_information').update(data).eq('profile_id', profileId).select().single();
@@ -373,7 +400,7 @@ export class ProfileService {
     let query = supabase
       .from('profiles')
       .select(`
-        id, gender, status, created_at, updated_at, current_agent_id,
+        id, gender, status, profile_URL, created_at, updated_at, current_agent_id,
         personal_information ( full_name, date_of_birth, marital_status ),
         profile_locations ( current_city_id )
       `, { count: 'exact' });
@@ -417,6 +444,27 @@ export class ProfileService {
     }
 
     return { data: results, count: count || results.length };
+  }
+
+  /**
+   * READ: Get profile counts by status (head-only queries, very lightweight)
+   */
+  static async getProfileStats(): Promise<{ total: number; active: number; draft: number; paused: number; archived: number }> {
+    const supabase = createClient();
+    const [total, active, draft, paused, archived] = await Promise.all([
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE'),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'DRAFT'),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'PAUSED'),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'ARCHIVED'),
+    ]);
+    return {
+      total: total.count || 0,
+      active: active.count || 0,
+      draft: draft.count || 0,
+      paused: paused.count || 0,
+      archived: archived.count || 0,
+    };
   }
 
   /**

@@ -97,7 +97,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
         )}
 
         {data.education_records.map((edu, idx) => (
-          <div key={edu._tempId} className="p-4 rounded-xl border border-[#E9E4DC] bg-white space-y-3">
+          <div key={edu._tempId || idx} className="p-4 rounded-xl border border-[#E9E4DC] bg-white space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-[#888174] uppercase tracking-wider">
                 Record #{idx + 1}
@@ -113,7 +113,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Level</label>
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Level <span className="text-red-500">*</span></label>
                 <SearchableSelect
                   value={edu.education_level_id ? String(edu.education_level_id) : ''}
                   onChange={(val) => updateEdu(idx, { education_level_id: val ? Number(val) : undefined })}
@@ -187,7 +187,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
         )}
 
         {data.employment_records.map((emp, idx) => (
-          <div key={emp._tempId} className="p-4 rounded-xl border border-[#E9E4DC] bg-white space-y-3">
+          <div key={emp._tempId || idx} className="p-4 rounded-xl border border-[#E9E4DC] bg-white space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-[#888174] uppercase tracking-wider">
                 Job #{idx + 1}
@@ -203,7 +203,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Occupation</label>
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Occupation <span className="text-red-500">*</span></label>
                 <SearchableSelect
                   value={emp.occupation_id ? String(emp.occupation_id) : ''}
                   onChange={(val) => updateEmp(idx, { occupation_id: val ? Number(val) : undefined })}
@@ -213,7 +213,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Employment Type</label>
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Employment Type <span className="text-red-500">*</span></label>
                 <SearchableSelect
                   value={emp.employment_type || ''}
                   onChange={(val) => updateEmp(idx, { employment_type: val as EmploymentType || undefined })}
@@ -264,9 +264,13 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
           <div className="space-y-1.5">
             <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Minimum</label>
             <input
-              type="number"
-              value={data.monthly_income_min}
-              onChange={(e) => set('monthly_income_min', e.target.value ? Number(e.target.value) : '')}
+              type="text"
+              inputMode="numeric"
+              value={data.monthly_income_min === '' ? '' : data.monthly_income_min}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '');
+                set('monthly_income_min', val ? Number(val) : '');
+              }}
               placeholder="e.g. 50000"
               className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
             />
@@ -274,9 +278,13 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
           <div className="space-y-1.5">
             <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Maximum</label>
             <input
-              type="number"
-              value={data.monthly_income_max}
-              onChange={(e) => set('monthly_income_max', e.target.value ? Number(e.target.value) : '')}
+              type="text"
+              inputMode="numeric"
+              value={data.monthly_income_max === '' ? '' : data.monthly_income_max}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '');
+                set('monthly_income_max', val ? Number(val) : '');
+              }}
               placeholder="e.g. 100000"
               className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
             />
