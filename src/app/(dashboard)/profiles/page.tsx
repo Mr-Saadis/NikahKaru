@@ -437,13 +437,7 @@ export default function ProfilesListPage() {
 
     return (
       <div className="h-full flex flex-col gap-3">
-        {/* Demo badge */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="inline-flex items-center gap-1.5 text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#FDF0D8] text-[#92400E] border border-[#F5C770]/40">
-            <Info className="w-2.5 h-2.5" /> Demo Matching — Algorithm Pending
-          </span>
-        </div>
-
+       
         {/* ═══ Main grid: Overview (3/5) + Distribution & Request (2/5) ═══ */}
         <div className="grid grid-cols-5 gap-3 flex-1 min-h-0">
 
