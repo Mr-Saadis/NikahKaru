@@ -1131,22 +1131,22 @@ export default function ProfilesListPage() {
 
                   {/* Name + Meta (Porsche Reference Layout) */}
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    {/* Top Pill Badges */}
-                    <div className="flex items-center gap-1.5 mb-2.5">
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white shadow-sm border border-gray-100" title={formatEnum(selectedProfile.gender)}>
+                    {/* Top Badges (No background) */}
+                    <div className="flex items-center gap-3 mb-2.5">
+                      <span className="inline-flex items-center justify-center" title={formatEnum(selectedProfile.gender)}>
                         {selectedProfile.gender === 'MALE' ? (
-                          <Mars className="w-3 h-3 text-sky-600" />
+                          <Mars className="w-4 h-4 text-sky-600" />
                         ) : (
-                          <Venus className="w-3 h-3 text-pink-600" />
+                          <Venus className="w-4 h-4 text-pink-600" />
                         )}
                       </span>
                       {selectedProfile.personal_information?.date_of_birth && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white text-[9px] font-extrabold text-gray-600 shadow-sm border border-gray-100">
-                          <Calendar className="w-2.5 h-2.5 text-gray-400" /> {computeAge(selectedProfile.personal_information.date_of_birth)}y
+                        <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold text-gray-500 uppercase tracking-widest">
+                          <Calendar className="w-3 h-3 text-gray-400" /> {computeAge(selectedProfile.personal_information.date_of_birth)}Y
                         </span>
                       )}
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white text-[9px] font-extrabold text-gray-600 shadow-sm border border-gray-100">
-                        <Heart className="w-2.5 h-2.5 text-gray-400" /> {formatEnum(selectedProfile.personal_information?.marital_status)}
+                      <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold text-gray-500 uppercase tracking-widest">
+                        <Heart className="w-3 h-3 text-gray-400" /> {formatEnum(selectedProfile.personal_information?.marital_status)}
                       </span>
                     </div>
 
