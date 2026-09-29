@@ -407,6 +407,8 @@ export class ProfileService {
 
     if (filters.status) {
       query = query.eq('status', filters.status);
+    } else {
+      query = query.neq('status', 'DRAFT');
     }
     if (filters.gender) {
       query = query.eq('gender', filters.gender);
