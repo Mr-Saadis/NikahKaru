@@ -293,11 +293,13 @@ export default function ProfilesListPage() {
 
   const [activeTab, setActiveTab] = useState('overview');
 
-  // ── Match request state (demo) ────────────────────────────────
+  // ── Match request state (per-profile) ────────────────────────────
+  const [matchRunMap, setMatchRunMap] = useState<Record<string, boolean>>({});
+  const [matchingMap, setMatchingMap] = useState<Record<string, boolean>>({});
   const [matchRequested, setMatchRequested] = useState(false);
   const [matchRequesting, setMatchRequesting] = useState(false);
 
-  // Reset request state when profile changes
+  // Reset only non-per-profile state when profile changes
   useEffect(() => {
     setMatchRequested(false);
     setMatchRequesting(false);
@@ -372,19 +374,52 @@ export default function ProfilesListPage() {
     loadProfiles();
   }, [loadProfiles]);
 
-  // ── Load selected profile detail ──────────────────────────────
+  // ── Prefetch and Load selected profile detail ───────────────────
+  const prefetchedProfiles = useRef<Record<string, FullProfile>>({});
+
+  // Background prefetch all profiles in the current page list
+  useEffect(() => {
+    profiles.forEach((profile) => {
+      if (!prefetchedProfiles.current[profile.id]) {
+        ProfileService.getProfileById(profile.id).then((data) => {
+          prefetchedProfiles.current[profile.id] = data as FullProfile;
+          // If this profile is currently selected and was waiting, update it
+          setSelectedId((currId) => {
+            if (currId === profile.id) {
+              setSelectedProfile(data as FullProfile);
+              setDetailLoading(false);
+            }
+            return currId;
+          });
+        }).catch(console.error);
+      }
+    });
+  }, [profiles]);
+
+  // Handle selected profile changes
   useEffect(() => {
     if (!selectedId) {
       setSelectedProfile(null);
       return;
     }
+
+    setActiveTab('overview'); // reset to overview on profile change
+
+    // Instant load if already prefetched
+    if (prefetchedProfiles.current[selectedId]) {
+      setSelectedProfile(prefetchedProfiles.current[selectedId]);
+      setDetailLoading(false);
+      return;
+    }
+
+    // Fallback fetch if not yet prefetched
     let cancelled = false;
     setDetailLoading(true);
     ProfileService.getProfileById(selectedId)
       .then((data) => {
         if (!cancelled) {
+          prefetchedProfiles.current[selectedId] = data as FullProfile;
           setSelectedProfile(data as FullProfile);
-          setActiveTab('overview'); // reset to overview on profile change
         }
       })
       .catch((err) => {
@@ -527,6 +562,188 @@ export default function ProfilesListPage() {
     if (!sp || !matchData) return (
       <div className="flex items-center justify-center h-full text-[#A8A296] text-[13px]">No matching data available.</div>
     );
+
+    const currentProfileId = selectedId!;
+    const hasRunMatch = !!matchRunMap[currentProfileId];
+    const isMatchingNow = !!matchingMap[currentProfileId];
+
+    if (!hasRunMatch) {
+      return (
+        <div className="relative flex flex-col items-center justify-center h-full min-h-[450px] bg-gradient-to-br from-white via-[#FDFBF8] to-[#F5F0E8] rounded-[28px] border border-[#E9E4DC] shadow-sm overflow-hidden">
+
+          {/* ── Card-style decorative graphics ── */}
+          {/* Dot grid pattern — top left */}
+          <div className="absolute top-4 left-4 w-[100px] h-[100px] opacity-[0.12] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#1F3B34 1.2px, transparent 1.2px)', backgroundSize: '8px 8px' }} />
+          {/* Dot grid pattern — bottom right */}
+          <div className="absolute bottom-4 right-4 w-[80px] h-[80px] opacity-[0.08] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#C86A4A 1px, transparent 1px)', backgroundSize: '7px 7px' }} />
+          {/* Corner rings — top right */}
+          <div className="absolute -top-10 -right-10 w-[90px] h-[90px] rounded-full border-[3px] border-[#E9E4DC]/50 pointer-events-none" />
+          <div className="absolute -top-4 -right-4 w-[50px] h-[50px] rounded-full border-[2px] border-[#C86A4A]/15 pointer-events-none" />
+          {/* Corner rings — bottom left */}
+          <div className="absolute -bottom-8 -left-8 w-[80px] h-[80px] rounded-full border-[3px] border-[#E9E4DC]/40 pointer-events-none" />
+          <div className="absolute -bottom-3 -left-3 w-[45px] h-[45px] rounded-full border-[2px] border-[#064e3b]/10 pointer-events-none" />
+
+          {/* ── Background gradient orbs ── */}
+          <div className="absolute -top-16 -right-16 w-[220px] h-[220px] rounded-full bg-gradient-to-br from-[#C86A4A]/10 via-[#D4AF37]/8 to-transparent blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-[160px] h-[160px] rounded-full bg-gradient-to-tr from-[#064e3b]/8 via-[#A3B18A]/10 to-transparent blur-2xl pointer-events-none" />
+
+          {/* Animated rings */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="w-[300px] h-[300px] rounded-full border border-[#E9E4DC]/40" style={{ animation: 'matchRingPulse 3s ease-in-out infinite' }} />
+          </div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="w-[220px] h-[220px] rounded-full border border-dashed border-[#C86A4A]/15" style={{ animation: 'matchRingSpin 12s linear infinite' }} />
+          </div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="w-[160px] h-[160px] rounded-full border border-[#064e3b]/10" style={{ animation: 'matchRingPulse 3s ease-in-out infinite 1.5s' }} />
+          </div>
+
+          {/* Floating decorative icons */}
+          <div className="absolute top-[18%] left-[15%] pointer-events-none" style={{ animation: 'matchFloat 4s ease-in-out infinite' }}>
+            <div className="w-10 h-10 rounded-[14px] bg-[#FDF0D8]/70 border border-[#D4AF37]/20 flex items-center justify-center shadow-sm backdrop-blur-sm">
+              <Heart className="w-4 h-4 text-[#D4AF37]" />
+            </div>
+          </div>
+          <div className="absolute top-[22%] right-[14%] pointer-events-none" style={{ animation: 'matchFloat 5s ease-in-out infinite 1s' }}>
+            <div className="w-9 h-9 rounded-full bg-[#E5EFE9]/70 border border-[#A3B18A]/20 flex items-center justify-center shadow-sm backdrop-blur-sm">
+              <Target className="w-4 h-4 text-[#064e3b]" />
+            </div>
+          </div>
+          <div className="absolute bottom-[20%] left-[12%] pointer-events-none" style={{ animation: 'matchFloat 4.5s ease-in-out infinite 0.5s' }}>
+            <div className="w-8 h-8 rounded-full bg-[#C86A4A]/10 border border-[#C86A4A]/15 flex items-center justify-center shadow-sm backdrop-blur-sm">
+              <TrendingUp className="w-3.5 h-3.5 text-[#C86A4A]" />
+            </div>
+          </div>
+          <div className="absolute bottom-[24%] right-[16%] pointer-events-none" style={{ animation: 'matchFloat 3.5s ease-in-out infinite 2s' }}>
+            <div className="w-9 h-9 rounded-[12px] bg-white/80 border border-[#E9E4DC] flex items-center justify-center shadow-sm backdrop-blur-sm">
+              <Award className="w-4 h-4 text-[#D4AF37]" />
+            </div>
+          </div>
+
+          {/* Tiny floating dots */}
+          <div className="absolute top-[35%] left-[28%] w-2 h-2 rounded-full bg-[#C86A4A]/20 pointer-events-none" style={{ animation: 'matchFloat 3s ease-in-out infinite 0.8s' }} />
+          <div className="absolute top-[30%] right-[28%] w-1.5 h-1.5 rounded-full bg-[#D4AF37]/25 pointer-events-none" style={{ animation: 'matchFloat 4s ease-in-out infinite 1.5s' }} />
+          <div className="absolute bottom-[32%] left-[30%] w-2.5 h-2.5 rounded-full bg-[#064e3b]/10 pointer-events-none" style={{ animation: 'matchFloat 5s ease-in-out infinite 2.5s' }} />
+          <div className="absolute bottom-[30%] right-[25%] w-2 h-2 rounded-full bg-[#A3B18A]/20 pointer-events-none" style={{ animation: 'matchFloat 3.5s ease-in-out infinite 0.3s' }} />
+
+          {/* ── Main content ── */}
+          <div className="relative z-10 flex flex-col items-center">
+            {/* Icon with glow */}
+            <div className="relative mb-7">
+              <div className="absolute inset-0 w-24 h-24 rounded-full bg-[#C86A4A]/10 blur-xl" style={{ animation: 'matchGlow 2.5s ease-in-out infinite' }} />
+              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-[#064e3b] to-[#0a7c5f] flex items-center justify-center shadow-[0_8px_30px_rgba(6,78,59,0.25)]">
+                <Sparkles className="w-11 h-11 text-white" style={{ animation: isMatchingNow ? 'matchOverlaySpin 1.5s linear infinite' : 'matchSparkle 2s ease-in-out infinite' }} />
+              </div>
+            </div>
+
+            {isMatchingNow ? (
+              /* ── Inline loading state (replaces title + button) ── */
+              <>
+                <h3 className="text-[22px] font-extrabold text-[#002b17] mb-2 tracking-tight">
+                  Analyzing Profiles…
+                </h3>
+                <p className="text-[13px] text-[#8B8479] max-w-[360px] text-center mb-6 leading-relaxed">
+                  Running compatibility engine for this profile.
+                </p>
+                {/* Inline progress bar */}
+                <div className="w-[260px] h-[7px] rounded-full bg-[#F0EBE3] overflow-hidden shadow-inner">
+                  <div className="h-full rounded-full bg-[#C86A4A]" style={{ animation: 'matchProgress 2.2s ease-in-out forwards' }} />
+                </div>
+              </>
+            ) : (
+              /* ── Normal state with button ── */
+              <>
+                <h3 className="text-[24px] font-extrabold text-[#002b17] mb-2 tracking-tight">
+                  Run Matching Algorithm
+                </h3>
+                <p className="text-[13px] text-[#8B8479] max-w-[360px] text-center mb-9 leading-relaxed">
+                  Initiate the matching engine to analyze preferences, compatibility scores, and discover the best candidates for this profile.
+                </p>
+
+                {/* CTA Button with internal graphics */}
+                <div className="relative group">
+                  <div className="absolute -inset-1.5 bg-gradient-to-r from-[#064e3b] via-[#C86A4A] to-[#D4AF37] rounded-full opacity-0 blur-lg group-hover:opacity-40 transition-all duration-500" />
+                  <button
+                    onClick={() => {
+                      setMatchingMap(prev => ({ ...prev, [currentProfileId]: true }));
+                      setTimeout(() => {
+                        setMatchingMap(prev => ({ ...prev, [currentProfileId]: false }));
+                        setMatchRunMap(prev => ({ ...prev, [currentProfileId]: true }));
+                      }, 2200);
+                    }}
+                    className="relative overflow-hidden px-12 py-[18px] bg-gradient-to-r from-[#064e3b] via-[#085d46] to-[#0a7c5f] text-white rounded-full font-bold text-[15px] shadow-[0_6px_24px_rgba(6,78,59,0.4)] hover:shadow-[0_10px_36px_rgba(6,78,59,0.5)] hover:-translate-y-1.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center min-w-[260px] gap-3 cursor-pointer"
+                  >
+                    {/* Internal sparkle particles */}
+                    <span className="absolute top-[6px] left-[20px] w-[6px] h-[6px] rounded-full bg-white/20 pointer-events-none" style={{ animation: 'btnParticle 3s ease-in-out infinite' }} />
+                    <span className="absolute top-[14px] right-[35px] w-[4px] h-[4px] rounded-full bg-white/15 pointer-events-none" style={{ animation: 'btnParticle 2.5s ease-in-out infinite 0.8s' }} />
+                    <span className="absolute bottom-[8px] left-[50px] w-[5px] h-[5px] rounded-full bg-[#D4AF37]/25 pointer-events-none" style={{ animation: 'btnParticle 3.5s ease-in-out infinite 1.2s' }} />
+                    <span className="absolute bottom-[10px] right-[60px] w-[3px] h-[3px] rounded-full bg-white/20 pointer-events-none" style={{ animation: 'btnParticle 2s ease-in-out infinite 0.5s' }} />
+                    {/* Shimmer sweep */}
+                    <span className="absolute inset-0 overflow-hidden rounded-full pointer-events-none">
+                      <span className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg]" style={{ animation: 'btnShimmer 3s ease-in-out infinite' }} />
+                    </span>
+                    {/* Star decorations */}
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 text-[10px] pointer-events-none">✦</span>
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 text-[10px] pointer-events-none">✦</span>
+                    {/* Button content */}
+                    <Zap className="w-[18px] h-[18px] relative z-10" style={{ animation: 'btnZap 2s ease-in-out infinite' }} />
+                    <span className="relative z-10 tracking-wide">Find Matches</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Keyframe animations */}
+          <style jsx>{`
+            @keyframes matchFloat {
+              0%, 100% { transform: translateY(0px); }
+              50% { transform: translateY(-10px); }
+            }
+            @keyframes matchRingPulse {
+              0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+              50% { transform: translate(-50%, -50%) scale(1.06); opacity: 0.2; }
+            }
+            @keyframes matchRingSpin {
+              0% { transform: translate(-50%, -50%) rotate(0deg); }
+              100% { transform: translate(-50%, -50%) rotate(360deg); }
+            }
+            @keyframes matchGlow {
+              0%, 100% { opacity: 0.5; transform: scale(1); }
+              50% { opacity: 0.9; transform: scale(1.15); }
+            }
+            @keyframes matchSparkle {
+              0%, 100% { transform: scale(1) rotate(0deg); }
+              50% { transform: scale(1.08) rotate(8deg); }
+            }
+            @keyframes btnParticle {
+              0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
+              50% { transform: translateY(-4px) scale(1.5); opacity: 0.7; }
+            }
+            @keyframes btnShimmer {
+              0% { left: -100%; }
+              50%, 100% { left: 200%; }
+            }
+            @keyframes btnZap {
+              0%, 100% { transform: scale(1); }
+              25% { transform: scale(1.15) rotate(-5deg); }
+              75% { transform: scale(1.05) rotate(3deg); }
+            }
+            @keyframes matchOverlaySpin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            @keyframes matchProgress {
+              0% { width: 0%; }
+              30% { width: 35%; }
+              60% { width: 65%; }
+              80% { width: 85%; }
+              100% { width: 100%; }
+            }
+          `}</style>
+        </div>
+      );
+    }
 
     const { results, distribution, average, highest, highCount, totalCompared, top5 } = matchData;
 
