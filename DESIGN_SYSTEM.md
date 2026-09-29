@@ -61,10 +61,10 @@ const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ["latin"] });
 ### 3.1 Brand Primary (Deep Forest Green)
 
 ```
-Primary Action:     #064e3b   (main buttons, active nav, accents)
-Primary Hover:      #0f4229   (hover state for primary buttons)
-Dark Brand:         #16382E   (login panel bg, strong brand)
-Deep Brand:         #115E49   (user avatar bg, completed status)
+Primary Action:     #1F3B34   (main buttons, active nav, accents)
+Primary Hover:      #172E29   (hover state for primary buttons)
+Dark Brand:         #1F3B34   (login panel bg, strong brand)
+Deep Brand:         #1F3B34   (user avatar bg, completed status)
 Darkest Text:       #002b17   (page titles, most important text)
 ```
 
@@ -127,7 +127,7 @@ Timestamp:          #A49C8F   (very muted, timestamps)
 ```
 SUCCESS Green:
   bg:   #E5EFE9 / #E6F4EA
-  text: #064e3b / #137333 / #166534
+  text: #1F3B34 / #137333 / #166534
   dot:  #16a34a
 
 WARNING Amber:
@@ -142,7 +142,7 @@ ERROR / REJECT Red:
 
 INFO Teal:
   bg:   #F7FAF8
-  text: #064e3b
+  text: #1F3B34
   border: #D1E3DC
 
 NEUTRAL:
@@ -151,15 +151,15 @@ NEUTRAL:
 
 BADGE Live Active:
   bg:   #E5EFE9
-  text: #064e3b
+  text: #1F3B34
   dot:  #16a34a pulsing green dot
 ```
 
 ### 3.7 Capsule Bar Chart Colors
 
 ```
-Group 1 — GOLD Mandatory/Deen:   #F5C770   text: #8F7435
-Group 2 — CORAL Education/Career: #F6A398   text: #B35246
+Group 1 — GOLD Mandatory/Deen:   #C86A4A   text: #8F7435
+Group 2 — CORAL Education/Career: #A3B18A   text: #B35246
 Group 3 — SLATE Location:         #D4DDD8   text: #66726D
 Group 3B — LIGHTER SLATE:         #E5ECE8   text: #838E8A
 ```
@@ -170,13 +170,13 @@ Group 3B — LIGHTER SLATE:         #E5ECE8   text: #838E8A
 Green avatar bg:    #E5EFE9  text: #165842   (agents)
 Amber avatar bg:    #FCE7CE  text: #8C5216   (walis/guardians)
 Red avatar bg:      #FCE2DF  text: #A6372A   (system)
-User pill avatar:   #115E49  text: white     (sidebar user)
+User pill avatar:   #1F3B34  text: white     (sidebar user)
 ```
 
 ### 3.9 Gold Divider Login Page
 
 ```
-#D4AF37   (horizontal divider line between brand name and tagline)
+#A3B18A   (horizontal divider line between brand name and tagline)
 ```
 
 ---
@@ -294,22 +294,22 @@ export default function MyPage() {
 Container: aside w-full md:w-[260px] lg:w-[280px] bg-[#FBF9F5] border-r border-[#EFE9DF] p-6
 
 Logo: w-10 h-10 rounded-xl drop-shadow-sm
-Brand name: text-[17px] font-bold tracking-tight text-[#16382E]
+Brand name: text-[17px] font-bold tracking-tight text-[#1F3B34]
 CRM badge: bg-[#E5EFE9] text-[#125740] text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded-full
 Tagline: text-[11px] font-medium text-[#7D766C]
 
 Nav Links INACTIVE: flex items-center gap-3.5 px-4 py-2.5 rounded-2xl text-[13.5px] font-medium text-[#676156] hover:bg-[#F2ECE1]
-Nav Links ACTIVE: font-semibold text-white bg-[#064e3b] shadow-sm py-3 text-[14px] rounded-2xl
+Nav Links ACTIVE: font-semibold text-white bg-[#1F3B34] shadow-sm py-3 text-[14px] rounded-2xl
 Nav Icons INACTIVE: text-[#888174]
 Nav Icons ACTIVE: text-white
 
 Badge INACTIVE: bg-[#EAE2D5] text-[#4E473D] text-[11px] font-bold px-2 py-0.5 rounded-full
-Badge ACTIVE: bg-white text-[#064e3b]
+Badge ACTIVE: bg-white text-[#1F3B34]
 
 User Pill: bg-white border border-[#EBE4D8] rounded-[22px] p-2.5
-Avatar: w-10 h-10 rounded-full bg-[#115E49] text-white font-bold ring-2 ring-[#E0EEE8]
+Avatar: w-10 h-10 rounded-full bg-[#1F3B34] text-white font-bold ring-2 ring-[#E0EEE8]
 Role badge: bg-[#F7E7CE] text-[#825418] text-[10px] font-semibold rounded-full
-Logout: text-[#8D867C] hover:text-[#115E49] hover:bg-[#F6F2EA]
+Logout: text-[#8D867C] hover:text-[#1F3B34] hover:bg-[#F6F2EA]
 ```
 
 ### 8.2 Header2 Dossier Header
@@ -317,16 +317,16 @@ Logout: text-[#8D867C] hover:text-[#115E49] hover:bg-[#F6F2EA]
 ```
 header bg-[#FCF9F4] p-6 lg:p-8 flex flex-col md:flex-row md:items-center justify-between border-b border-[#E9E4DC]
 
-Back button: w-10 h-10 rounded-2xl bg-white hover:bg-[#F4ECE1] border border-[#E9E4DC] shadow-sm text-[#064e3b]
+Back button: w-10 h-10 rounded-2xl bg-white hover:bg-[#F4ECE1] border border-[#E9E4DC] shadow-sm text-[#1F3B34]
 
 h1: text-2xl lg:text-[28px] font-extrabold text-[#002b17] tracking-tight
-ID badge: bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc] text-[12px] font-bold px-2.5 py-0.5 rounded-full
+ID badge: bg-[#E5EFE9] text-[#1F3B34] border border-[#d1e3dc] text-[12px] font-bold px-2.5 py-0.5 rounded-full
 Subtitle: text-[13px] font-medium text-[#717972]
 
 Icon buttons: w-10 h-10 rounded-2xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm
 Notification dot: absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-[#ba1a1a] ring-2 ring-white
 
-Primary CTA: bg-[#064e3b] text-white hover:bg-[#0f4229] font-bold text-[13px] px-5 py-2.5 rounded-full shadow-sm hover:-translate-y-0.5
+Primary CTA: bg-[#1F3B34] text-white hover:bg-[#172E29] font-bold text-[13px] px-5 py-2.5 rounded-full shadow-sm hover:-translate-y-0.5
 ```
 
 ### 8.3 KPI Metric Cards overview2
@@ -374,7 +374,7 @@ bg-white rounded-[28px] border border-[#ECE5D9] p-5 lg:p-6
 Table heading: text-lg font-bold text-[#1E1F22]
 Sub: text-[12px] text-[#78716C]
 
-Filter Pills Active: bg-[#16382E] text-white rounded-full px-3.5 py-1.5 text-[12px] font-bold
+Filter Pills Active: bg-[#1F3B34] text-white rounded-full px-3.5 py-1.5 text-[12px] font-bold
 Filter Pills Inactive: bg-[#F4EFE7] text-[#696256] hover:bg-[#ECE4D8]
 
 Table headers: text-[#888174] font-medium text-[11.5px] uppercase tracking-wider py-3.5 px-3
@@ -406,8 +406,8 @@ Hover animation: CSS class .capsule-bar
   hover: transform scaleY(1.04) opacity 0.92
 
 Bar colors:
-  GOLD  Fiqh/Lineage/Status:  #F5C770  text: #8F7435
-  CORAL Edu/Career/Age:       #F6A398  text: #B35246
+  GOLD  Fiqh/Lineage/Status:  #C86A4A  text: #8F7435
+  CORAL Edu/Career/Age:       #A3B18A  text: #B35246
   SLATE Living/City:          #D4DDD8  text: #66726D
   LIGHT Global:               #E5ECE8  text: #838E8A
 
@@ -419,14 +419,14 @@ Bar labels: text-[9.5px] font-semibold
 ```
 Big card: bg-[#F7F3EA] border border-[#ECC066]/60 rounded-[28px] p-6 min-h-[196px]
 
-Green accent strip: absolute right-0 top-3 bottom-3 w-2.5 bg-[#064e3b] rounded-l-md opacity-90
+Green accent strip: absolute right-0 top-3 bottom-3 w-2.5 bg-[#1F3B34] rounded-l-md opacity-90
 
 Top badge: bg-[#FEF3C7] border border-[#F6E1BA] text-[#725b24] text-[11px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full
 
 Title: text-xl font-extrabold text-[#002b17] tracking-tight
 Sub: text-[12px] font-semibold text-[#59440e]
 
-Affinity box: w-10 h-7 rounded-md bg-white border border-[#ECC066] text-[9px] font-black text-[#064e3b]
+Affinity box: w-10 h-7 rounded-md bg-white border border-[#ECC066] text-[9px] font-black text-[#1F3B34]
 Bottom divider: border-t border-[#DFD6C5]
 
 Registry label: text-[10px] uppercase font-bold text-[#725b24] tracking-wider
@@ -440,23 +440,23 @@ Icon: w-11 h-11 rounded-full bg-white shadow-sm group-hover:scale-105
 
 ```
 Background track: h-[2px] bg-[#EFE9DF]
-Progress track: h-[2px] bg-[#064e3b] transition-all duration-500 ease-in-out
+Progress track: h-[2px] bg-[#1F3B34] transition-all duration-500 ease-in-out
 Width: currentStep-1 divided by steps.length-1 times 100%
 
-Circle ACTIVE/COMPLETE: w-7 h-7 rounded-full bg-[#064e3b] text-white shadow-sm
+Circle ACTIVE/COMPLETE: w-7 h-7 rounded-full bg-[#1F3B34] text-white shadow-sm
 Circle INACTIVE: bg-white border border-[#E9E4DC] text-[#888174]
 
-Label ACTIVE: text-[#064e3b] text-[11px] font-medium
+Label ACTIVE: text-[#1F3B34] text-[11px] font-medium
 Label INACTIVE: text-[#888174]
 
-Active underline: absolute top-[4.5rem] w-full h-[2px] bg-[#064e3b]
+Active underline: absolute top-[4.5rem] w-full h-[2px] bg-[#1F3B34]
 Completed icon: Check size=14 strokeWidth=3
 ```
 
 ### 8.10 ProfileSidebar add-new2
 
 ```
-Container: bg-[#FBF9F5] rounded-[32px] p-6 border border-[#064e3b]/10
+Container: bg-[#FBF9F5] rounded-[32px] p-6 border border-[#1F3B34]/10
 
 Avatar: w-12 h-12 rounded-full bg-[#F7F3EA] border border-[#ECC066]/60 text-[#725b24]
 
@@ -464,12 +464,12 @@ Vertical connector: before:absolute before:inset-y-4 before:left-[22px] before:w
 
 Step button: w-full text-left flex items-start gap-4 p-2 rounded-2xl hover:bg-white/50
 
-Number ACTIVE: bg-[#064e3b] text-white shadow-md shadow-[#064e3b]/20
-Number COMPLETE: bg-[#E5EFE9] text-[#064e3b]
+Number ACTIVE: bg-[#1F3B34] text-white shadow-md shadow-[#1F3B34]/20
+Number COMPLETE: bg-[#E5EFE9] text-[#1F3B34]
 Number INACTIVE: bg-[#FBF9F5] border border-[#E9E4DC] text-[#888174]
 
 Progress badge partial: bg-[#FEF3C7] text-[#9A6014] text-[10px] rounded-md
-Progress badge complete: bg-[#064e3b]/10 text-[#064e3b] text-[10px] rounded-md
+Progress badge complete: bg-[#1F3B34]/10 text-[#1F3B34] text-[10px] rounded-md
 
 Name ACTIVE: text-[#002b17] text-[13px] font-semibold
 Name INACTIVE: text-[#4E473D] text-[13px] font-semibold
@@ -486,7 +486,7 @@ Filter button: px-3 py-1.5 rounded-lg border border-[#E9E4DC] hover:bg-[#F2ECE1]
 Bell: relative w-9 h-9 rounded-full hover:bg-[#F2ECE1] border border-[#E9E4DC]
 Notification dot: absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#ba1a1a]
 
-User avatar: w-9 h-9 rounded-full bg-[#064e3b] text-white font-bold text-xs shadow-sm ring-2 ring-[#E0EEE8]
+User avatar: w-9 h-9 rounded-full bg-[#1F3B34] text-white font-bold text-xs shadow-sm ring-2 ring-[#E0EEE8]
 ```
 
 ### 8.12 ClientsFilterBar clients2
@@ -497,16 +497,16 @@ px-6 py-4 bg-white border-b border-[#EFE9DF] shrink-0
 Back: w-8 h-8 rounded-lg border border-[#E9E4DC] hover:bg-[#F2ECE1] text-[#676156]
 Title: text-xl font-black text-[#002b17] tracking-tight
 
-Download: bg-[#064e3b] hover:bg-[#0f4229] text-white px-4 py-2 rounded-lg text-[12px] font-bold tracking-wide
+Download: bg-[#1F3B34] hover:bg-[#172E29] text-white px-4 py-2 rounded-lg text-[12px] font-bold tracking-wide
 
 Field labels: text-[10px] font-bold uppercase tracking-wider text-[#A49C8F]
 
-Text inputs: rounded-lg border border-[#E9E4DC] bg-[#FCF9F4] text-[12px] focus:ring-1 focus:ring-[#064e3b]/20 focus:border-[#064e3b]
-Select inputs: rounded-lg border border-[#E9E4DC] bg-white text-[11.5px] font-medium focus:ring-1 focus:ring-[#064e3b]/20
+Text inputs: rounded-lg border border-[#E9E4DC] bg-[#FCF9F4] text-[12px] focus:ring-1 focus:ring-[#1F3B34]/20 focus:border-[#1F3B34]
+Select inputs: rounded-lg border border-[#E9E4DC] bg-white text-[11.5px] font-medium focus:ring-1 focus:ring-[#1F3B34]/20
 
 Radio labels: text-[11.5px] text-[#676156] font-medium
 Radio active: font-bold text-[#002b17]
-Radio inputs: text-[#064e3b] focus:ring-0
+Radio inputs: text-[#1F3B34] focus:ring-0
 ```
 
 ### 8.13 ReleaseDesk overview2 sidebar
@@ -514,7 +514,7 @@ Radio inputs: text-[#064e3b] focus:ring-0
 ```
 bg-white rounded-[26px] p-5 border border-[#ECE5D9]
 
-Icon box: w-8 h-8 rounded-xl bg-[#064e3b] text-white shadow-sm
+Icon box: w-8 h-8 rounded-xl bg-[#1F3B34] text-white shadow-sm
 Heading: text-[14.5px] font-bold text-[#1F1E1B]
 Sub: text-[11px] text-[#867E72]
 Count badge: bg-[#FEF3C7] text-[#92400E] border border-[#F6E1BA] text-[11px] font-extrabold rounded-full
@@ -528,7 +528,7 @@ APPROVED badge: bg-[#E6F4EA] text-[#137333] text-[10px] font-bold rounded-full
 
 Item divider: border-t border-[#EFE8DC]
 Reassign: px-3 py-1 rounded-full bg-white border border-[#E2DBD0] hover:bg-[#F5EFE6] text-[11px] font-bold
-Approve: px-3 py-1 rounded-full bg-[#064e3b] hover:bg-[#0f4229] text-white text-[11px] font-bold
+Approve: px-3 py-1 rounded-full bg-[#1F3B34] hover:bg-[#172E29] text-white text-[11px] font-bold
 
 View All: w-full py-2.5 rounded-full border border-[#E2DBD0] hover:bg-[#FAF7F2] text-[12px] font-bold text-[#24211D]
 ```
@@ -539,7 +539,7 @@ View All: w-full py-2.5 rounded-full border border-[#E2DBD0] hover:bg-[#FAF7F2] 
 bg-[#FAF8F5] overflow-y-auto p-6 space-y-6
 
 h2: text-xl font-extrabold text-[#002b17] tracking-tight
-Match arrow: text-[#064e3b] font-normal
+Match arrow: text-[#1F3B34] font-normal
 REL- ID: font-mono bg-white border border-[#E9E4DC] text-[11px] font-bold rounded shadow-sm
 PENDING: bg-[#FEE2E2] text-[#991B1B] text-[11px] font-bold uppercase border border-[#FCA5A5]/40 rounded
 
@@ -547,22 +547,22 @@ Action icons: w-8 h-8 rounded-lg border border-[#E9E4DC] bg-white hover:bg-[#F2E
 Reject icon hover: bg-[#FEE2E2] text-[#991B1B] border-[#FCA5A5]
 
 Summary cards: bg-white p-5 rounded-[22px] border border-[#ECE5D9]
-Groom dot: bg-[#064e3b]
+Groom dot: bg-[#1F3B34]
 Bride dot: bg-[#B45309]
 Label: font-bold uppercase tracking-wider text-[11px]
 Name: text-[14.5px] font-bold text-[#002b17]
 
-Phone box: font-mono text-[#064e3b] font-bold bg-[#F7FAF8] p-1.5 rounded-lg border border-[#D1E3DC]
+Phone box: font-mono text-[#1F3B34] font-bold bg-[#F7FAF8] p-1.5 rounded-lg border border-[#D1E3DC]
 
 Action toolbar: p-4 bg-white rounded-[22px] border border-[#ECE5D9]
-Approve: bg-[#064e3b] hover:bg-[#0f4229] text-white font-bold text-[13px] px-6 py-3 rounded-full
+Approve: bg-[#1F3B34] hover:bg-[#172E29] text-white font-bold text-[13px] px-6 py-3 rounded-full
 Secondary: bg-white hover:bg-[#F2ECE1] text-[#4E473D] border border-[#E9E4DC] font-bold text-[13px] px-5 py-3 rounded-full
 Reject: text-[#991B1B] hover:bg-[#FEE2E2] font-bold text-[13px] px-5 py-3 rounded-full
 
 Audit table: bg-white rounded-[22px] border border-[#ECE5D9] p-5
 Headers: text-[#A49C8F] font-semibold text-[10.5px] uppercase tracking-wider
 Rows: hover:bg-[#FAF8F5] divide-y divide-[#F4EFE7]
-ID cell: font-mono text-[#064e3b] font-bold
+ID cell: font-mono text-[#1F3B34] font-bold
 Timestamp: text-[#A49C8F]
 ```
 
@@ -572,25 +572,25 @@ Timestamp: text-[#A49C8F]
 Root: min-h-screen flex w-full bg-[#FAF8F5]
 
 LEFT PANEL:
-  w-[45%] bg-[#16382E] flex-col justify-center items-center overflow-hidden
+  w-[45%] bg-[#1F3B34] flex-col justify-center items-center overflow-hidden
   Radial glow: absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,...)] from-white via-transparent
 
   Logo box: w-40 h-40 bg-white/5 rounded-3xl p-6 backdrop-blur-sm border border-white/10 shadow-2xl
   Brand: text-4xl font-extrabold tracking-tight text-white uppercase
-  Gold bar: w-16 h-1 bg-[#D4AF37] mx-auto rounded-full
+  Gold bar: w-16 h-1 bg-[#A3B18A] mx-auto rounded-full
   Tagline: text-[#EFE9DF] text-sm uppercase tracking-[0.2em] font-medium
 
 RIGHT PANEL:
   flex-1 flex-col justify-center items-center p-8 sm:p-12 lg:p-20
 
-  Welcome: text-3xl font-bold text-[#16382E]
+  Welcome: text-3xl font-bold text-[#1F3B34]
   Subtitle: text-[15px] text-[#7D766C]
   Labels: text-[11px] uppercase font-bold tracking-wider text-[#676156]
 
   Inputs: bg-white border border-[#EFE9DF] rounded-xl px-4 py-3.5 text-[14px]
-    placeholder:text-[#A8A296] focus:border-[#115E49] focus:ring-1 focus:ring-[#115E49] shadow-sm
+    placeholder:text-[#A8A296] focus:border-[#1F3B34] focus:ring-1 focus:ring-[#1F3B34] shadow-sm
 
-  Submit: w-full bg-[#16382E] hover:bg-[#064e3b] text-white font-semibold py-3.5 rounded-xl
+  Submit: w-full bg-[#1F3B34] hover:bg-[#1F3B34] text-white font-semibold py-3.5 rounded-xl
     shadow-[0_4px_14px_0_rgba(22,56,46,0.39)] hover:shadow-[0_6px_20px_rgba(22,56,46,0.23)]
     hover:-translate-y-0.5 active:translate-y-0
 
@@ -605,11 +605,11 @@ RIGHT PANEL:
 bg-[#FCF9F4] border-b border-[#E9E4DC]
 Inner: max-w-7xl mx-auto px-6 lg:px-8 py-5 flex items-center justify-between
 
-Icon box: w-11 h-11 rounded-2xl bg-white border border-[#E9E4DC] shadow-sm text-[#064e3b]
+Icon box: w-11 h-11 rounded-2xl bg-white border border-[#E9E4DC] shadow-sm text-[#1F3B34]
 
 h1: text-2xl lg:text-[26px] font-extrabold text-[#002b17] tracking-tight
 
-Live badge: bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc]
+Live badge: bg-[#E5EFE9] text-[#1F3B34] border border-[#d1e3dc]
   text-[11px] font-bold px-2.5 py-0.5 rounded-full
   Green dot: w-2 h-2 rounded-full bg-[#16a34a]
 
@@ -617,7 +617,7 @@ Subtitle: text-[13px] font-medium text-[#717972]
 Separator dot: w-1 h-1 rounded-full bg-[#717972]
 
 Secondary button: bg-white hover:bg-[#F4ECE1] text-[#24211D] border border-[#E9E4DC] font-bold text-[12.5px] px-4 py-2.5 rounded-full shadow-sm
-Primary button: bg-[#064e3b] text-white hover:bg-[#0f4229] font-bold text-[12.5px] px-5 py-2.5 rounded-full shadow-sm hover:-translate-y-0.5
+Primary button: bg-[#1F3B34] text-white hover:bg-[#172E29] font-bold text-[12.5px] px-5 py-2.5 rounded-full shadow-sm hover:-translate-y-0.5
 ```
 
 ---
@@ -635,7 +635,7 @@ Primary button: bg-[#064e3b] text-white hover:bg-[#0f4229] font-bold text-[12.5p
 | Add candidate box | group-hover:scale-105 on icon |
 | Stepper progress | transition-all duration-500 ease-in-out |
 | Login submit | hover:-translate-y-0.5 active:translate-y-0 |
-| Input focus | focus:ring-1 focus:ring-[#064e3b]/20 focus:border-[#064e3b] |
+| Input focus | focus:ring-1 focus:ring-[#1F3B34]/20 focus:border-[#1F3B34] |
 | Back button | active:scale-95 |
 
 ---
@@ -644,7 +644,7 @@ Primary button: bg-[#064e3b] text-white hover:bg-[#0f4229] font-bold text-[12.5p
 
 ```
 GREEN Active/Approved:
-  bg-[#E6F4EA] text-[#137333]  OR  bg-[#E5EFE9] text-[#064e3b]
+  bg-[#E6F4EA] text-[#137333]  OR  bg-[#E5EFE9] text-[#1F3B34]
 
 AMBER Pending/Warning:
   bg-[#FEF3C7] text-[#92400E]  OR  bg-[#FDF0D8] text-[#8B6122]
@@ -653,7 +653,7 @@ RED Urgent/Rejected:
   bg-[#FEE2E2] text-[#991B1B] border border-[#FCA5A5]/40
 
 FILTER ACTIVE:
-  bg-[#16382E] text-white (main active filter)
+  bg-[#1F3B34] text-white (main active filter)
 
 FILTER INACTIVE:
   bg-[#F4EFE7] text-[#696256] hover:bg-[#ECE4D8]
@@ -726,7 +726,7 @@ Sidebar:
 ### Primary CTA Button
 
 ```tsx
-<button className="flex items-center gap-2 bg-[#064e3b] text-white hover:bg-[#0f4229] font-bold text-[13px] px-5 py-2.5 rounded-full shadow-sm transition duration-150 transform hover:-translate-y-0.5">
+<button className="flex items-center gap-2 bg-[#1F3B34] text-white hover:bg-[#172E29] font-bold text-[13px] px-5 py-2.5 rounded-full shadow-sm transition duration-150 transform hover:-translate-y-0.5">
   Action Label
 </button>
 ```
@@ -769,7 +769,7 @@ Sidebar:
 ### Green Status Badge with Dot
 
 ```tsx
-<span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc]">
+<span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#E5EFE9] text-[#1F3B34] border border-[#d1e3dc]">
   <span className="w-2 h-2 rounded-full bg-[#16a34a]"></span>
   Live Active
 </span>
@@ -780,7 +780,7 @@ Sidebar:
 ```tsx
 <div className="flex items-center justify-between">
   <h2 className="text-[15px] font-bold text-[#232326] tracking-tight">Section Name</h2>
-  <a className="text-[11.5px] font-bold text-[#115E49] hover:underline" href="#">View all</a>
+  <a className="text-[11.5px] font-bold text-[#1F3B34] hover:underline" href="#">View all</a>
 </div>
 ```
 
@@ -790,9 +790,9 @@ Sidebar:
 
 1. **Warm Neutral Palette** — Sand/cream/warm white backgrounds. Never pure grey or cold blue-grey. Everything feels warm.
 
-2. **Deep Forest Green as Brand** — #064e3b is THE brand color. Active nav, primary CTA, badges, progress, avatar backgrounds.
+2. **Deep Forest Green as Brand** — #1F3B34 is THE brand color. Active nav, primary CTA, badges, progress, avatar backgrounds.
 
-3. **Amber Gold as Accent** — #F5C770 / #D4AF37 / #FDF0D8 for highlights, premium cards. Creates a premium matrimonial feel.
+3. **Amber Gold as Accent** — #C86A4A / #A3B18A / #FDF0D8 for highlights, premium cards. Creates a premium matrimonial feel.
 
 4. **Rounded Everything** — No sharp corners. Cards: rounded-[22px] to rounded-[32px]. Buttons: rounded-full. Forms: rounded-xl.
 

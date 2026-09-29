@@ -54,10 +54,10 @@
 
   /* ── NikaahKaro Brand Tokens ── */
   /* Primary green */
-  --brand-primary:      #064e3b;
-  --brand-primary-hover:#0f4229;
-  --brand-dark:         #16382E;
-  --brand-deep:         #115E49;
+  --brand-primary:      #1F3B34;
+  --brand-primary-hover:#172E29;
+  --brand-dark:         #1F3B34;
+  --brand-deep:         #1F3B34;
   --brand-darkest-text: #002b17;
 
   /* Backgrounds */
@@ -79,8 +79,8 @@
   --text-subtle:        #A49C8F;
 
   /* Accent gold */
-  --accent-gold:        #F5C770;
-  --accent-gold-dark:   #D4AF37;
+  --accent-gold:        #C86A4A;
+  --accent-gold-dark:   #A3B18A;
   --accent-gold-bg:     #FDF0D8;
 }
 
@@ -98,7 +98,7 @@
   --popover-foreground: #1E2022;
 
   /* Brand green as primary */
-  --primary: #064e3b;
+  --primary: #1F3B34;
   --primary-foreground: #ffffff;
 
   --secondary: #F8F4EC;
@@ -114,13 +114,13 @@
 
   --border: #E9E4DC;
   --input: #E9E4DC;
-  --ring: #064e3b;
+  --ring: #1F3B34;
 
   /* Charts */
-  --chart-1: #F5C770;
-  --chart-2: #F6A398;
+  --chart-1: #C86A4A;
+  --chart-2: #A3B18A;
   --chart-3: #D4DDD8;
-  --chart-4: #064e3b;
+  --chart-4: #1F3B34;
   --chart-5: #E5ECE8;
 
   --radius: 0.75rem;
@@ -128,12 +128,12 @@
   /* Sidebar */
   --sidebar: #FBF9F5;
   --sidebar-foreground: #1E2022;
-  --sidebar-primary: #064e3b;
+  --sidebar-primary: #1F3B34;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #F2ECE1;
   --sidebar-accent-foreground: #1E2022;
   --sidebar-border: #EFE9DF;
-  --sidebar-ring: #064e3b;
+  --sidebar-ring: #1F3B34;
 }
 
 /* ─────────────────────────────────────────────
