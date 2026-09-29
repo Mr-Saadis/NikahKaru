@@ -57,6 +57,24 @@ export function getMockMatchResults(
     .sort((a, b) => b.score - a.score);
 }
 
+export interface MockBreakdown {
+  category: string;
+  score: number;
+}
+
+/** Get detailed category-level breakdown for a specific pair */
+export function getMockMatchBreakdown(sourceId: string, candidateId: string): MockBreakdown[] {
+  const base = hashPair(sourceId, candidateId);
+  return [
+    { category: 'Age', score: Math.min(100, base + 12) },
+    { category: 'Marital Status', score: base > 65 ? 100 : 40 },
+    { category: 'Height', score: Math.min(100, base + 5) },
+    { category: 'Religious Practice', score: Math.min(100, base + 18) },
+    { category: 'Sect', score: base > 50 ? 100 : 0 },
+    { category: 'Income', score: Math.min(100, Math.max(0, base - 8)) },
+  ];
+}
+
 // ── Aggregate helpers ───────────────────────────────────────────
 
 export function getMatchDistribution(results: MockMatchResult[]): MatchDistribution {

@@ -220,7 +220,7 @@ const NavItem = ({ item, isActive, open, onClick, pageBg }: { item: typeof navIt
               fontWeight: 700,
               fontSize: 14,
               whiteSpace: 'nowrap',
-              color: isActive ? SIDEBAR : ICON_OFF,
+              color: isActive ? (pageBg === SIDEBAR ? ORANGE : SIDEBAR) : ICON_OFF,
               opacity: open ? 1 : 0,
               maxWidth: open ? 150 : 0,
               overflow: 'hidden',
@@ -247,8 +247,9 @@ export default function Sidebar({ activePage }: SidebarProps) {
 
   const [optimisticPath, setOptimisticPath] = useState(pathname);
 
+  const isProfiles = pathname.startsWith('/profiles');
   // Determine dynamic background color for the active curve
-  const pageBg = pathname.startsWith('/profiles') ? '#FCFDFD' : 'var(--bg-app)';
+  const pageBg = isProfiles ? SIDEBAR : 'var(--bg-app)';
 
   // Keep it synced if the pathname changes externally
   useEffect(() => {
@@ -304,10 +305,10 @@ export default function Sidebar({ activePage }: SidebarProps) {
         <aside
           className="sidebar-trans"
           style={{
-            width: `calc(100% - ${GAP}px)`,   // leaves GAP on the right
+            width: isProfiles ? '100%' : `calc(100% - ${GAP}px)`,   // expands to fill gap on profiles route
             height: '100%',
             background: SIDEBAR,
-            borderRadius: 28,
+            borderRadius: isProfiles ? '28px 0 0 28px' : 28, // straight right edge to connect
             display: 'flex',
             flexDirection: 'column',
             paddingTop: 18,
@@ -339,7 +340,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
               }}
             >
               <Image src="/nikah_icon_w.png" alt="nikahkaru_logo" width={35} height={35} suppressHydrationWarning/>
-              <span style={{ color: pageBg, fontFamily: 'var(--font-poppins)', fontWeight: 600 , fontSize: 17, marginTop:5 , letterSpacing: '-0.3px' }}>
+              <span style={{ color: '#ffffff', fontFamily: 'var(--font-poppins)', fontWeight: 600 , fontSize: 17, marginTop:5 , letterSpacing: '-0.3px' }}>
                 Nikah Karu 
               </span>
             </div>
@@ -373,7 +374,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                   <PanelLeftClose
                     size={20}
                     strokeWidth={2}
-                    style={{ transition: 'opacity 0.2s' }}
+                    style={{ transition: 'opacity 0.2s', color: '#ffffff' }}
                   />
                 ) : (
                   <PanelLeft
@@ -387,7 +388,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
                   <PanelLeftOpen
                     size={20}
                     strokeWidth={2}
-                    style={{ transition: 'opacity 0.2s' }}
+                    style={{ transition: 'opacity 0.2s', color: '#ffffff' }}
                   />
                 ) : (
                   <Image src="/nikah_icon_w.png" alt="nikahkaru_logo" width={35} height={35} suppressHydrationWarning/>
