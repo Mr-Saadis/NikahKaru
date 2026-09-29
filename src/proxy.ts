@@ -43,6 +43,27 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Protect Admin Routes (Role Based Access Control)
+  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
+  if (user && isAdminRoute) {
+    // Fetch user role
+    const { data: userRoleData } = await supabase
+      .from('user_roles')
+      .select('role:roles(name)')
+      .eq('user_id', user.id)
+      .single();
+
+    // @ts-ignore - Supabase types might complain about nested selection
+    const roleName = userRoleData?.role?.name;
+    
+    if (roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
+      // If not an admin, redirect to dashboard overview
+      const url = request.nextUrl.clone();
+      url.pathname = '/overview';
+      return NextResponse.redirect(url);
+    }
+  }
+
   // If already logged in and tries to access /login -> redirect to /overview
   if (user && isLoginRoute) {
     const url = request.nextUrl.clone();
