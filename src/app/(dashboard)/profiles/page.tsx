@@ -43,6 +43,8 @@ import { ProfileService, type ProfileFilters } from '@/lib/services/profile-serv
 import type { ProfileListItem, ProfileStatus, FullProfile } from '@/lib/types/database.types';
 import Link from 'next/link';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
+import { runMatching } from '@/lib/matching/engine';
+import { createClient } from '@/lib/supabase/client';
 import {
   getMockMatchResults,
   getMatchDistribution,
@@ -56,9 +58,7 @@ import {
   type MockMatchResult,
   type MockBreakdown,
 } from '@/lib/matching/mock-scoring';
-import { createClient } from '@/lib/supabase/client';
-import { runMatching } from '@/lib/matching/engine';
-import type { MatchResult } from '@/lib/matching/types';
+import { useNavigationLock } from '@/lib/stores/navigation-lock-store';
 
 // ════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -295,48 +295,56 @@ export default function ProfilesListPage() {
   const [detailLoading, setDetailLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeBreakdownTab, setActiveBreakdownTab] = useState('All');
+  const BREAKDOWN_TABS = ['All', 'Age & Marital Status', 'Physical', 'Religion & Culture', 'Income & Career', 'Location', 'Lifestyle'];
 
-  // ── Match request state (per-profile) ────────────────────────────
-  const [matchRunMap, setMatchRunMap] = useState<Record<string, boolean>>({});
-  const [matchingMap, setMatchingMap] = useState<Record<string, boolean>>({});
-  const [realMatchResultsMap, setRealMatchResultsMap] = useState<Record<string, MatchResult[]>>({});
+  const [realMatchResultsMap, setRealMatchResultsMap] = useState<Record<string, any>>({});
+  const [prefetchedProfiles, setPrefetchedProfiles] = useState<Record<string, FullProfile>>({});
+
+  // ── Match request state (demo) ────────────────────────────────
   const [matchRequested, setMatchRequested] = useState(false);
-  const [matchRequesting, setMatchRequesting] = useState(false);
+  const [runningMatchesMap, setRunningMatchesMap] = useState<Record<string, boolean>>({});
+  const { addLock, removeLock, isLocked } = useNavigationLock();
 
-  // Reset only non-per-profile state when profile changes
+  // Block browser tab close/refresh while algos are running
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isLocked()) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isLocked]);
+
+  // Reset request state when profile changes
   useEffect(() => {
     setMatchRequested(false);
-    setMatchRequesting(false);
     setSelectedMatchId(null);
   }, [selectedId]);
 
-  // ── Matching data (computed from loaded profiles or real results) ────────
+  // ── Matching data (Mock or Real) ────────
   const matchData = useMemo(() => {
     if (!selectedId || profiles.length === 0) return null;
 
-    let results: any[];
+    let results = [];
     let isReal = false;
 
+    // Use real results if available for this profile
     if (realMatchResultsMap[selectedId]) {
-      results = realMatchResultsMap[selectedId].map(r => ({
-        candidateId: r.candidateProfileId,
-        score: Math.round(r.finalScore),
-        _realResult: r,
-      }));
+      results = realMatchResultsMap[selectedId];
       isReal = true;
-    } else {
-      const candidateIds = profiles.map((p) => p.id);
-      results = getMockMatchResults(selectedId, candidateIds);
     }
-
-    if (results.length === 0) return null;
+    
+    if (results.length === 0) return { results: [], distribution: [], average: 0, highest: 0, highCount: 0, totalCompared: 0, top5: [], isReal };
 
     const distribution = getMatchDistribution(results);
     const average = getAverageScore(results);
     const highest = getHighestScore(results);
     const highCount = getHighMatchCount(results);
+    
     // Top 5 by score, displayed in DESCENDING order (highest first)
-    const top5 = results.slice(0, 5).sort((a, b) => b.score - a.score);
+    const top5 = [...results].sort((a, b) => b.score - a.score).slice(0, 5);
 
     return { results, distribution, average, highest, highCount, totalCompared: results.length, top5, isReal };
   }, [selectedId, profiles, realMatchResultsMap]);
@@ -350,9 +358,76 @@ export default function ProfilesListPage() {
 
   // ── Resolve a candidate ID to the profile list item ───────────
   const findProfile = useCallback(
-    (id: string) => profiles.find((p) => p.id === id) ?? null,
-    [profiles],
+    (id: string) => {
+      // Return from prefetch cache if it exists, else list
+      return prefetchedProfiles[id] || (profiles.find((p) => p.id === id) ?? null);
+    },
+    [profiles, prefetchedProfiles],
   );
+
+  // ── Prefetch missing profiles for top 5 matches ───────────
+  useEffect(() => {
+    if (!matchData?.isReal || !matchData.top5) return;
+
+    const missingIds = matchData.top5
+      .map(m => m.candidateId)
+      .filter(id => !findProfile(id));
+
+    if (missingIds.length > 0) {
+      const fetchMissing = async () => {
+        try {
+          const promises = missingIds.map(id => ProfileService.getProfile(id));
+          const results = await Promise.all(promises);
+          
+          setPrefetchedProfiles(prev => {
+            const newMap = { ...prev };
+            results.forEach(p => { if (p) newMap[p.id] = p; });
+            return newMap;
+          });
+        } catch (e) {
+          console.error("Failed to prefetch candidate profiles", e);
+        }
+      };
+      fetchMissing();
+    }
+  }, [matchData, findProfile]);
+
+  // ── Run Real Matching Algorithm ────────────────────────────────
+  const handleRunMatches = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedId || !selectedProfile) return;
+    
+    const currentId = selectedId;
+    const profileName = selectedProfile?.personal_information?.full_name || 'Profile';
+    setRunningMatchesMap(prev => ({ ...prev, [currentId]: true }));
+    addLock(currentId, `Running match for ${profileName}`);
+    try {
+      const supabase = createClient();
+      
+      const matchResults = await runMatching(supabase, currentId, {
+        persist: false,
+        executedBy: 'frontend-preview',
+      });
+      
+      const realResults = matchResults.map(res => ({
+        candidateId: res.candidateProfileId,
+        score: Math.round(res.finalScore),
+        _realResult: res // attach full payload for breakdown UI
+      }));
+
+      setRealMatchResultsMap(prev => ({
+        ...prev,
+        [currentId]: realResults
+      }));
+
+    } catch (error: any) {
+      console.error("Error running matches:", error);
+      alert(error.message || "Failed to run algorithm. Please check if this profile has active preferences setup.");
+    } finally {
+      setRunningMatchesMap(prev => ({ ...prev, [currentId]: false }));
+      removeLock(currentId);
+    }
+  };
 
   // ── Handle request match (demo) ───────────────────────────────
   const handleRequestMatch = async () => {
@@ -391,52 +466,32 @@ export default function ProfilesListPage() {
     loadProfiles();
   }, [loadProfiles]);
 
-  // ── Prefetch and Load selected profile detail ───────────────────
-  const prefetchedProfiles = useRef<Record<string, FullProfile>>({});
+  // ── Full profile cache (avoids re-fetch on switch back) ────────
+  const fullProfileCache = useRef<Record<string, FullProfile>>({});
 
-  // Background prefetch all profiles in the current page list
-  useEffect(() => {
-    profiles.forEach((profile) => {
-      if (!prefetchedProfiles.current[profile.id]) {
-        ProfileService.getProfileById(profile.id).then((data) => {
-          prefetchedProfiles.current[profile.id] = data as FullProfile;
-          // If this profile is currently selected and was waiting, update it
-          setSelectedId((currId) => {
-            if (currId === profile.id) {
-              setSelectedProfile(data as FullProfile);
-              setDetailLoading(false);
-            }
-            return currId;
-          });
-        }).catch(console.error);
-      }
-    });
-  }, [profiles]);
-
-  // Handle selected profile changes
+  // ── Load selected profile detail (from cache or network) ──────
   useEffect(() => {
     if (!selectedId) {
       setSelectedProfile(null);
       return;
     }
 
-    setActiveTab('overview'); // reset to overview on profile change
-
-    // Instant load if already prefetched
-    if (prefetchedProfiles.current[selectedId]) {
-      setSelectedProfile(prefetchedProfiles.current[selectedId]);
-      setDetailLoading(false);
+    // If already cached, use instantly — no loading state
+    if (fullProfileCache.current[selectedId]) {
+      setSelectedProfile(fullProfileCache.current[selectedId]);
+      setActiveTab('overview');
       return;
     }
 
-    // Fallback fetch if not yet prefetched
     let cancelled = false;
     setDetailLoading(true);
     ProfileService.getProfileById(selectedId)
       .then((data) => {
         if (!cancelled) {
-          prefetchedProfiles.current[selectedId] = data as FullProfile;
-          setSelectedProfile(data as FullProfile);
+          const profile = data as FullProfile;
+          fullProfileCache.current[selectedId] = profile; // cache it
+          setSelectedProfile(profile);
+          setActiveTab('overview');
         }
       })
       .catch((err) => {
@@ -450,6 +505,49 @@ export default function ProfilesListPage() {
       cancelled = true;
     };
   }, [selectedId]);
+
+  // ── Background prefetch all profiles on current page ──────────
+  useEffect(() => {
+    if (profiles.length === 0) return;
+
+    const uncachedIds = profiles
+      .map(p => p.id)
+      .filter(id => !fullProfileCache.current[id]);
+
+    if (uncachedIds.length === 0) return;
+
+    // Prefetch in small batches to avoid overwhelming the server
+    const batchSize = 5;
+    let currentBatch = 0;
+
+    const fetchBatch = async () => {
+      const batch = uncachedIds.slice(currentBatch * batchSize, (currentBatch + 1) * batchSize);
+      if (batch.length === 0) return;
+
+      try {
+        const results = await Promise.all(
+          batch.map(id => ProfileService.getProfileById(id).catch(() => null))
+        );
+        results.forEach(data => {
+          if (data) {
+            fullProfileCache.current[data.id] = data as FullProfile;
+          }
+        });
+      } catch (e) {
+        console.error('Background prefetch error:', e);
+      }
+
+      currentBatch++;
+      if (currentBatch * batchSize < uncachedIds.length) {
+        // Small delay between batches
+        setTimeout(fetchBatch, 300);
+      }
+    };
+
+    // Start prefetch after a short delay (don't block initial render)
+    const timer = setTimeout(fetchBatch, 500);
+    return () => clearTimeout(timer);
+  }, [profiles]);
 
   // ── Handlers ──────────────────────────────────────────────────
   const handleSearch = (e: React.FormEvent) => {
@@ -468,18 +566,25 @@ export default function ProfilesListPage() {
   };
 
   const isClickScrolling = useRef(false);
+  const breakdownTabsRef = useRef<HTMLDivElement>(null);
 
+  const scrollBreakdownTabs = (direction: 'left' | 'right') => {
+    if (breakdownTabsRef.current) {
+      const scrollAmount = 200;
+      breakdownTabsRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    }
+  };
   const smoothScrollTo = (tabId: string, retryCount = 0) => {
     const container = document.getElementById('details-scroll-container');
     const target = document.getElementById(`section-${tabId}`);
-    
+
     if (!container || !target) {
       if (retryCount < 3) {
         setTimeout(() => smoothScrollTo(tabId, retryCount + 1), 50);
       }
       return;
     }
-    
+
     isClickScrolling.current = true;
     const startPos = container.scrollTop;
     const distance = target.getBoundingClientRect().top - container.getBoundingClientRect().top - 20; // 20px top padding
@@ -490,10 +595,10 @@ export default function ProfilesListPage() {
       if (startTime === null) startTime = currentTime;
       const timeElapsed = currentTime - startTime;
       const progress = Math.min(timeElapsed / duration, 1);
-      
+
       // easeInOutQuart easing for very smooth start and end
-      const ease = progress < 0.5 
-        ? 8 * Math.pow(progress, 4) 
+      const ease = progress < 0.5
+        ? 8 * Math.pow(progress, 4)
         : 1 - Math.pow(-2 * progress + 2, 4) / 2;
 
       container.scrollTop = startPos + distance * ease;
@@ -519,7 +624,7 @@ export default function ProfilesListPage() {
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (activeTab === 'overview' || isClickScrolling.current) return;
-    
+
     const container = e.currentTarget;
     const isAtBottom = Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) <= 10;
     if (isAtBottom) {
@@ -576,197 +681,40 @@ export default function ProfilesListPage() {
   const sp = selectedProfile; // shorthand
 
   const renderOverviewTab = () => {
-    if (!sp || !matchData) return (
-      <div className="flex items-center justify-center h-full text-[#A8A296] text-[13px]">No matching data available.</div>
-    );
-
-    const currentProfileId = selectedId!;
-    const hasRunMatch = !!matchRunMap[currentProfileId];
-    const isMatchingNow = !!matchingMap[currentProfileId];
-
-    if (!hasRunMatch) {
+    if (!sp) return null;
+    
+    if (!matchData?.isReal) {
       return (
-        <div className="relative flex flex-col items-center justify-center h-full min-h-[450px] bg-gradient-to-br from-white via-[#FDFBF8] to-[#F5F0E8] rounded-[28px] border border-[#E9E4DC] shadow-sm overflow-hidden">
-
-          {/* ── Card-style decorative graphics ── */}
-          {/* Dot grid pattern — top left */}
-          <div className="absolute top-4 left-4 w-[100px] h-[100px] opacity-[0.12] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#1F3B34 1.2px, transparent 1.2px)', backgroundSize: '8px 8px' }} />
-          {/* Dot grid pattern — bottom right */}
-          <div className="absolute bottom-4 right-4 w-[80px] h-[80px] opacity-[0.08] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#C86A4A 1px, transparent 1px)', backgroundSize: '7px 7px' }} />
-          {/* Corner rings — top right */}
-          <div className="absolute -top-10 -right-10 w-[90px] h-[90px] rounded-full border-[3px] border-[#E9E4DC]/50 pointer-events-none" />
-          <div className="absolute -top-4 -right-4 w-[50px] h-[50px] rounded-full border-[2px] border-[#C86A4A]/15 pointer-events-none" />
-          {/* Corner rings — bottom left */}
-          <div className="absolute -bottom-8 -left-8 w-[80px] h-[80px] rounded-full border-[3px] border-[#E9E4DC]/40 pointer-events-none" />
-          <div className="absolute -bottom-3 -left-3 w-[45px] h-[45px] rounded-full border-[2px] border-[#064e3b]/10 pointer-events-none" />
-
-          {/* ── Background gradient orbs ── */}
-          <div className="absolute -top-16 -right-16 w-[220px] h-[220px] rounded-full bg-gradient-to-br from-[#C86A4A]/10 via-[#D4AF37]/8 to-transparent blur-2xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-[160px] h-[160px] rounded-full bg-gradient-to-tr from-[#064e3b]/8 via-[#A3B18A]/10 to-transparent blur-2xl pointer-events-none" />
-
-          {/* Animated rings */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-            <div className="w-[300px] h-[300px] rounded-full border border-[#E9E4DC]/40" style={{ animation: 'matchRingPulse 3s ease-in-out infinite' }} />
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-250px)] text-center animate-in fade-in duration-500">
+          <div className="w-24 h-24 bg-[#F5F0E8] rounded-full flex items-center justify-center mb-6">
+            <Sparkles className="w-10 h-10 text-[#C86A4A]" />
           </div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-            <div className="w-[220px] h-[220px] rounded-full border border-dashed border-[#C86A4A]/15" style={{ animation: 'matchRingSpin 12s linear infinite' }} />
+          <h3 className="text-[24px] font-extrabold text-[#1F1E1B] mb-3">Unlock Compatibility Insights</h3>
+          <p className="text-[14px] text-[#717972] max-w-md mb-8">
+            Run our advanced matching algorithm to see detailed score breakdowns, top candidate recommendations, and compatibility analytics for this profile.
+          </p>
+          <button
+            onClick={handleRunMatches}
+            disabled={runningMatchesMap[selectedId!]}
+            className="flex items-center gap-3 bg-[#C86A4A] hover:bg-[#a6563b] text-white font-bold text-[15px] px-8 py-4 rounded-full shadow-lg shadow-[#C86A4A]/20 transition-all disabled:opacity-70 disabled:hover:bg-[#C86A4A]"
+          >
+            {runningMatchesMap[selectedId!] ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            {runningMatchesMap[selectedId!] ? 'Running Algorithm...' : 'Run Match Algorithm'}
+          </button>
+        </div>
+      );
+    }
+    
+    if (matchData.results.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-250px)] text-center animate-in fade-in duration-500">
+          <div className="w-24 h-24 bg-[#F5F0E8] rounded-full flex items-center justify-center mb-6">
+            <Info className="w-10 h-10 text-[#717972]" />
           </div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-            <div className="w-[160px] h-[160px] rounded-full border border-[#064e3b]/10" style={{ animation: 'matchRingPulse 3s ease-in-out infinite 1.5s' }} />
-          </div>
-
-          {/* Floating decorative icons */}
-          <div className="absolute top-[18%] left-[15%] pointer-events-none" style={{ animation: 'matchFloat 4s ease-in-out infinite' }}>
-            <div className="w-10 h-10 rounded-[14px] bg-[#FDF0D8]/70 border border-[#D4AF37]/20 flex items-center justify-center shadow-sm backdrop-blur-sm">
-              <Heart className="w-4 h-4 text-[#D4AF37]" />
-            </div>
-          </div>
-          <div className="absolute top-[22%] right-[14%] pointer-events-none" style={{ animation: 'matchFloat 5s ease-in-out infinite 1s' }}>
-            <div className="w-9 h-9 rounded-full bg-[#E5EFE9]/70 border border-[#A3B18A]/20 flex items-center justify-center shadow-sm backdrop-blur-sm">
-              <Target className="w-4 h-4 text-[#064e3b]" />
-            </div>
-          </div>
-          <div className="absolute bottom-[20%] left-[12%] pointer-events-none" style={{ animation: 'matchFloat 4.5s ease-in-out infinite 0.5s' }}>
-            <div className="w-8 h-8 rounded-full bg-[#C86A4A]/10 border border-[#C86A4A]/15 flex items-center justify-center shadow-sm backdrop-blur-sm">
-              <TrendingUp className="w-3.5 h-3.5 text-[#C86A4A]" />
-            </div>
-          </div>
-          <div className="absolute bottom-[24%] right-[16%] pointer-events-none" style={{ animation: 'matchFloat 3.5s ease-in-out infinite 2s' }}>
-            <div className="w-9 h-9 rounded-[12px] bg-white/80 border border-[#E9E4DC] flex items-center justify-center shadow-sm backdrop-blur-sm">
-              <Award className="w-4 h-4 text-[#D4AF37]" />
-            </div>
-          </div>
-
-          {/* Tiny floating dots */}
-          <div className="absolute top-[35%] left-[28%] w-2 h-2 rounded-full bg-[#C86A4A]/20 pointer-events-none" style={{ animation: 'matchFloat 3s ease-in-out infinite 0.8s' }} />
-          <div className="absolute top-[30%] right-[28%] w-1.5 h-1.5 rounded-full bg-[#D4AF37]/25 pointer-events-none" style={{ animation: 'matchFloat 4s ease-in-out infinite 1.5s' }} />
-          <div className="absolute bottom-[32%] left-[30%] w-2.5 h-2.5 rounded-full bg-[#064e3b]/10 pointer-events-none" style={{ animation: 'matchFloat 5s ease-in-out infinite 2.5s' }} />
-          <div className="absolute bottom-[30%] right-[25%] w-2 h-2 rounded-full bg-[#A3B18A]/20 pointer-events-none" style={{ animation: 'matchFloat 3.5s ease-in-out infinite 0.3s' }} />
-
-          {/* ── Main content ── */}
-          <div className="relative z-10 flex flex-col items-center">
-            {/* Icon with glow */}
-            <div className="relative mb-7">
-              <div className="absolute inset-0 w-24 h-24 rounded-full bg-[#C86A4A]/10 blur-xl" style={{ animation: 'matchGlow 2.5s ease-in-out infinite' }} />
-              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-[#064e3b] to-[#0a7c5f] flex items-center justify-center shadow-[0_8px_30px_rgba(6,78,59,0.25)]">
-                <Sparkles className="w-11 h-11 text-white" style={{ animation: isMatchingNow ? 'matchOverlaySpin 1.5s linear infinite' : 'matchSparkle 2s ease-in-out infinite' }} />
-              </div>
-            </div>
-
-            {isMatchingNow ? (
-              /* ── Inline loading state (replaces title + button) ── */
-              <>
-                <h3 className="text-[22px] font-extrabold text-[#002b17] mb-2 tracking-tight">
-                  Analyzing Profiles…
-                </h3>
-                <p className="text-[13px] text-[#8B8479] max-w-[360px] text-center mb-6 leading-relaxed">
-                  Running compatibility engine for this profile.
-                </p>
-                {/* Inline progress bar */}
-                <div className="w-[260px] h-[7px] rounded-full bg-[#F0EBE3] overflow-hidden shadow-inner">
-                  <div className="h-full rounded-full bg-[#C86A4A]" style={{ animation: 'matchProgress 2.2s ease-in-out forwards' }} />
-                </div>
-              </>
-            ) : (
-              /* ── Normal state with button ── */
-              <>
-                <h3 className="text-[24px] font-extrabold text-[#002b17] mb-2 tracking-tight">
-                  Run Matching Algorithm
-                </h3>
-                <p className="text-[13px] text-[#8B8479] max-w-[360px] text-center mb-9 leading-relaxed">
-                  Initiate the matching engine to analyze preferences, compatibility scores, and discover the best candidates for this profile.
-                </p>
-
-                {/* CTA Button with internal graphics */}
-                <div className="relative group">
-                  <div className="absolute -inset-1.5 bg-gradient-to-r from-[#064e3b] via-[#C86A4A] to-[#D4AF37] rounded-full opacity-0 blur-lg group-hover:opacity-40 transition-all duration-500" />
-                  <button
-                    onClick={async () => {
-                      setMatchingMap(prev => ({ ...prev, [currentProfileId]: true }));
-                      try {
-                        const supabase = createClient();
-                        const realResults = await runMatching(supabase, currentProfileId, {
-                          executedBy: 'preview',
-                          persist: false, // Agent preview, so don't save to DB
-                        });
-                        setRealMatchResultsMap(prev => ({ ...prev, [currentProfileId]: realResults }));
-                      } catch (error) {
-                        console.error('Real matching error:', error);
-                      } finally {
-                        setMatchingMap(prev => ({ ...prev, [currentProfileId]: false }));
-                        setMatchRunMap(prev => ({ ...prev, [currentProfileId]: true }));
-                      }
-                    }}
-                    className="relative overflow-hidden px-12 py-[18px] bg-gradient-to-r from-[#064e3b] via-[#085d46] to-[#0a7c5f] text-white rounded-full font-bold text-[15px] shadow-[0_6px_24px_rgba(6,78,59,0.4)] hover:shadow-[0_10px_36px_rgba(6,78,59,0.5)] hover:-translate-y-1.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center min-w-[260px] gap-3 cursor-pointer"
-                  >
-                    {/* Internal sparkle particles */}
-                    <span className="absolute top-[6px] left-[20px] w-[6px] h-[6px] rounded-full bg-white/20 pointer-events-none" style={{ animation: 'btnParticle 3s ease-in-out infinite' }} />
-                    <span className="absolute top-[14px] right-[35px] w-[4px] h-[4px] rounded-full bg-white/15 pointer-events-none" style={{ animation: 'btnParticle 2.5s ease-in-out infinite 0.8s' }} />
-                    <span className="absolute bottom-[8px] left-[50px] w-[5px] h-[5px] rounded-full bg-[#D4AF37]/25 pointer-events-none" style={{ animation: 'btnParticle 3.5s ease-in-out infinite 1.2s' }} />
-                    <span className="absolute bottom-[10px] right-[60px] w-[3px] h-[3px] rounded-full bg-white/20 pointer-events-none" style={{ animation: 'btnParticle 2s ease-in-out infinite 0.5s' }} />
-                    {/* Shimmer sweep */}
-                    <span className="absolute inset-0 overflow-hidden rounded-full pointer-events-none">
-                      <span className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg]" style={{ animation: 'btnShimmer 3s ease-in-out infinite' }} />
-                    </span>
-                    {/* Star decorations */}
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 text-[10px] pointer-events-none">✦</span>
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 text-[10px] pointer-events-none">✦</span>
-                    {/* Button content */}
-                    <Zap className="w-[18px] h-[18px] relative z-10" style={{ animation: 'btnZap 2s ease-in-out infinite' }} />
-                    <span className="relative z-10 tracking-wide">Find Matches</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Keyframe animations */}
-          <style jsx>{`
-            @keyframes matchFloat {
-              0%, 100% { transform: translateY(0px); }
-              50% { transform: translateY(-10px); }
-            }
-            @keyframes matchRingPulse {
-              0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
-              50% { transform: translate(-50%, -50%) scale(1.06); opacity: 0.2; }
-            }
-            @keyframes matchRingSpin {
-              0% { transform: translate(-50%, -50%) rotate(0deg); }
-              100% { transform: translate(-50%, -50%) rotate(360deg); }
-            }
-            @keyframes matchGlow {
-              0%, 100% { opacity: 0.5; transform: scale(1); }
-              50% { opacity: 0.9; transform: scale(1.15); }
-            }
-            @keyframes matchSparkle {
-              0%, 100% { transform: scale(1) rotate(0deg); }
-              50% { transform: scale(1.08) rotate(8deg); }
-            }
-            @keyframes btnParticle {
-              0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
-              50% { transform: translateY(-4px) scale(1.5); opacity: 0.7; }
-            }
-            @keyframes btnShimmer {
-              0% { left: -100%; }
-              50%, 100% { left: 200%; }
-            }
-            @keyframes btnZap {
-              0%, 100% { transform: scale(1); }
-              25% { transform: scale(1.15) rotate(-5deg); }
-              75% { transform: scale(1.05) rotate(3deg); }
-            }
-            @keyframes matchOverlaySpin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            @keyframes matchProgress {
-              0% { width: 0%; }
-              30% { width: 35%; }
-              60% { width: 65%; }
-              80% { width: 85%; }
-              100% { width: 100%; }
-            }
-          `}</style>
+          <h3 className="text-[24px] font-extrabold text-[#1F1E1B] mb-3">No Matches Found</h3>
+          <p className="text-[14px] text-[#717972] max-w-md">
+            The algorithm ran successfully but couldn't find any eligible candidates that pass the mandatory hard filters for this profile.
+          </p>
         </div>
       );
     }
@@ -862,37 +810,108 @@ export default function ProfilesListPage() {
 
                       {/* Expanded Analytics / Breakdown */}
                       <div className="flex flex-col flex-1">
-                        <h4 className="text-[11px] font-bold text-[#717972] uppercase tracking-widest mb-4">Score Breakdown</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          {(() => {
-                            let breakdownItems: { category: string; score: number }[] = [];
-                            if (matchData.isReal && selectedMatch._realResult) {
-                              breakdownItems = selectedMatch._realResult.breakdowns.sourceToCandidate.map((b: any) => ({
-                                category: b.criterion_code.replace('_', ' ').toUpperCase(),
-                                score: Math.round(b.raw_score)
-                              }));
-                            } else {
-                              breakdownItems = getMockMatchBreakdown(selectedId!, selectedMatch.candidateId);
-                            }
-
-                            return breakdownItems.map((item) => {
-                              const isPerfect = item.score === 100;
-                              const barColor = isPerfect ? '#1F3B34' : '#A3B18A'; // Pine Grove : Sage Whisper
+                        <div className="flex items-center gap-1 mb-4">
+                          <button 
+                            onClick={() => scrollBreakdownTabs('left')} 
+                            className="shrink-0 flex items-center justify-center w-6 h-6 text-[#7b8592] hover:text-[#002b17] transition-colors"
+                            aria-label="Scroll left"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          
+                          <nav ref={breakdownTabsRef} className="flex-1 flex gap-6 text-[13px] font-medium text-[#7b8592] overflow-x-auto no-scrollbar scroll-smooth border-b border-[#E9E4DC]">
+                            {BREAKDOWN_TABS.map(tab => {
+                              const isActive = activeBreakdownTab === tab;
                               return (
-                                <div key={item.category} className="bg-[#FAF8F5] rounded-[20px] p-4 lg:p-5 flex flex-col justify-between h-[105px] border border-[#E9E4DC] shadow-sm relative overflow-hidden group hover:border-[#dcd5c2] transition-colors">
-                                  <div className="absolute left-0 right-0 bottom-0 h-[40px] opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(#1F3B34 1.5px, transparent 1.5px)', backgroundSize: '6px 6px' }} />
-                                  <span className="text-[12px] font-bold text-[#717972] relative z-10 truncate" title={item.category}>{item.category}</span>
-                                  <div className="flex flex-col gap-2.5 mt-auto relative z-10">
-                                    <span className="text-[26px] font-light text-[#1F1E1B] leading-none tracking-tight">{item.score}%</span>
-                                    <div className="w-full bg-white rounded-full h-[6px] overflow-hidden border border-[#E9E4DC]">
-                                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${item.score}%`, backgroundColor: barColor }} />
+                                <button
+                                  key={tab}
+                                  onClick={() => setActiveBreakdownTab(tab)}
+                                  className={`pb-[6px] whitespace-nowrap cursor-pointer transition-colors duration-200 border-b-2 ${
+                                    isActive 
+                                      ? 'text-[#002b17] font-semibold border-[#C86A4A]' 
+                                      : 'border-transparent hover:text-[#002b17]'
+                                  }`}
+                                >
+                                  {tab}
+                                </button>
+                              )
+                            })}
+                          </nav>
+
+                          <button 
+                            onClick={() => scrollBreakdownTabs('right')} 
+                            className="shrink-0 flex items-center justify-center w-6 h-6 text-[#7b8592] hover:text-[#002b17] transition-colors"
+                            aria-label="Scroll right"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {(() => {
+                          let breakdownItems: { raw_category: string, category: string; score: number }[] = [];
+                          if (matchData.isReal && selectedMatch._realResult) {
+                            breakdownItems = selectedMatch._realResult.breakdowns.sourceToCandidate.map((b: any) => ({
+                              raw_category: b.criterion_code,
+                              category: b.criterion_code.replace('_', ' ').toUpperCase(),
+                              score: Math.round(b.raw_score * 100)
+                            }));
+                          } else {
+                            breakdownItems = getMockMatchBreakdown(selectedId!, selectedMatch.candidateId).map((b: any) => ({
+                              raw_category: b.category.toUpperCase().replace(' ', '_'),
+                              category: b.category.toUpperCase(),
+                              score: b.score
+                            }));
+                          }
+
+                          const categoryGroups = [
+                            { title: 'Age & Marital Status', keys: ['AGE', 'MARITAL_STATUS', 'CHILDREN'] },
+                            { title: 'Physical', keys: ['HEIGHT', 'WEIGHT', 'DISABILITY', 'COMPLEXION'] },
+                            { title: 'Religion & Culture', keys: ['RELIGION', 'SECT', 'CASTE', 'RELIGIOUS_PRACTICE'] },
+                            { title: 'Income & Career', keys: ['INCOME'] },
+                            { title: 'Location', keys: ['COUNTRY'] },
+                            { title: 'Lifestyle', keys: ['FAMILY_SETUP', 'SMOKING', 'BEARD', 'HIJAB'] },
+                          ];
+
+                          const groupedKeys = new Set(categoryGroups.flatMap(g => g.keys));
+                          const otherItems = breakdownItems.filter(item => !groupedKeys.has(item.raw_category));
+
+                          let itemsToRender = [];
+                          if (activeBreakdownTab === 'All') {
+                            itemsToRender = breakdownItems;
+                          } else if (activeBreakdownTab === 'Other Criteria') {
+                            itemsToRender = otherItems;
+                          } else {
+                            const group = categoryGroups.find(g => g.title === activeBreakdownTab);
+                            if (group) {
+                              itemsToRender = breakdownItems.filter(item => group.keys.includes(item.raw_category));
+                            }
+                          }
+
+                          if (itemsToRender.length === 0) {
+                             return <div className="text-[12px] text-[#A8A296] py-4">No data available for this category.</div>;
+                          }
+
+                          return (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                              {itemsToRender.map((item) => {
+                                const isPerfect = item.score === 100;
+                                const barColor = isPerfect ? '#1F3B34' : '#A3B18A'; 
+                                return (
+                                  <div key={item.category} className="bg-[#FAF8F5] rounded-[20px] p-4 lg:p-5 flex flex-col justify-between h-[105px] border border-[#E9E4DC] shadow-sm relative overflow-hidden group hover:border-[#dcd5c2] transition-colors">
+                                    <div className="absolute left-0 right-0 bottom-0 h-[40px] opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(#1F3B34 1.5px, transparent 1.5px)', backgroundSize: '6px 6px' }} />
+                                    <span className="text-[12px] font-bold text-[#717972] relative z-10 truncate" title={item.category}>{item.category}</span>
+                                    <div className="flex flex-col gap-2.5 mt-auto relative z-10">
+                                      <span className="text-[26px] font-light text-[#1F1E1B] leading-none tracking-tight">{item.score}%</span>
+                                      <div className="w-full bg-white rounded-full h-[6px] overflow-hidden border border-[#E9E4DC]">
+                                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${item.score}%`, backgroundColor: barColor }} />
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              )
-                            });
-                          })()}
-                        </div>
+                                )
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </section>
                   );
@@ -934,25 +953,25 @@ export default function ProfilesListPage() {
                 })()}
 
                 {/* Request Match Analysis */}
-                <section className="bg-[#C86A4A] text-white rounded-[24px] p-6 shadow-md shadow-[#C86A4A]/20 relative overflow-hidden flex-1 flex flex-col justify-center">
+                <section className="bg-[#C86A4A] text-white rounded-[24px] p-6 shadow-md shadow-[#C86A4A]/20 relative overflow-hidden flex-1 shrink-0 min-h-[220px] flex flex-col justify-center">
                   <Heart className="absolute -right-6 -bottom-6 w-32 h-32 text-white opacity-10 -rotate-12 pointer-events-none" />
                   <div className="relative z-10">
                     <h3 className="text-[18px] font-extrabold tracking-tight leading-tight mb-2">Request Match<br />Analysis</h3>
                     <p className="text-[12px] text-white/90 font-medium leading-relaxed max-w-[85%] mb-5">
                       Request a detailed compatibility breakdown and expert insights for this profile.
                     </p>
-                    {matchRequested ? (
+                    {realMatchResultsMap[selectedId!] ? (
                       <div className="inline-flex items-center gap-1.5 text-[12px] font-bold px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm shadow-sm border border-white/10">
-                        <CheckCircle className="w-4 h-4" /> Request Logged
+                        <CheckCircle className="w-4 h-4" /> Algorithm Complete
                       </div>
                     ) : (
                       <button
-                        onClick={handleRequestMatch}
-                        disabled={matchRequesting}
+                        onClick={handleRunMatches}
+                        disabled={runningMatchesMap[selectedId!]}
                         className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold text-[12px] px-5 py-2.5 rounded-full backdrop-blur-sm transition-all shadow-sm disabled:opacity-70 disabled:hover:bg-white/20 border border-white/10"
                       >
-                        {matchRequesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        {matchRequesting ? 'Submitting…' : 'Request Match'}
+                        {runningMatchesMap[selectedId!] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        {runningMatchesMap[selectedId!] ? 'Running Algorithm…' : 'Run Algorithm'}
                       </button>
                     )}
                   </div>
