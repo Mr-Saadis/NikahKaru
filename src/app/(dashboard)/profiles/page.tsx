@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Header from '@/components/layout/Header';
 import {
   Users,
@@ -64,7 +64,6 @@ import {
 const STATUS_TABS: { label: string; value: ProfileStatus | 'ALL' }[] = [
   { label: 'All', value: 'ALL' },
   { label: 'Active', value: 'ACTIVE' },
-  { label: 'Draft', value: 'DRAFT' },
   { label: 'Paused', value: 'PAUSED' },
   { label: 'Archived', value: 'ARCHIVED' },
 ];
@@ -124,7 +123,7 @@ function StatusBadge({ status, size = 'sm' }: { status: ProfileStatus; size?: 's
 }
 
 /** Fanned out animated stat deck (replaces 2x2 grid) */
-function StatDeck({ stats }: { stats: { total: number; active: number; draft: number; paused: number } }) {
+function StatDeck({ stats }: { stats: { total: number; active: number; draft: number; paused: number; archived?: number } }) {
   return (
     <div className="relative w-full h-[170px] flex items-center justify-center group perspective-1000 overflow-visible">
       {/* Card 4: Paused (Bottom layer) */}
@@ -139,16 +138,16 @@ function StatDeck({ stats }: { stats: { total: number; active: number; draft: nu
         <span className="text-[20px] font-black text-white leading-none">{stats.paused}</span>
       </div>
 
-      {/* Card 3: Draft */}
+      {/* Card 3: Archived */}
       <div className="absolute w-[125px] h-[75px] bg-white/5 backdrop-blur-md rounded-[20px] shadow-lg border border-white/10 flex flex-col justify-center px-4 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
         group-hover:translate-x-[-65px] group-hover:translate-y-[42px] group-hover:rotate-0 hover:bg-white/10
         -translate-x-[45px] translate-y-[5px] rotate-[-8deg] z-20 cursor-default hover:!scale-105"
       >
         <div className="flex items-center gap-1.5 mb-0.5">
-          <FileText className="w-3.5 h-3.5 text-[#F5C770]" />
-          <span className="text-[9px] font-extrabold text-white/50 uppercase tracking-widest">Draft</span>
+          <Archive className="w-3.5 h-3.5 text-[#991B1B]" />
+          <span className="text-[9px] font-extrabold text-white/50 uppercase tracking-widest">Archived</span>
         </div>
-        <span className="text-[20px] font-black text-white leading-none">{stats.draft}</span>
+        <span className="text-[20px] font-black text-white leading-none">{stats.archived || 0}</span>
       </div>
 
       {/* Card 2: Active */}
@@ -414,6 +413,82 @@ export default function ProfilesListPage() {
       status: status === 'ALL' ? undefined : (status as ProfileStatus),
       page: 1,
     }));
+  };
+
+  const isClickScrolling = useRef(false);
+
+  const smoothScrollTo = (tabId: string, retryCount = 0) => {
+    const container = document.getElementById('details-scroll-container');
+    const target = document.getElementById(`section-${tabId}`);
+    
+    if (!container || !target) {
+      if (retryCount < 3) {
+        setTimeout(() => smoothScrollTo(tabId, retryCount + 1), 50);
+      }
+      return;
+    }
+    
+    isClickScrolling.current = true;
+    const startPos = container.scrollTop;
+    const distance = target.getBoundingClientRect().top - container.getBoundingClientRect().top - 20; // 20px top padding
+    const duration = 1000; // 1 second duration for premium slow glide
+    let startTime: number | null = null;
+
+    const animation = (currentTime: number) => {
+      if (startTime === null) startTime = currentTime;
+      const timeElapsed = currentTime - startTime;
+      const progress = Math.min(timeElapsed / duration, 1);
+      
+      // easeInOutQuart easing for very smooth start and end
+      const ease = progress < 0.5 
+        ? 8 * Math.pow(progress, 4) 
+        : 1 - Math.pow(-2 * progress + 2, 4) / 2;
+
+      container.scrollTop = startPos + distance * ease;
+
+      if (timeElapsed < duration) {
+        requestAnimationFrame(animation);
+      } else {
+        isClickScrolling.current = false;
+      }
+    };
+
+    requestAnimationFrame(animation);
+  };
+
+  const handleTabClick = (tabId: string) => {
+    if (tabId === 'overview') {
+      setActiveTab('overview');
+    } else {
+      setActiveTab(tabId);
+      smoothScrollTo(tabId);
+    }
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (activeTab === 'overview' || isClickScrolling.current) return;
+    
+    const container = e.currentTarget;
+    const isAtBottom = Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) <= 10;
+    if (isAtBottom) {
+      setActiveTab(prev => prev !== 'location' ? 'location' : prev);
+      return;
+    }
+
+    const sections = ['personal', 'education', 'family', 'lifestyle', 'location'];
+    const containerRect = container.getBoundingClientRect();
+    const targetLine = containerRect.top + 100;
+
+    for (const id of sections) {
+      const el = document.getElementById(`section-${id}`);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > targetLine) {
+          setActiveTab(prev => prev !== id ? id : prev);
+          break;
+        }
+      }
+    }
   };
 
   const totalPages = Math.ceil(totalCount / (filters.limit || 20));
@@ -890,17 +965,23 @@ export default function ProfilesListPage() {
     );
   };
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'overview': return renderOverviewTab();
-      case 'personal': return renderPersonalTab();
-      case 'education': return renderEducationTab();
-      case 'family': return renderFamilyTab();
-      case 'lifestyle': return renderLifestyleTab();
-      case 'location': return renderLocationTab();
-      default: return renderOverviewTab();
-    }
+  const renderDetailsScroll = () => {
+    return (
+      <div className="flex flex-col pb-8">
+        <div id="section-personal" className="scroll-mt-5 mb-10">{renderPersonalTab()}</div>
+        <div id="section-education" className="scroll-mt-5 mb-10">{renderEducationTab()}</div>
+        <div id="section-family" className="scroll-mt-5 mb-10">{renderFamilyTab()}</div>
+        <div id="section-lifestyle" className="scroll-mt-5 mb-10">{renderLifestyleTab()}</div>
+        <div id="section-location" className="scroll-mt-5 mb-10">{renderLocationTab()}</div>
+      </div>
+    );
   };
+
+  const renderTabContent = () => {
+    if (activeTab === 'overview') return renderOverviewTab();
+    return renderDetailsScroll();
+  };
+
 
   // ════════════════════════════════════════════════════════════════
   // RENDER
@@ -1105,9 +1186,17 @@ export default function ProfilesListPage() {
               <div className="bg-[#FAF8F5] shrink-0 relative flex flex-col border-b border-[#E9E4DC] px-6 lg:px-8 pt-6 pb-0">
                 {/* Concept Header */}
                 <header className="flex flex-col md:flex-row md:items-center gap-5">
-                  <div className="w-[80px] h-[80px] rounded-[24px] bg-[#C86A4A] text-white flex items-center justify-center text-[32px] font-semibold flex-shrink-0 shadow-sm">
-                    {selectedProfile.personal_information?.full_name?.charAt(0) || 'U'}
-                  </div>
+                  {selectedProfile.profile_URL ? (
+                    <img
+                      src={selectedProfile.profile_URL}
+                      alt={selectedProfile.personal_information?.full_name || 'Profile'}
+                      className="w-[80px] h-[80px] rounded-[24px] object-cover flex-shrink-0 shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-[80px] h-[80px] rounded-[24px] bg-[#C86A4A] text-white flex items-center justify-center text-[32px] font-semibold flex-shrink-0 shadow-sm">
+                      {selectedProfile.personal_information?.full_name?.charAt(0) || 'U'}
+                    </div>
+                  )}
                   <div>
                     <h1 className="text-[28px] font-bold text-[#002b17] tracking-tight leading-none mb-1">
                       {selectedProfile.personal_information?.full_name || 'Unnamed Profile'}
@@ -1151,7 +1240,7 @@ export default function ProfilesListPage() {
                       return (
                         <button
                           key={tab.id}
-                          onClick={() => setActiveTab(tab.id)}
+                          onClick={() => handleTabClick(tab.id)}
                           className={`pb-[6px] whitespace-nowrap cursor-pointer transition-colors duration-200 border-b-2 ${isActive
                             ? 'text-[#002b17] font-semibold border-[#C86A4A]'
                             : 'border-transparent hover:text-[#002b17]'
@@ -1166,7 +1255,7 @@ export default function ProfilesListPage() {
               </div>
 
               {/* ─── Dashboard Workspace ─── */}
-              <div className="flex-1 p-5 overflow-y-auto custom-scrollbar">
+              <div id="details-scroll-container" onScroll={handleScroll} className="flex-1 p-5 overflow-y-auto custom-scrollbar">
                 {renderTabContent()}
               </div>
             </>

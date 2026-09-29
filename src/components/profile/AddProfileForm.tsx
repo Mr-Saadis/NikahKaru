@@ -62,10 +62,10 @@ export default function AddProfileForm() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
-  const [profileId, setProfileId] = useState<string | null>(searchParams.get('draftId'));
+  const [profileId, setProfileId] = useState<string | null>(searchParams.get('draftId') || searchParams.get('edit'));
 
   useEffect(() => {
-    setProfileId(searchParams.get('draftId'));
+    setProfileId(searchParams.get('draftId') || searchParams.get('edit'));
   }, [searchParams]);
 
   // Helper to get profile-specific localStorage key
@@ -108,116 +108,128 @@ export default function AddProfileForm() {
     if (profileId) {
       const loadDraft = async () => {
         try {
+          console.log('loadDraft: Fetching profile for ID', profileId);
           const profile = await ProfileService.getProfileById(profileId);
+          console.log('loadDraft: Profile fetched:', profile);
+          
           const prefs = await PreferenceService.getCurrentPreferences(profileId);
 
           if (!isMounted) return;
 
           // Step 1
           if (profile.personal_information) {
-            const pi = profile.personal_information;
-            setStep1(prev => ({
-              ...prev,
-              gender: profile.gender || '',
-              profile_picture: profile.profile_URL || undefined,
-              full_name: pi.full_name || '',
-              date_of_birth: pi.date_of_birth ? pi.date_of_birth.split('T')[0] : '', // format to YYYY-MM-DD if ISO
-              marital_status: pi.marital_status || 'NEVER_MARRIED',
-              number_of_children: pi.number_of_children?.toString() || '',
-              nationality_country_id: pi.nationality_country_id?.toString() || '',
-              mother_tongue_id: pi.mother_tongue_id?.toString() || '',
-            }));
+            // Note: If personal_information is returned as an array, use [0]
+            const pi = Array.isArray(profile.personal_information) ? profile.personal_information[0] : profile.personal_information;
+            
+            if (pi) {
+              setStep1(prev => ({
+                ...prev,
+                gender: profile.gender || '',
+                profile_picture: profile.profile_URL || undefined,
+                full_name: pi.full_name || '',
+                date_of_birth: pi.date_of_birth ? pi.date_of_birth.split('T')[0] : '',
+                marital_status: pi.marital_status || 'NEVER_MARRIED',
+                number_of_children: pi.number_of_children?.toString() || '',
+                nationality_country_id: pi.nationality_country_id?.toString() || '',
+                mother_tongue_id: pi.mother_tongue_id?.toString() || '',
+              }));
+            }
           } else {
             setStep1(prev => ({ ...prev, gender: profile.gender || '', profile_picture: profile.profile_URL || undefined }));
           }
 
           // Step 2
           if (profile.physical_information) {
-            const phi = profile.physical_information;
-            setStep2(prev => ({
-              ...prev,
-              height_cm: phi.height_cm?.toString() || '',
-              weight_kg: phi.weight_kg?.toString() || '',
-              complexion: phi.complexion || '',
-              has_disability: phi.has_disability || false,
-              disability_details: phi.disability_details || ''
-            }));
+            const phi = Array.isArray(profile.physical_information) ? profile.physical_information[0] : profile.physical_information;
+            if (phi) {
+              setStep2(prev => ({
+                ...prev,
+                height_cm: phi.height_cm?.toString() || '',
+                weight_kg: phi.weight_kg?.toString() || '',
+                complexion: phi.complexion || '',
+                has_disability: phi.has_disability || false,
+                disability_details: phi.disability_details || ''
+              }));
+            }
           }
 
           // Step 3
           if (profile.education_records || profile.employment_records || profile.income_information) {
+            const inc = Array.isArray(profile.income_information) ? profile.income_information[0] : profile.income_information;
             setStep3(prev => ({
               ...prev,
               education_records: (profile.education_records || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID() })),
               employment_records: (profile.employment_records || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID() })),
-              monthly_income_min: profile.income_information?.monthly_income_min?.toString() || '',
-              monthly_income_max: profile.income_information?.monthly_income_max?.toString() || '',
+              monthly_income_min: inc?.monthly_income_min?.toString() || '',
+              monthly_income_max: inc?.monthly_income_max?.toString() || '',
             }));
           }
 
           // Step 4
           if (profile.religion_information) {
-            const ri = profile.religion_information;
-            setStep4(prev => ({
-              ...prev,
-              religion_id: ri.religion_id || 1,
-              sect_id: ri.sect_id?.toString() || '',
-              caste_id: ri.caste_id?.toString() || '',
-              other_caste_text: ri.other_caste_text || ''
-            }));
+            const ri = Array.isArray(profile.religion_information) ? profile.religion_information[0] : profile.religion_information;
+            if (ri) {
+              setStep4(prev => ({
+                ...prev,
+                religion_id: ri.religion_id || 1,
+                sect_id: ri.sect_id?.toString() || '',
+                caste_id: ri.caste_id?.toString() || '',
+                other_caste_text: ri.other_caste_text || ''
+              }));
+            }
           }
 
           // Step 5
           if (profile.profile_locations || profile.residency_information) {
-            const pl = profile.profile_locations || {};
-            const res = profile.residency_information || {};
+            const pl = Array.isArray(profile.profile_locations) ? profile.profile_locations[0] : (profile.profile_locations || {});
+            const res = Array.isArray(profile.residency_information) ? profile.residency_information[0] : (profile.residency_information || {});
             setStep5(prev => ({
               ...prev,
-              current_country_id: pl.current_country_id?.toString() || '',
-              current_province_id: pl.current_province_id?.toString() || '',
-              current_city_id: pl.current_city_id?.toString() || '',
-              permanent_country_id: pl.permanent_country_id?.toString() || '',
-              permanent_province_id: pl.permanent_province_id?.toString() || '',
-              permanent_city_id: pl.permanent_city_id?.toString() || '',
-              current_location_text: pl.current_location_text || '',
-              permanent_location_text: pl.permanent_location_text || '',
-              house_status: res.house_status || '',
-              property_type: res.property_type || '',
-              family_setup: res.family_setup || '',
-              living_with: res.living_with || ''
+              current_country_id: pl?.current_country_id?.toString() || '',
+              current_province_id: pl?.current_province_id?.toString() || '',
+              current_city_id: pl?.current_city_id?.toString() || '',
+              permanent_country_id: pl?.permanent_country_id?.toString() || '',
+              permanent_province_id: pl?.permanent_province_id?.toString() || '',
+              permanent_city_id: pl?.permanent_city_id?.toString() || '',
+              current_location_text: pl?.current_location_text || '',
+              permanent_location_text: pl?.permanent_location_text || '',
+              house_status: res?.house_status || '',
+              property_type: res?.property_type || '',
+              family_setup: res?.family_setup || '',
+              living_with: res?.living_with || ''
             }));
           }
 
           // Step 6
           if (profile.parents || profile.siblings || profile.family_information) {
-            const fi = profile.family_information || {};
+            const fi = Array.isArray(profile.family_information) ? profile.family_information[0] : (profile.family_information || {});
             setStep6(prev => ({
               ...prev,
               parents: (profile.parents || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID() })),
               siblings: (profile.siblings || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID() })),
-              family_profession_business: fi.family_profession_business || '',
-              social_background: fi.social_background || '',
-              family_values: fi.family_values || '',
-              family_introduction: fi.family_introduction || ''
+              family_profession_business: fi?.family_profession_business || '',
+              social_background: fi?.social_background || '',
+              family_values: fi?.family_values || '',
+              family_introduction: fi?.family_introduction || ''
             }));
           }
 
           // Step 7
           if (profile.lifestyle_information || profile.relocation_information) {
-            const li = profile.lifestyle_information || {};
-            const ri = profile.relocation_information || {};
+            const li = Array.isArray(profile.lifestyle_information) ? profile.lifestyle_information[0] : (profile.lifestyle_information || {});
+            const ri = Array.isArray(profile.relocation_information) ? profile.relocation_information[0] : (profile.relocation_information || {});
             setStep7(prev => ({
               ...prev,
-              beard: li.beard || '',
-              hijab: li.hijab || '',
-              religious_practice: li.religious_practice || '',
-              smoking: li.smoking || '',
-              other_lifestyle_information: li.other_lifestyle_information || '',
-              willing_to_relocate: ri.willing_to_relocate || '',
-              preferred_country_id: ri.preferred_country_id?.toString() || '',
-              preferred_province_id: ri.preferred_province_id?.toString() || '',
-              preferred_city_id: ri.preferred_city_id?.toString() || '',
-              relocation_details: ri.relocation_details || ''
+              beard: li?.beard || '',
+              hijab: li?.hijab || '',
+              religious_practice: li?.religious_practice || '',
+              smoking: li?.smoking || '',
+              other_lifestyle_information: li?.other_lifestyle_information || '',
+              willing_to_relocate: ri?.willing_to_relocate || '',
+              preferred_country_id: ri?.preferred_country_id?.toString() || '',
+              preferred_province_id: ri?.preferred_province_id?.toString() || '',
+              preferred_city_id: ri?.preferred_city_id?.toString() || '',
+              relocation_details: ri?.relocation_details || ''
             }));
           }
 
@@ -271,17 +283,8 @@ export default function AddProfileForm() {
             }));
           }
 
-          // ── Merge: localStorage unsaved changes ON TOP of DB data ──
-          if (localData) {
-            if (localData.step1) setStep1(prev => ({ ...prev, ...localData.step1 }));
-            if (localData.step2) setStep2(prev => ({ ...prev, ...localData.step2 }));
-            if (localData.step3) setStep3(prev => ({ ...prev, ...localData.step3 }));
-            if (localData.step4) setStep4(prev => ({ ...prev, ...localData.step4 }));
-            if (localData.step5) setStep5(prev => ({ ...prev, ...localData.step5 }));
-            if (localData.step6) setStep6(prev => ({ ...prev, ...localData.step6 }));
-            if (localData.step7) setStep7(prev => ({ ...prev, ...localData.step7 }));
-            if (localData.step8) setStep8(prev => ({ ...prev, ...localData.step8 }));
-          }
+          // We intentionally DO NOT merge localData here when editing an existing profile,
+          // because an empty localData skeleton would overwrite the actual DB data with empty strings.
 
         } catch (e) {
           console.error('Failed to load draft from DB', e);
