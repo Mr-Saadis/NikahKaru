@@ -56,6 +56,9 @@ import {
   type MockMatchResult,
   type MockBreakdown,
 } from '@/lib/matching/mock-scoring';
+import { createClient } from '@/lib/supabase/client';
+import { runMatching } from '@/lib/matching/engine';
+import type { MatchResult } from '@/lib/matching/types';
 
 // ════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -296,6 +299,7 @@ export default function ProfilesListPage() {
   // ── Match request state (per-profile) ────────────────────────────
   const [matchRunMap, setMatchRunMap] = useState<Record<string, boolean>>({});
   const [matchingMap, setMatchingMap] = useState<Record<string, boolean>>({});
+  const [realMatchResultsMap, setRealMatchResultsMap] = useState<Record<string, MatchResult[]>>({});
   const [matchRequested, setMatchRequested] = useState(false);
   const [matchRequesting, setMatchRequesting] = useState(false);
 
@@ -306,12 +310,25 @@ export default function ProfilesListPage() {
     setSelectedMatchId(null);
   }, [selectedId]);
 
-  // ── Mock matching data (computed from loaded profiles) ────────
+  // ── Matching data (computed from loaded profiles or real results) ────────
   const matchData = useMemo(() => {
     if (!selectedId || profiles.length === 0) return null;
 
-    const candidateIds = profiles.map((p) => p.id);
-    const results = getMockMatchResults(selectedId, candidateIds);
+    let results: any[];
+    let isReal = false;
+
+    if (realMatchResultsMap[selectedId]) {
+      results = realMatchResultsMap[selectedId].map(r => ({
+        candidateId: r.candidateProfileId,
+        score: Math.round(r.finalScore),
+        _realResult: r,
+      }));
+      isReal = true;
+    } else {
+      const candidateIds = profiles.map((p) => p.id);
+      results = getMockMatchResults(selectedId, candidateIds);
+    }
+
     if (results.length === 0) return null;
 
     const distribution = getMatchDistribution(results);
@@ -321,8 +338,8 @@ export default function ProfilesListPage() {
     // Top 5 by score, displayed in DESCENDING order (highest first)
     const top5 = results.slice(0, 5).sort((a, b) => b.score - a.score);
 
-    return { results, distribution, average, highest, highCount, totalCompared: results.length, top5 };
-  }, [selectedId, profiles]);
+    return { results, distribution, average, highest, highCount, totalCompared: results.length, top5, isReal };
+  }, [selectedId, profiles, realMatchResultsMap]);
 
   // Auto-select the top match so the Detailed Analytics panel is visible by default
   useEffect(() => {
@@ -664,12 +681,21 @@ export default function ProfilesListPage() {
                 <div className="relative group">
                   <div className="absolute -inset-1.5 bg-gradient-to-r from-[#064e3b] via-[#C86A4A] to-[#D4AF37] rounded-full opacity-0 blur-lg group-hover:opacity-40 transition-all duration-500" />
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setMatchingMap(prev => ({ ...prev, [currentProfileId]: true }));
-                      setTimeout(() => {
+                      try {
+                        const supabase = createClient();
+                        const realResults = await runMatching(supabase, currentProfileId, {
+                          executedBy: 'preview',
+                          persist: false, // Agent preview, so don't save to DB
+                        });
+                        setRealMatchResultsMap(prev => ({ ...prev, [currentProfileId]: realResults }));
+                      } catch (error) {
+                        console.error('Real matching error:', error);
+                      } finally {
                         setMatchingMap(prev => ({ ...prev, [currentProfileId]: false }));
                         setMatchRunMap(prev => ({ ...prev, [currentProfileId]: true }));
-                      }, 2200);
+                      }
                     }}
                     className="relative overflow-hidden px-12 py-[18px] bg-gradient-to-r from-[#064e3b] via-[#085d46] to-[#0a7c5f] text-white rounded-full font-bold text-[15px] shadow-[0_6px_24px_rgba(6,78,59,0.4)] hover:shadow-[0_10px_36px_rgba(6,78,59,0.5)] hover:-translate-y-1.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center min-w-[260px] gap-3 cursor-pointer"
                   >
@@ -838,22 +864,34 @@ export default function ProfilesListPage() {
                       <div className="flex flex-col flex-1">
                         <h4 className="text-[11px] font-bold text-[#717972] uppercase tracking-widest mb-4">Score Breakdown</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          {getMockMatchBreakdown(selectedId!, selectedMatch.candidateId).map((item) => {
-                            const isPerfect = item.score === 100;
-                            const barColor = isPerfect ? '#1F3B34' : '#A3B18A'; // Pine Grove : Sage Whisper
-                            return (
-                              <div key={item.category} className="bg-[#FAF8F5] rounded-[20px] p-4 lg:p-5 flex flex-col justify-between h-[105px] border border-[#E9E4DC] shadow-sm relative overflow-hidden group hover:border-[#dcd5c2] transition-colors">
-                                <div className="absolute left-0 right-0 bottom-0 h-[40px] opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(#1F3B34 1.5px, transparent 1.5px)', backgroundSize: '6px 6px' }} />
-                                <span className="text-[12px] font-bold text-[#717972] relative z-10">{item.category}</span>
-                                <div className="flex flex-col gap-2.5 mt-auto relative z-10">
-                                  <span className="text-[26px] font-light text-[#1F1E1B] leading-none tracking-tight">{item.score}%</span>
-                                  <div className="w-full bg-white rounded-full h-[6px] overflow-hidden border border-[#E9E4DC]">
-                                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${item.score}%`, backgroundColor: barColor }} />
+                          {(() => {
+                            let breakdownItems: { category: string; score: number }[] = [];
+                            if (matchData.isReal && selectedMatch._realResult) {
+                              breakdownItems = selectedMatch._realResult.breakdowns.sourceToCandidate.map((b: any) => ({
+                                category: b.criterion_code.replace('_', ' ').toUpperCase(),
+                                score: Math.round(b.raw_score)
+                              }));
+                            } else {
+                              breakdownItems = getMockMatchBreakdown(selectedId!, selectedMatch.candidateId);
+                            }
+
+                            return breakdownItems.map((item) => {
+                              const isPerfect = item.score === 100;
+                              const barColor = isPerfect ? '#1F3B34' : '#A3B18A'; // Pine Grove : Sage Whisper
+                              return (
+                                <div key={item.category} className="bg-[#FAF8F5] rounded-[20px] p-4 lg:p-5 flex flex-col justify-between h-[105px] border border-[#E9E4DC] shadow-sm relative overflow-hidden group hover:border-[#dcd5c2] transition-colors">
+                                  <div className="absolute left-0 right-0 bottom-0 h-[40px] opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(#1F3B34 1.5px, transparent 1.5px)', backgroundSize: '6px 6px' }} />
+                                  <span className="text-[12px] font-bold text-[#717972] relative z-10 truncate" title={item.category}>{item.category}</span>
+                                  <div className="flex flex-col gap-2.5 mt-auto relative z-10">
+                                    <span className="text-[26px] font-light text-[#1F1E1B] leading-none tracking-tight">{item.score}%</span>
+                                    <div className="w-full bg-white rounded-full h-[6px] overflow-hidden border border-[#E9E4DC]">
+                                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${item.score}%`, backgroundColor: barColor }} />
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            )
-                          })}
+                              )
+                            });
+                          })()}
                         </div>
                       </div>
                     </section>
