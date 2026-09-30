@@ -303,6 +303,7 @@ export default function ProfilesListPage() {
 
   // ── Match request state (demo) ────────────────────────────────
   const [matchRequested, setMatchRequested] = useState(false);
+  const [matchRequesting, setMatchRequesting] = useState(false);
   const [runningMatchesMap, setRunningMatchesMap] = useState<Record<string, boolean>>({});
   const { addLock, removeLock, isLocked } = useNavigationLock();
 
@@ -336,7 +337,7 @@ export default function ProfilesListPage() {
       isReal = true;
     }
     
-    if (results.length === 0) return { results: [], distribution: [], average: 0, highest: 0, highCount: 0, totalCompared: 0, top5: [], isReal };
+    if (results.length === 0) return { results: [], distribution: { excellent: 0, high: 0, good: 0, moderate: 0, lower: 0 }, average: 0, highest: 0, highCount: 0, totalCompared: 0, top5: [], isReal };
 
     const distribution = getMatchDistribution(results);
     const average = getAverageScore(results);
@@ -376,12 +377,12 @@ export default function ProfilesListPage() {
     if (missingIds.length > 0) {
       const fetchMissing = async () => {
         try {
-          const promises = missingIds.map(id => ProfileService.getProfile(id));
+          const promises = missingIds.map(id => ProfileService.getProfileById(id));
           const results = await Promise.all(promises);
           
           setPrefetchedProfiles(prev => {
             const newMap = { ...prev };
-            results.forEach(p => { if (p) newMap[p.id] = p; });
+            results.forEach((p: any) => { if (p) newMap[p.id] = p; });
             return newMap;
           });
         } catch (e) {
@@ -762,7 +763,7 @@ export default function ProfilesListPage() {
               {/* ── LEFT: Compatibility Overview ── */}
               <div className="@[800px]:col-span-3 flex flex-col h-full min-w-0">
                 {(() => {
-                  const selectedMatch = results.find(m => m.candidateId === selectedMatchId) || top5[0];
+                  const selectedMatch = results.find((m: any) => m.candidateId === selectedMatchId) || top5[0];
                   const cp = selectedMatch ? findProfile(selectedMatch.candidateId) : null;
 
                   if (!selectedMatch || !cp) return null;
@@ -875,7 +876,7 @@ export default function ProfilesListPage() {
                           const groupedKeys = new Set(categoryGroups.flatMap(g => g.keys));
                           const otherItems = breakdownItems.filter(item => !groupedKeys.has(item.raw_category));
 
-                          let itemsToRender = [];
+                          let itemsToRender: any[] = [];
                           if (activeBreakdownTab === 'All') {
                             itemsToRender = breakdownItems;
                           } else if (activeBreakdownTab === 'Other Criteria') {
@@ -922,7 +923,7 @@ export default function ProfilesListPage() {
               <div className="@[800px]:col-span-2 flex flex-col gap-5 min-w-0">
                 {/* Selected Match Summary */}
                 {(() => {
-                  const selectedMatch = results.find(m => m.candidateId === selectedMatchId) || top5[0];
+                  const selectedMatch = results.find((m: any) => m.candidateId === selectedMatchId) || top5[0];
                   const cp = selectedMatch ? findProfile(selectedMatch.candidateId) : null;
 
                   return (
