@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { useNavigationLock } from '@/lib/stores/navigation-lock-store';
 import { createClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import {
@@ -91,13 +92,18 @@ export const adminItems = [
 
 const NavItem = ({ item, isActive, open, onClick, pageBg }: { item: typeof navItems[0]; isActive: boolean; open: boolean; onClick: () => void; pageBg: string }) => {
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  const navLock = useNavigationLock();
+  const locked = navLock.isLocked() && !isActive;
 
   return (
     <Tooltip open={open ? false : tooltipOpen} onOpenChange={setTooltipOpen}>
       <TooltipTrigger render={
         <Link
-          href={item.href}
-          onClick={onClick}
+          href={locked ? '#' : item.href}
+          onClick={(e) => {
+            if (locked) { e.preventDefault(); return; }
+            onClick();
+          }}
           style={{
             position: 'relative',
             display: 'flex',
@@ -105,6 +111,10 @@ const NavItem = ({ item, isActive, open, onClick, pageBg }: { item: typeof navIt
             height: ROW_H,
             overflow: 'visible',
             textDecoration: 'none',
+            opacity: locked ? 0.35 : 1,
+            pointerEvents: locked ? 'none' : 'auto',
+            cursor: locked ? 'not-allowed' : 'pointer',
+            transition: 'opacity 0.3s ease',
           }}
         />
       }>
