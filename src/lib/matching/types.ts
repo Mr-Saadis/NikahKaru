@@ -41,10 +41,5 @@ export interface MatchingOptions {
   requestId?: string;
 }
 
-// Weights map
-export const IMPORTANCE_WEIGHTS: Record<PreferenceImportance, number> = {
-  MANDATORY: 0, // Handled by hard filters, not scored
-  HIGH: 3.0,
-  MEDIUM: 2.0,
-  LOW: 1.0,
-};
+// Re-export IMPORTANCE_WEIGHTS from the central config (single source of truth)
+export { IMPORTANCE_WEIGHTS } from './scoring-config';

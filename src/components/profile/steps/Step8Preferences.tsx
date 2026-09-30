@@ -8,21 +8,36 @@ import { useReferenceData } from '@/lib/hooks/useReferenceData';
 // ── Importance selector ──────────────────────────────────────
 const IMPORTANCE_OPTS: { value: PreferenceImportance; label: string; color: string }[] = [
   { value: 'MANDATORY', label: 'Must Have', color: 'bg-red-50 border-red-200 text-red-700 data-[active]:bg-red-600 data-[active]:text-white data-[active]:border-red-600' },
-  { value: 'HIGH',      label: 'High',      color: 'bg-amber-50 border-amber-200 text-amber-700 data-[active]:bg-amber-500 data-[active]:text-white data-[active]:border-amber-500' },
-  { value: 'MEDIUM',    label: 'Medium',    color: 'bg-blue-50 border-blue-200 text-blue-700 data-[active]:bg-blue-500 data-[active]:text-white data-[active]:border-blue-500' },
-  { value: 'LOW',       label: 'Low',       color: 'bg-[#F4EFE7] border-[#E9E2D4] text-[#696256] data-[active]:bg-[#16382E] data-[active]:text-white data-[active]:border-[#16382E]' },
+  { value: 'HIGH', label: 'High', color: 'bg-amber-50 border-amber-200 text-amber-700 data-[active]:bg-amber-500 data-[active]:text-white data-[active]:border-amber-500' },
+  { value: 'MEDIUM', label: 'Medium', color: 'bg-blue-50 border-blue-200 text-blue-700 data-[active]:bg-blue-500 data-[active]:text-white data-[active]:border-blue-500' },
+  { value: 'LOW', label: 'Low', color: 'bg-[#F4EFE7] border-[#E9E2D4] text-[#696256] data-[active]:bg-[#16382E] data-[active]:text-white data-[active]:border-[#16382E]' },
 ];
 
-function ImportanceRow({ label, value, onChange }: {
+// "Doesn't Matter" = importance is '' (null in DB) → criterion excluded from scoring
+const DOESNT_MATTER_VALUE = '' as const;
+
+function ImportanceRow({ label, value, onChange, hideMandatory }: {
   label: React.ReactNode;
   value: PreferenceImportance | '';
   onChange: (v: PreferenceImportance | '') => void;
+  hideMandatory?: boolean;
 }) {
+  const opts = hideMandatory ? IMPORTANCE_OPTS.filter(o => o.value !== 'MANDATORY') : IMPORTANCE_OPTS;
+  const isDoesntMatter = value === DOESNT_MATTER_VALUE;
   return (
     <div className="flex items-center justify-between gap-2 py-2">
       <span className="text-[12px] font-medium text-[#4E473D] flex-1">{label}</span>
       <div className="flex gap-1">
-        {IMPORTANCE_OPTS.map((opt) => (
+        {/* "Doesn't Matter" button */}
+        <button
+          type="button"
+          data-active={isDoesntMatter ? '' : undefined}
+          onClick={() => onChange(DOESNT_MATTER_VALUE)}
+          className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold border transition-all bg-gray-50 border-gray-200 text-gray-500 data-[active]:bg-gray-500 data-[active]:text-white data-[active]:border-gray-500`}
+        >
+          Doesn&apos;t Matter
+        </button>
+        {opts.map((opt) => (
           <button
             key={opt.value}
             type="button"
@@ -79,7 +94,7 @@ function HeightRangeRow({ label, minCm, maxCm, onMin, onMax }: {
   onMin: (v: number | '') => void; onMax: (v: number | '') => void;
 }) {
   const inputClass = "w-[56px] bg-white border border-[#EFE9DF] rounded-lg px-1.5 py-1.5 text-[12px] text-center focus:border-[#064e3b] focus:outline-none";
-  
+
   const parseCm = (cm: number | '') => {
     if (!cm) return { ft: '', in: '' };
     const totalInches = Math.round(cm / 2.54);
@@ -92,7 +107,7 @@ function HeightRangeRow({ label, minCm, maxCm, onMin, onMax }: {
   const handleChange = (type: 'min' | 'max', field: 'ft' | 'in', val: string) => {
     const current = type === 'min' ? min : max;
     const update = { ...current, [field]: val ? Number(val) : '' };
-    
+
     if (update.ft === '' && update.in === '') {
       type === 'min' ? onMin('') : onMax('');
       return;
@@ -149,7 +164,7 @@ export type Step8Data = {
   pref_religious_practice: ReligiousPracticeLevel | '';
   pref_religious_practice_importance: PreferenceImportance | '';
   pref_min_income: number | '';
-  pref_max_income: number | '';
+  pref_max_income: number | '';  // Kept for backward compat, not used in new scoring
   pref_income_importance: PreferenceImportance | '';
   pref_location_country_id: number | '';
   pref_location_importance: PreferenceImportance | '';
@@ -199,20 +214,20 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                   ...(!needsChildren ? { pref_children_allowed: '', pref_children_importance: '' } : {})
                 });
               }}
-              options={[{ label: 'Any', value: 'none' }, ...['NEVER_MARRIED','DIVORCED','WIDOWED','SEPARATED'].map(s => ({ label: s.replace(/_/g,' '), value: s }))]}
+              options={[{ label: 'Any', value: 'none' }, ...['NEVER_MARRIED', 'DIVORCED', 'WIDOWED', 'SEPARATED'].map(s => ({ label: s.replace(/_/g, ' '), value: s }))]}
               placeholder="Any"
               className="bg-white border-[#EFE9DF] h-[32px] px-3 py-1.5 text-[12px] rounded-lg"
             />
           </div>
         </div>
         <ImportanceRow label={<>Marital Status Importance <span className="text-red-500">*</span></>} value={data.pref_marital_importance} onChange={(v) => set('pref_marital_importance', v)} />
-        
+
         {['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(data.pref_marital_status as string) && (
           <>
             <div className="flex items-center justify-between gap-2 py-2">
               <span className="text-[12px] font-medium text-[#4E473D] flex-1">Children Allowed <span className="text-red-500">*</span></span>
               <div className="flex gap-1.5">
-                {[['YES','Yes'],['NO','No']].map(([v,l]) => (
+                {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
                   <button key={v} type="button" onClick={() => set('pref_children_allowed', data.pref_children_allowed === v ? '' : v as YesNo)}
                     className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_children_allowed === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
                 ))}
@@ -231,7 +246,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Disability Allowed <span className="text-red-500">*</span></span>
           <div className="flex gap-1.5">
-            {[['YES','Yes'],['NO','No']].map(([v,l]) => (
+            {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
               <button key={v} type="button" onClick={() => set('pref_disability_allowed', data.pref_disability_allowed === v ? '' : v as YesNo)}
                 className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_disability_allowed === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
             ))}
@@ -247,7 +262,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
           <div className="w-[220px]">
             <SearchableSelect
               value={data.pref_religion_id ? String(data.pref_religion_id) : ''}
-              onChange={(val) => onChange({...data, pref_religion_id: val && val !== 'none' ? Number(val) : '', pref_sect_id: ''})}
+              onChange={(val) => onChange({ ...data, pref_religion_id: val && val !== 'none' ? Number(val) : '', pref_sect_id: '' })}
               options={[{ label: 'Any', value: 'none' }, ...religions.map(r => ({ label: r.name_en, value: String(r.id) }))]}
               placeholder="Any"
               className="bg-gray-50 border-[#EFE9DF] h-[32px] px-3 py-1.5 text-[12px] rounded-lg cursor-not-allowed opacity-70"
@@ -291,7 +306,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
             <SearchableSelect
               value={data.pref_religious_practice || ''}
               onChange={(val) => set('pref_religious_practice', val as ReligiousPracticeLevel)}
-              options={[{ label: 'Any', value: 'none' }, ...['HIGHLY_PRACTICING','PRACTICING','MODERATE','OTHER'].map(v => ({ label: v.replace(/_/g,' '), value: v }))]}
+              options={[{ label: 'Any', value: 'none' }, ...['HIGHLY_PRACTICING', 'PRACTICING', 'MODERATE', 'OTHER'].map(v => ({ label: v.replace(/_/g, ' '), value: v }))]}
               placeholder="Any"
               className="bg-white border-[#EFE9DF] h-[32px] px-3 py-1.5 text-[12px] rounded-lg"
             />
@@ -302,9 +317,29 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
 
       {/* Income */}
       <SectionCard title="Income & Career">
-        <RangeRow label={<>Monthly Income (PKR) <span className="text-red-500">*</span></>} minVal={data.pref_min_income} maxVal={data.pref_max_income}
-          onMin={(v) => set('pref_min_income', v)} onMax={(v) => set('pref_max_income', v)} />
-        <ImportanceRow label={<>Income Importance <span className="text-red-500">*</span></>} value={data.pref_income_importance} onChange={(v) => set('pref_income_importance', v)} />
+        <ImportanceRow label={<>Income Importance</>} value={data.pref_income_importance} onChange={(v) => {
+          if (v === DOESNT_MATTER_VALUE) {
+            onChange({ ...data, pref_income_importance: v, pref_min_income: '', pref_max_income: '' });
+          } else {
+            set('pref_income_importance', v);
+          }
+        }} />
+        {data.pref_income_importance !== DOESNT_MATTER_VALUE && data.pref_income_importance && (
+          <div className="flex items-center justify-between gap-2 py-2">
+            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Minimum Monthly Income (PKR)</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={data.pref_min_income === '' ? '' : data.pref_min_income}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '');
+                set('pref_min_income', val ? Number(val) : '');
+              }}
+              placeholder="e.g. 50000"
+              className="w-36 bg-white border border-[#EFE9DF] rounded-lg px-2.5 py-1.5 text-[12px] focus:border-[#064e3b] focus:outline-none"
+            />
+          </div>
+        )}
       </SectionCard>
 
       {/* Location */}
@@ -329,7 +364,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Family Setup <span className="text-red-500">*</span></span>
           <div className="flex gap-1.5">
-            {[['JOINT','Joint'],['SEPARATE','Separate']].map(([v,l]) => (
+            {[['JOINT', 'Joint'], ['SEPARATE', 'Separate']].map(([v, l]) => (
               <button key={v} type="button" onClick={() => set('pref_family_setup', data.pref_family_setup === v ? '' : v as FamilySetup)}
                 className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_family_setup === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
             ))}
@@ -339,7 +374,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
         <div className="flex items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Smoking Preference <span className="text-red-500">*</span></span>
           <div className="flex gap-1.5">
-            {[['NO','Non-smoker'],['YES','Smoker'],['OCCASIONALLY','Occasional']].map(([v,l]) => (
+            {[['NO', 'Non-smoker'], ['YES', 'Smoker'], ['OCCASIONALLY', 'Occasional']].map(([v, l]) => (
               <button key={v} type="button" onClick={() => set('pref_smoking', data.pref_smoking === v ? '' : v as SmokingStatus)}
                 className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_smoking === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
             ))}

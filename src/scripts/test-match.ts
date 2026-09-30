@@ -11,19 +11,19 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function testMatch() {
-  // Find Ayesha Khan
+  // Find Hassan
   const { data: profiles, error } = await supabase
     .from('personal_information')
     .select('profile_id, full_name')
-    .ilike('full_name', '%Ayesha Khan%');
+    .ilike('full_name', '%Hassan%');
 
   if (error || !profiles || profiles.length === 0) {
-    console.error('Could not find Ayesha Khan:', error);
+    console.error('Could not find Hassan:', error);
     return;
   }
 
   const sourceProfileId = profiles[0].profile_id;
-  console.log('Found Ayesha Khan with ID:', sourceProfileId);
+  console.log('Found Hassan with ID:', sourceProfileId);
 
   try {
     const results = await runMatching(supabase, sourceProfileId, {
@@ -31,7 +31,7 @@ async function testMatch() {
       executedBy: 'test-script'
     });
 
-    console.log(`\nFound ${results.length} valid matches for Ayesha Khan.`);
+    console.log(`\nFound ${results.length} valid matches for Hassan.`);
     
     // Print the top result detailed breakdown
     if (results.length > 0) {
@@ -44,7 +44,7 @@ async function testMatch() {
       console.log(`Source to Candidate Score: ${topMatch.sourceToCandidateScore}%`);
       console.log(`Candidate to Source Score: ${topMatch.candidateToSourceScore}%`);
       
-      console.log('\n--- HOW AYESHA SCORED CANDIDATE ---');
+      console.log('\n--- HOW HASSAN SCORED CANDIDATE ---');
       topMatch.breakdowns.sourceToCandidate.forEach((b: any) => {
         console.log(`[${b.criterion_code}] ${b.raw_score * 100}% (Weight: ${b.weight}) -> ${b.explanation}`);
       });

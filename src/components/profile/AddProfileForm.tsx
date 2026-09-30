@@ -111,7 +111,7 @@ export default function AddProfileForm() {
           console.log('loadDraft: Fetching profile for ID', profileId);
           const profile = await ProfileService.getProfileById(profileId);
           console.log('loadDraft: Profile fetched:', profile);
-          
+
           const prefs = await PreferenceService.getCurrentPreferences(profileId);
 
           if (!isMounted) return;
@@ -120,7 +120,7 @@ export default function AddProfileForm() {
           if (profile.personal_information) {
             // Note: If personal_information is returned as an array, use [0]
             const pi = Array.isArray(profile.personal_information) ? profile.personal_information[0] : profile.personal_information;
-            
+
             if (pi) {
               setStep1(prev => ({
                 ...prev,
@@ -577,7 +577,7 @@ export default function AddProfileForm() {
     setError(null);
     try {
       let pid = profileId;
-      
+
       // If no draft exists yet, create one
       if (!pid) {
         if (!step1.gender || !step1.full_name) {
@@ -589,7 +589,7 @@ export default function AddProfileForm() {
         }
         const profile = await ProfileService.createProfile(user.id, step1.gender as string);
         pid = profile.id;
-        
+
         await ProfileService.savePersonalInfo(pid, {
           full_name: step1.full_name,
           date_of_birth: step1.date_of_birth || null,
@@ -622,7 +622,7 @@ export default function AddProfileForm() {
       // Upload new image
       const publicUrl = await ProfileService.uploadProfilePicture(pid, compressedFile);
       await ProfileService.updateProfileUrl(pid, publicUrl);
-      
+
       // Update state with final bucket URL
       setStep1(prev => ({ ...prev, profile_picture: publicUrl, profile_picture_file: undefined }));
 
@@ -812,7 +812,7 @@ export default function AddProfileForm() {
         // Age and Height are the only strict numeric ranges without an "Any" option, so we require them.
         const reqBasic = !!(step8.pref_min_age && step8.pref_max_age && step8.pref_age_importance);
         const reqPhys = !!(step8.pref_min_height && step8.pref_max_height && step8.pref_height_importance);
-        
+
         // For other fields, "Any" sets them to '', so we cannot strictly require them to be truthy 
         // without blocking the user. We will just require the most critical ones (Age and Height).
         const mandatoryComplete = reqBasic && reqPhys;
