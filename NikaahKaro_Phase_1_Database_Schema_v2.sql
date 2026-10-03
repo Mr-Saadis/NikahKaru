@@ -37,7 +37,7 @@ create type public.relationship_status as enum ('MARRIED','UNMARRIED','DIVORCED'
 create type public.religious_practice_level as enum ('HIGHLY_PRACTICING','PRACTICING','MODERATE','OTHER');
 create type public.smoking_status as enum ('NO','YES','OCCASIONALLY');
 create type public.yes_no as enum ('YES','NO');
-create type public.preference_importance as enum ('MANDATORY','HIGH','MEDIUM','LOW');
+create type public.preference_importance as enum ('MANDATORY','HIGH','MEDIUM','LOW', 'DOESNT_MATTER');
 create type public.preference_match_mode as enum ('EXACT','RANGE','INCLUDES','EXCLUDES','MINIMUM','MAXIMUM','PREFERRED');
 
 -- Agent preview is intentionally NOT represented by a DB status.
@@ -1184,3 +1184,454 @@ comment on table public.audit_logs is 'System audit trail for important actions.
 -- ============================================================
 -- END
 -- ============================================================
+
+-- ======================================================================================
+-- OPTIMIZED MATCHING VIEWS & RPCs (Added for Performance)
+-- ======================================================================================
+
+-- =========================================================
+-- 1. Add "DOESNT_MATTER" preference importance
+-- =========================================================
+
+ALTER TYPE public.preference_importance ADD VALUE IF NOT EXISTS 'DOESNT_MATTER';
+
+
+-- =========================================================
+-- 2. Matching Profiles Materialized View
+-- =========================================================
+
+DROP MATERIALIZED VIEW IF EXISTS public.mv_matching_profiles CASCADE;
+
+CREATE MATERIALIZED VIEW public.mv_matching_profiles AS
+SELECT
+    p.id AS profile_id,
+    p.gender,
+    p.status,
+
+    -- Personal
+    pi.full_name,
+    pi.date_of_birth,
+    pi.marital_status,
+    pi.number_of_children,
+    pi.nationality_country_id,
+    pi.mother_tongue_id,
+
+    -- Physical
+    ph.height_cm,
+    ph.weight_kg,
+    ph.complexion,
+    ph.has_disability,
+
+    -- Religion
+    ri.religion_id,
+    ri.sect_id,
+    ri.caste_id,
+
+    -- Location
+    pl.current_country_id,
+    pl.current_province_id,
+    pl.current_city_id,
+    pl.permanent_country_id,
+    pl.permanent_province_id,
+    pl.permanent_city_id,
+
+    -- Residency
+    res.house_status,
+    res.property_type,
+    res.family_setup,
+    res.living_with,
+
+    -- Lifestyle
+    li.beard,
+    li.hijab,
+    li.religious_practice,
+    li.smoking,
+
+    -- Relocation
+    rel.willing_to_relocate,
+    rel.preferred_country_id AS relocation_country_id,
+    rel.preferred_province_id AS relocation_province_id,
+    rel.preferred_city_id AS relocation_city_id,
+
+    -- Income
+    inc.monthly_income_min,
+    inc.monthly_income_max,
+    inc.currency_code,
+
+    -- Highest Education
+    edu.education_level_id,
+    edu.qualification,
+    edu.field_of_study,
+
+    -- Current Employment
+    emp.occupation_id,
+    emp.job_title,
+    emp.employment_type,
+
+    -- Family
+    fam.family_profession_business,
+    fam.social_background AS family_social_background,
+    fam.family_values
+
+FROM public.profiles p
+
+LEFT JOIN public.personal_information pi
+    ON pi.profile_id = p.id
+
+LEFT JOIN public.physical_information ph
+    ON ph.profile_id = p.id
+
+LEFT JOIN public.religion_information ri
+    ON ri.profile_id = p.id
+
+LEFT JOIN public.profile_locations pl
+    ON pl.profile_id = p.id
+
+LEFT JOIN public.residency_information res
+    ON res.profile_id = p.id
+
+LEFT JOIN public.lifestyle_information li
+    ON li.profile_id = p.id
+
+LEFT JOIN public.relocation_information rel
+    ON rel.profile_id = p.id
+
+LEFT JOIN public.income_information inc
+    ON inc.profile_id = p.id
+
+LEFT JOIN public.family_information fam
+    ON fam.profile_id = p.id
+
+LEFT JOIN LATERAL (
+    SELECT
+        er.education_level_id,
+        er.qualification,
+        er.field_of_study
+    FROM public.education_records er
+    WHERE er.profile_id = p.id
+    ORDER BY
+        er.is_highest_qualification DESC,
+        er.end_year DESC NULLS LAST,
+        er.created_at DESC
+    LIMIT 1
+) edu ON TRUE
+
+LEFT JOIN LATERAL (
+    SELECT
+        er.occupation_id,
+        er.job_title,
+        er.employment_type
+    FROM public.employment_records er
+    WHERE er.profile_id = p.id
+      AND er.is_current = TRUE
+    ORDER BY er.created_at DESC
+    LIMIT 1
+) emp ON TRUE
+
+WHERE p.status = 'ACTIVE';
+
+
+-- =========================================================
+-- 3. Unique Index
+-- =========================================================
+
+CREATE UNIQUE INDEX idx_mv_matching_profiles_id
+ON public.mv_matching_profiles(profile_id);
+
+
+-- =========================================================
+-- 4. Matching Profile Indexes
+-- =========================================================
+
+CREATE INDEX idx_mv_matching_profiles_gender_dob
+ON public.mv_matching_profiles(gender, date_of_birth);
+
+CREATE INDEX idx_mv_matching_profiles_city
+ON public.mv_matching_profiles(current_city_id);
+
+CREATE INDEX idx_mv_matching_profiles_religion
+ON public.mv_matching_profiles(religion_id);
+
+CREATE INDEX idx_mv_matching_profiles_education
+ON public.mv_matching_profiles(education_level_id);
+
+CREATE INDEX idx_mv_matching_profiles_marital
+ON public.mv_matching_profiles(marital_status);
+
+
+-- =========================================================
+-- 5. Current Matching Preferences View
+-- =========================================================
+
+
+DROP VIEW IF EXISTS public.v_current_matching_preferences CASCADE;
+
+CREATE VIEW public.v_current_matching_preferences AS
+SELECT
+    ps.id AS preference_set_id,
+    ps.profile_id,
+    ps.version,
+
+    -- Basic Preferences
+    bp.min_age,
+    bp.max_age,
+    bp.age_importance,
+    bp.preferred_marital_status,
+    bp.marital_status_importance,
+    bp.children_allowed,
+    bp.children_importance,
+    bp.preferred_gender,
+    bp.gender_importance,
+
+    -- Physical Preferences
+    pp.min_height_cm,
+    pp.max_height_cm,
+    pp.height_importance,
+    pp.min_weight_kg,
+    pp.max_weight_kg,
+    pp.weight_importance,
+    pp.preferred_complexion,
+    pp.complexion_importance,
+    pp.disability_allowed,
+    pp.disability_importance,
+    pp.beard_preference,
+    pp.beard_importance,
+    pp.hijab_preference,
+    pp.hijab_importance,
+
+    -- Education Preferences
+    ep.minimum_education_level_id,
+    ep.education_importance,
+    ep.preferred_field_of_study,
+    ep.field_importance,
+
+    -- Profession Preferences
+    prop.preferred_occupation_id,
+    prop.occupation_importance,
+    prop.preferred_employment_type,
+    prop.employment_type_importance,
+    prop.minimum_monthly_income,
+    prop.maximum_monthly_income,
+    prop.income_importance,
+
+    -- Religion Preferences
+    rp.religion_id AS preferred_religion_id,
+    rp.religion_importance,
+    rp.sect_id AS preferred_sect_id,
+    rp.sect_importance,
+    rp.caste_id AS preferred_caste_id,
+    rp.caste_importance,
+    rp.religious_practice AS preferred_religious_practice,
+    rp.religious_practice_importance AS religion_practice_importance,
+
+    -- Location Preferences
+    lp.country_id AS preferred_country_id,
+    lp.country_importance,
+    lp.province_id AS preferred_province_id,
+    lp.province_importance,
+    lp.city_id AS preferred_city_id,
+    lp.city_importance,
+    lp.location_details,
+
+    -- Family Preferences
+    fp.family_setup AS preferred_family_setup,
+    fp.family_setup_importance,
+    fp.living_with AS preferred_living_with,
+    fp.living_with_importance,
+    fp.parents_status_preference,
+    fp.parents_status_importance,
+
+    -- Lifestyle Preferences
+    lsp.smoking AS preferred_smoking,
+    lsp.smoking_importance,
+
+    lsp.religious_practice AS preferred_lifestyle_religious_practice,
+    lsp.religious_practice_importance
+        AS lifestyle_religious_practice_importance,
+
+    lsp.beard_preference AS preferred_lifestyle_beard,
+    lsp.beard_importance
+        AS lifestyle_beard_importance,
+
+    lsp.hijab_preference AS preferred_lifestyle_hijab,
+    lsp.hijab_importance
+        AS lifestyle_hijab_importance,
+
+    -- Relocation Preferences
+    rlp.willing_to_relocate_required,
+    rlp.relocation_importance,
+
+    rlp.country_id AS relocation_country_id,
+    rlp.country_importance AS relocation_country_importance,
+
+    rlp.province_id AS relocation_province_id,
+    rlp.province_importance AS relocation_province_importance,
+
+    rlp.city_id AS relocation_city_id,
+    rlp.city_importance AS relocation_city_importance
+
+FROM public.preference_sets ps
+
+LEFT JOIN public.basic_preferences bp
+    ON bp.preference_set_id = ps.id
+
+LEFT JOIN public.physical_preferences pp
+    ON pp.preference_set_id = ps.id
+
+LEFT JOIN public.education_preferences ep
+    ON ep.preference_set_id = ps.id
+
+LEFT JOIN public.profession_preferences prop
+    ON prop.preference_set_id = ps.id
+
+LEFT JOIN public.religion_preferences rp
+    ON rp.preference_set_id = ps.id
+
+LEFT JOIN public.location_preferences lp
+    ON lp.preference_set_id = ps.id
+
+LEFT JOIN public.family_preferences fp
+    ON fp.preference_set_id = ps.id
+
+LEFT JOIN public.lifestyle_preferences lsp
+    ON lsp.preference_set_id = ps.id
+
+LEFT JOIN public.relocation_preferences rlp
+    ON rlp.preference_set_id = ps.id
+
+WHERE ps.is_current = TRUE;
+
+
+-- =========================================================
+-- 6. Candidate Matching Function
+-- =========================================================
+
+CREATE OR REPLACE FUNCTION public.get_matching_candidates(
+    p_source_profile_id UUID,
+    p_limit INTEGER DEFAULT 100
+)
+RETURNS TABLE (
+    profile_id UUID,
+    gender public.profile_gender,
+    date_of_birth DATE,
+    marital_status public.marital_status,
+    number_of_children INTEGER,
+    religion_id BIGINT,
+    sect_id BIGINT,
+    caste_id BIGINT,
+    current_country_id BIGINT,
+    current_province_id BIGINT,
+    current_city_id BIGINT,
+    education_level_id BIGINT,
+    field_of_study VARCHAR,
+    occupation_id BIGINT,
+    employment_type public.employment_type,
+    monthly_income_min NUMERIC,
+    monthly_income_max NUMERIC,
+    height_cm NUMERIC,
+    weight_kg NUMERIC,
+    complexion VARCHAR,
+    has_disability BOOLEAN,
+    beard public.yes_no,
+    hijab public.yes_no,
+    religious_practice public.religious_practice_level,
+    smoking public.smoking_status,
+    family_setup public.family_setup,
+    living_with public.living_with,
+    willing_to_relocate public.yes_no,
+    relocation_country_id BIGINT,
+    relocation_province_id BIGINT,
+    relocation_city_id BIGINT
+)
+LANGUAGE SQL
+STABLE
+SECURITY INVOKER
+SET search_path = public
+AS $
+    SELECT
+        c.profile_id,
+        c.gender,
+        c.date_of_birth,
+        c.marital_status,
+        c.number_of_children,
+        c.religion_id,
+        c.sect_id,
+        c.caste_id,
+        c.current_country_id,
+        c.current_province_id,
+        c.current_city_id,
+        c.education_level_id,
+        c.field_of_study,
+        c.occupation_id,
+        c.employment_type,
+        c.monthly_income_min,
+        c.monthly_income_max,
+        c.height_cm,
+        c.weight_kg,
+        c.complexion,
+        c.has_disability,
+        c.beard,
+        c.hijab,
+        c.religious_practice,
+        c.smoking,
+        c.family_setup,
+        c.living_with,
+        c.willing_to_relocate,
+        c.relocation_country_id,
+        c.relocation_province_id,
+        c.relocation_city_id
+
+    FROM public.mv_matching_profiles c
+
+    WHERE c.profile_id <> p_source_profile_id
+
+      AND c.gender <> (
+          SELECT gender
+          FROM public.profiles
+          WHERE id = p_source_profile_id
+      )
+
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.matches m
+          WHERE m.status = 'IN_PROGRESS'
+            AND (
+                m.male_profile_id = c.profile_id
+                OR m.female_profile_id = c.profile_id
+            )
+      )
+
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.matches m
+          WHERE m.status IN ('IN_PROGRESS', 'REJECTED')
+            AND (
+                (
+                    m.male_profile_id = p_source_profile_id
+                    AND m.female_profile_id = c.profile_id
+                )
+                OR
+                (
+                    m.male_profile_id = c.profile_id
+                    AND m.female_profile_id = p_source_profile_id
+                )
+            )
+      )
+
+    LIMIT GREATEST(p_limit, 1);
+{'$'};
+
+
+-- =========================================================
+-- 7. Match Lookup Indexes
+-- =========================================================
+
+CREATE INDEX IF NOT EXISTS idx_matches_active_male_pair
+ON public.matches(male_profile_id, female_profile_id)
+WHERE status IN ('IN_PROGRESS', 'REJECTED');
+
+CREATE INDEX IF NOT EXISTS idx_matches_active_female_pair
+ON public.matches(female_profile_id, male_profile_id)
+WHERE status IN ('IN_PROGRESS', 'REJECTED');
+
+

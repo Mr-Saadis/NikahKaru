@@ -21,6 +21,7 @@ type Step5Data = {
   property_type: PropertyType | '';
   family_setup: FamilySetup | '';
   living_with: LivingWith | '';
+  living_with_other_details?: string;
 };
 
 interface Step5Props {
@@ -44,8 +45,8 @@ function LocationRow({
   label: string;
   headerRight?: React.ReactNode;
   countryVal: number | ''; onCountry: (v: number | '') => void;
-  provinceOptions: {id: number; name_en: string}[]; provinceVal: number | ''; onProvince: (v: number | '') => void;
-  cityOptions: {id: number; name_en: string}[]; cityVal: number | ''; onCity: (v: number | '') => void;
+  provinceOptions: { id: number; name_en: string }[]; provinceVal: number | ''; onProvince: (v: number | '') => void;
+  cityOptions: { id: number; name_en: string }[]; cityVal: number | ''; onCity: (v: number | '') => void;
   provinceText?: string; onProvinceTextChange?: (v: string) => void;
   cityText?: string; onCityTextChange?: (v: string) => void;
   locationText: string; onLocationTextChange: (v: string) => void;
@@ -53,7 +54,7 @@ function LocationRow({
 }) {
   const { countries } = useReferenceData();
   const isPakistan = countryVal === 131;
-  
+
   return (
     <div className="space-y-3 p-4 rounded-xl bg-[#FAF8F5] border border-[#E9E4DC]">
       <div className="flex items-center justify-between">
@@ -181,8 +182,8 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
         label="Permanent / Home Location"
         headerRight={
           <label className="flex items-center gap-2 cursor-pointer">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               checked={
                 !!data.current_country_id &&
                 data.permanent_country_id === data.current_country_id &&
@@ -241,7 +242,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
           <SearchableSelect
             value={data.house_status || ''}
             onChange={(val) => set('house_status', val as HouseStatus)}
-            options={[['OWN','Own'], ['RENTED','Rented'], ['FAMILY_HOUSE','Family House'], ['OTHER','Other']].map(([v, l]) => ({ label: l, value: v }))}
+            options={[['OWN', 'Own'], ['RENTED', 'Rented'], ['FAMILY_HOUSE', 'Family House'], ['OTHER', 'Other']].map(([v, l]) => ({ label: l, value: v }))}
             placeholder="Select"
             className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
           />
@@ -251,7 +252,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
           <SearchableSelect
             value={data.property_type || ''}
             onChange={(val) => set('property_type', val as PropertyType)}
-            options={[['HOUSE','House'], ['APARTMENT','Apartment'], ['OTHER','Other']].map(([v, l]) => ({ label: l, value: v }))}
+            options={[['HOUSE', 'House'], ['APARTMENT', 'Apartment'], ['OTHER', 'Other']].map(([v, l]) => ({ label: l, value: v }))}
             placeholder="Select"
             className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
           />
@@ -261,7 +262,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
           <SearchableSelect
             value={data.family_setup || ''}
             onChange={(val) => set('family_setup', val as FamilySetup)}
-            options={[['JOINT','Joint Family'], ['SEPARATE','Separate / Nuclear']].map(([v, l]) => ({ label: l, value: v }))}
+            options={[['JOINT', 'Joint Family'], ['SEPARATE', 'Separate / Nuclear']].map(([v, l]) => ({ label: l, value: v }))}
             placeholder="Select"
             className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
             direction="up"
@@ -272,12 +273,27 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
           <SearchableSelect
             value={data.living_with || ''}
             onChange={(val) => set('living_with', val as LivingWith)}
-            options={[['PARENTS','Parents'], ['FATHER','Father'], ['MOTHER','Mother'], ['SIBLINGS','Siblings'], ['ALONE','Alone'], ['OTHER','Other']].map(([v, l]) => ({ label: l, value: v }))}
+            options={[['PARENTS', 'Parents'], ['FATHER', 'Father'], ['MOTHER', 'Mother'], ['SIBLINGS', 'Siblings'], ['ALONE', 'Alone'], ['OTHER', 'Other']].map(([v, l]) => ({ label: l, value: v }))}
             placeholder="Select"
             className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
             direction="up"
           />
         </div>
+
+        {data.living_with === 'OTHER' && (
+          <div className="space-y-2 col-span-2">
+            <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
+              Please Specify <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={data.living_with_other_details || ''}
+              onChange={(e) => set('living_with_other_details', e.target.value)}
+              placeholder="e.g. Living with Uncle"
+              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

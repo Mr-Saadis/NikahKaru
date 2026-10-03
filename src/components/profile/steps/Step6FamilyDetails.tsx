@@ -11,18 +11,26 @@ type PartialParent = {
   parent_type: ParentType;
   status: ParentStatus;
   full_name: string;
-  age: number | '';
+  age: string;
   profession: string;
   education: string;
+  country_id: number | '';
+  city_id: number | '';
+  living_arrangement: string;
+  social_background: string;
+  additional_details: string;
 };
 
 type PartialSibling = {
   _tempId: string;
   gender: SiblingGender | '';
   full_name: string;
-  age: number | '';
+  age: string;
   marital_status: RelationshipStatus | '';
   profession: string;
+  education: string;
+  country_id: number | '';
+  city_id: number | '';
 };
 
 type Step6Data = {
@@ -32,6 +40,8 @@ type Step6Data = {
   social_background: string;
   family_values: string;
   family_introduction: string;
+  important_family_circumstances: string;
+  additional_details: string;
 };
 
 interface Step6Props {
@@ -42,6 +52,8 @@ interface Step6Props {
 export type { Step6Data };
 
 export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
+  const { countries, cities } = useReferenceData();
+
   const set = <K extends keyof Step6Data>(field: K, value: Step6Data[K]) =>
     onChange({ ...data, [field]: value });
 
@@ -57,6 +69,11 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
       age: '',
       profession: '',
       education: '',
+      country_id: '',
+      city_id: '',
+      living_arrangement: '',
+      social_background: '',
+      additional_details: '',
     }]);
   };
 
@@ -105,9 +122,8 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
         {data.parents.map((parent, idx) => (
           <div key={parent._tempId || idx} className="p-4 rounded-xl border border-[#E9E4DC] bg-white space-y-3">
             <div className="flex items-center justify-between">
-              <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${
-                parent.parent_type === 'FATHER' ? 'bg-[#E5EFE9] text-[#064e3b]' : 'bg-[#FCE7CE] text-[#8C5216]'
-              }`}>
+              <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${parent.parent_type === 'FATHER' ? 'bg-[#E5EFE9] text-[#064e3b]' : 'bg-[#FCE7CE] text-[#8C5216]'
+                }`}>
                 {parent.parent_type}
               </span>
               <div className="flex items-center gap-2">
@@ -128,15 +144,59 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                 </button>
               </div>
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Full Name {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
-                <input type="text" value={parent.full_name} onChange={(e) => updateParent(idx, { full_name: e.target.value })} placeholder="Name" className={inputClass} /></div>
+                <input type="text" value={parent.full_name} onChange={(e) => {
+                  if (/^[A-Za-z\s]*$/.test(e.target.value)) updateParent(idx, { full_name: e.target.value });
+                }} placeholder="Name" className={inputClass} /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Age</label>
-                <input type="number" value={parent.age} onChange={(e) => updateParent(idx, { age: e.target.value ? Number(e.target.value) : '' })} placeholder="Age" className={inputClass} /></div>
+                <input type="text" value={parent.age} onChange={(e) => {
+                  if (e.target.value === '' || /^\d+$/.test(e.target.value)) updateParent(idx, { age: e.target.value });
+                }} placeholder="Age" className={inputClass} /></div>
+
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
                 <input type="text" value={parent.profession} onChange={(e) => updateParent(idx, { profession: e.target.value })} placeholder="e.g. Retired" className={inputClass} /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Education {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
                 <input type="text" value={parent.education} onChange={(e) => updateParent(idx, { education: e.target.value })} placeholder="e.g. Matric" className={inputClass} /></div>
+
+              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Country</label>
+                <SearchableSelect
+                  value={parent.country_id ? String(parent.country_id) : ''}
+                  onChange={(val) => updateParent(idx, { country_id: val ? Number(val) : '', city_id: '' })}
+                  options={countries.map(c => ({ label: c.name_en, value: String(c.id) }))}
+                  placeholder="Select"
+                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                /></div>
+              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">City</label>
+                <SearchableSelect
+                  value={parent.city_id ? String(parent.city_id) : ''}
+                  onChange={(val) => updateParent(idx, { city_id: val ? Number(val) : '' })}
+                  options={parent.country_id ? cities.filter(c => c.country_id === parent.country_id).map(c => ({ label: c.name_en, value: String(c.id) })) : []}
+                  placeholder="Select"
+                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                  disabled={!parent.country_id}
+                /></div>
+
+              <div className="col-span-2">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Living Arrangement</label>
+                <SearchableSelect
+                  value={parent.living_arrangement || ''}
+                  onChange={(val) => updateParent(idx, { living_arrangement: val })}
+                  options={[
+                    { label: 'Living with you', value: 'Living with you' },
+                    { label: 'Living with others', value: 'Living with others' }
+                  ]}
+                  placeholder="Select Arrangement"
+                  className="bg-white border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg w-full"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">
+                  Additional Details
+                </label>
+                <input type="text" value={parent.additional_details} onChange={(e) => updateParent(idx, { additional_details: e.target.value })} placeholder="Any other details..." className={inputClass} />
+              </div>
             </div>
           </div>
         ))}
@@ -146,7 +206,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-[13px] font-bold text-[#232326]">Siblings</h4>
-          <button type="button" onClick={() => set('siblings', [...data.siblings, { _tempId: crypto.randomUUID(), gender: '', full_name: '', age: '', marital_status: '', profession: '' }])}
+          <button type="button" onClick={() => set('siblings', [...data.siblings, { _tempId: crypto.randomUUID(), gender: '', full_name: '', age: '', marital_status: '', profession: '', education: '', country_id: '', city_id: '' }])}
             className="flex items-center gap-1.5 text-[11px] font-bold text-[#064e3b] hover:bg-[#F7FAF8] px-3 py-1.5 rounded-full border border-[#064e3b]/20 transition-colors">
             <Plus size={13} /> Add Sibling
           </button>
@@ -165,6 +225,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                 <Trash2 size={13} />
               </button>
             </div>
+
             <div className="grid grid-cols-3 gap-3">
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Gender</label>
                 <SearchableSelect
@@ -178,19 +239,45 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                   className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
                 /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Name</label>
-                <input type="text" value={sib.full_name} onChange={(e) => updateSibling(idx, { full_name: e.target.value })} placeholder="Name (opt.)" className={inputClass} /></div>
+                <input type="text" value={sib.full_name} onChange={(e) => {
+                  if (/^[A-Za-z\s]*$/.test(e.target.value)) updateSibling(idx, { full_name: e.target.value });
+                }} placeholder="Name (opt.)" className={inputClass} /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Age</label>
-                <input type="number" value={sib.age} onChange={(e) => updateSibling(idx, { age: e.target.value ? Number(e.target.value) : '' })} placeholder="Age" className={inputClass} /></div>
+                <input type="text" value={sib.age} onChange={(e) => {
+                  if (e.target.value === '' || /^\d+$/.test(e.target.value)) updateSibling(idx, { age: e.target.value });
+                }} placeholder="Age" className={inputClass} /></div>
+
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Status</label>
                 <SearchableSelect
                   value={sib.marital_status || ''}
                   onChange={(val) => updateSibling(idx, { marital_status: val as RelationshipStatus })}
-                  options={['MARRIED','UNMARRIED','DIVORCED','WIDOWED'].map(s => ({ label: s.charAt(0) + s.slice(1).toLowerCase(), value: s }))}
+                  options={['MARRIED', 'UNMARRIED', 'DIVORCED', 'WIDOWED'].map(s => ({ label: s.charAt(0) + s.slice(1).toLowerCase(), value: s }))}
                   placeholder="Select"
                   className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
                 /></div>
               <div className="col-span-2"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession</label>
                 <input type="text" value={sib.profession} onChange={(e) => updateSibling(idx, { profession: e.target.value })} placeholder="e.g. Doctor" className={inputClass} /></div>
+
+              <div className="col-span-3"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Education</label>
+                <input type="text" value={sib.education} onChange={(e) => updateSibling(idx, { education: e.target.value })} placeholder="e.g. B.Sc" className={inputClass} /></div>
+
+              <div className="col-span-1"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Country</label>
+                <SearchableSelect
+                  value={sib.country_id ? String(sib.country_id) : ''}
+                  onChange={(val) => updateSibling(idx, { country_id: val ? Number(val) : '', city_id: '' })}
+                  options={countries.map(c => ({ label: c.name_en, value: String(c.id) }))}
+                  placeholder="Select"
+                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                /></div>
+              <div className="col-span-2"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">City</label>
+                <SearchableSelect
+                  value={sib.city_id ? String(sib.city_id) : ''}
+                  onChange={(val) => updateSibling(idx, { city_id: val ? Number(val) : '' })}
+                  options={sib.country_id ? cities.filter(c => c.country_id === sib.country_id).map(c => ({ label: c.name_en, value: String(c.id) })) : []}
+                  placeholder="Select"
+                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                  disabled={!sib.country_id}
+                /></div>
             </div>
           </div>
         ))}
@@ -206,10 +293,6 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">Social Background</label>
           <textarea rows={2} value={data.social_background} onChange={(e) => set('social_background', e.target.value)} placeholder="Social class, reputation, community standing..." className={textareaClass} />
-        </div>
-        <div className="space-y-2">
-          <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">Family Introduction</label>
-          <textarea rows={3} value={data.family_introduction} onChange={(e) => set('family_introduction', e.target.value)} placeholder="Brief introduction of the family..." className={textareaClass} />
         </div>
       </section>
     </div>

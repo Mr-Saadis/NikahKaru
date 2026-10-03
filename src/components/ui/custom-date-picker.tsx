@@ -111,6 +111,7 @@ export default function CustomDatePicker({ value, onChange, placeholder = 'dd/mm
 
   // Sync inputText when value prop changes externally
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setInputText(value ? formatDisplay(value) : '');
   }, [value]);
 

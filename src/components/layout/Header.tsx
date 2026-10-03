@@ -71,63 +71,25 @@ export default function Header({
   }, [isDraftsOpen]); // Re-fetch when drafts dialog is closed/opened
 
   return (
-    <header className="bg-[#FAF8F5] sticky top-0 z-10">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-2 flex items-center justify-between">
-
-        {/* Left Section: Back Button Only */}
-        <div className="flex items-center gap-4">
-          {showBackButton && (
-            <button
-              onClick={() => router.back()}
-              className="w-8 h-8 rounded-xl bg-white hover:bg-[#F4ECE1] border border-[#E9E4DC] shadow-sm text-[#064e3b] flex items-center justify-center transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
+    <>
+      <div className="absolute top-4 right-8 flex items-center gap-3 z-[40]">
+        <button 
+          onClick={() => setIsDraftsOpen(true)}
+          title="Saved Drafts"
+          className="relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#064e3b] transition-colors"
+        >
+          <FileEdit className="w-4 h-4" />
+          {draftCount > 0 && (
+            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ba1a1a] border-2 border-white flex items-center justify-center text-[9px] font-bold text-white">
+              {draftCount}
+            </div>
           )}
+        </button>
 
-        </div>
-
-        {/* Right Section: Actions & Notifications */}
-        <div className="flex items-center gap-3">
-
-          {secondaryAction && (
-            <button
-              onClick={secondaryAction.onClick}
-              className="bg-white hover:bg-[#F4ECE1] text-[#24211D] border border-[#E9E4DC] font-bold text-[12.5px] px-4 py-2.5 rounded-full shadow-sm transition-colors"
-            >
-              {secondaryAction.label}
-            </button>
-          )}
-
-          {primaryAction && (
-            <button
-              onClick={primaryAction.onClick}
-              className="bg-[#064e3b] text-white hover:bg-[#0f4229] font-bold text-[12.5px] px-5 py-2.5 rounded-full shadow-sm hover:-translate-y-0.5 transition-transform"
-            >
-              {primaryAction.label}
-            </button>
-          )}
-
-          <button 
-            onClick={() => setIsDraftsOpen(true)}
-            title="Saved Drafts"
-            className="relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#064e3b] transition-colors ml-1"
-          >
-            <FileEdit className="w-4 h-4" />
-            {draftCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ba1a1a] border-2 border-white flex items-center justify-center text-[9px] font-bold text-white">
-                {draftCount}
-              </div>
-            )}
-          </button>
-
-          <button className="relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#4E473D] transition-colors">
-            <Bell className="w-4 h-4" />
-            <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#ba1a1a] ring-2 ring-white" />
-          </button>
-
-        </div>
-
+        <button className="relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#4E473D] transition-colors">
+          <Bell className="w-4 h-4" />
+          <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#ba1a1a] ring-2 ring-white" />
+        </button>
       </div>
 
       {isDraftsOpen && (
@@ -136,6 +98,6 @@ export default function Header({
           onClose={() => setIsDraftsOpen(false)} 
         />
       )}
-    </header>
+    </>
   );
 }

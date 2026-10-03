@@ -64,14 +64,14 @@ export default function Step9Review({ step1, step2, step3, step4, step5, step6, 
   const { getReligionById, getCasteById, getSectById, getCountryById, getCityById, getMotherTongueById } = useReferenceData();
 
   const age = step1.date_of_birth
-    ? Math.floor((Date.now() - new Date(step1.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    ? Math.floor((new Date().getTime() - new Date(step1.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null;
 
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-[15px] font-bold text-[#1E1F22] mb-1">Review & Confirm</h3>
-        <p className="text-[12px] text-[#7D766C]">Review all information before saving. Click "Edit" to make changes.</p>
+        <p className="text-[12px] text-[#7D766C]">Review all information before saving. Click &quot;Edit&quot; to make changes.</p>
       </div>
 
       {/* Header Card */}

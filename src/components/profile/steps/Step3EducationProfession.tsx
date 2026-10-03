@@ -152,6 +152,36 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
                 />
               </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Start Year</label>
+                <input
+                  type="number"
+                  value={edu.start_year || ''}
+                  onChange={(e) => updateEdu(idx, { start_year: e.target.value ? Number(e.target.value) : undefined })}
+                  placeholder="YYYY"
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">End Year</label>
+                <input
+                  type="number"
+                  value={edu.end_year || ''}
+                  onChange={(e) => updateEdu(idx, { end_year: e.target.value ? Number(e.target.value) : undefined })}
+                  placeholder="YYYY (or expected)"
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Additional Details</label>
+                <input
+                  type="text"
+                  value={edu.details ?? ''}
+                  onChange={(e) => updateEdu(idx, { details: e.target.value })}
+                  placeholder="Grades, honors, or other info..."
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                />
+              </div>
             </div>
 
             <label className="flex items-center gap-2 cursor-pointer">
@@ -239,6 +269,35 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={emp.organization_name ?? ''}
                   onChange={(e) => updateEmp(idx, { organization_name: e.target.value })}
                   placeholder="Company / Org name"
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Start Date</label>
+                <input
+                  type="date"
+                  value={emp.start_date || ''}
+                  onChange={(e) => updateEmp(idx, { start_date: e.target.value })}
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none text-[#4E473D]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">End Date</label>
+                <input
+                  type="date"
+                  value={emp.end_date || ''}
+                  onChange={(e) => updateEmp(idx, { end_date: e.target.value })}
+                  disabled={emp.is_current}
+                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none text-[#4E473D] disabled:opacity-50"
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Additional Details</label>
+                <input
+                  type="text"
+                  value={emp.details ?? ''}
+                  onChange={(e) => updateEmp(idx, { details: e.target.value })}
+                  placeholder="Key responsibilities, achievements..."
                   className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
                 />
               </div>

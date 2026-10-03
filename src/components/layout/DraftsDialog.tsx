@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, FileEdit, Clock } from 'lucide-react';
+import { X, FileEdit, Clock, Trash2, Loader2 } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
 import { formatDistanceToNow } from 'date-fns';
+import { ProfileService } from '@/lib/services/profile-service';
 
 interface DraftProfile {
   id: string;
@@ -26,6 +27,9 @@ interface DraftsDialogProps {
 export default function DraftsDialog({ isOpen, onClose }: DraftsDialogProps) {
   const [drafts, setDrafts] = useState<DraftProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [draftToDelete, setDraftToDelete] = useState<DraftProfile | null>(null);
+  const [deleteInput, setDeleteInput] = useState('');
   const router = useRouter();
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,6 +76,29 @@ export default function DraftsDialog({ isOpen, onClose }: DraftsDialogProps) {
   const handleResume = (id: string) => {
     onClose();
     router.push(`/add-profile?draftId=${id}`);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, draft: DraftProfile) => {
+    e.stopPropagation();
+    setDraftToDelete(draft);
+    setDeleteInput('');
+  };
+
+  const confirmDelete = async () => {
+    if (!draftToDelete) return;
+    if (deleteInput.toLowerCase() !== 'delete') return;
+    
+    setDeletingId(draftToDelete.id);
+    try {
+      await ProfileService.deleteProfile(draftToDelete.id);
+      setDrafts(prev => prev.filter(d => d.id !== draftToDelete.id));
+      setDraftToDelete(null);
+    } catch (err) {
+      console.error('Error deleting draft:', err);
+      alert('Failed to delete draft');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (!isOpen) return null;
@@ -126,9 +153,19 @@ export default function DraftsDialog({ isOpen, onClose }: DraftsDialogProps) {
                       <h3 className="font-semibold text-[#4E473D] group-hover:text-[#064e3b] transition-colors">
                         {name}
                       </h3>
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">
-                        {gender}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">
+                          {gender}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteClick(e, draft)}
+                          disabled={deletingId === draft.id}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                        >
+                          {deletingId === draft.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                        </button>
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -142,6 +179,43 @@ export default function DraftsDialog({ isOpen, onClose }: DraftsDialogProps) {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {draftToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDraftToDelete(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 overflow-hidden">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Draft</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              To confirm, type <strong>DELETE</strong> below to permanently delete the draft for <strong>{(Array.isArray(draftToDelete.personal_information) ? draftToDelete.personal_information[0]?.full_name : draftToDelete.personal_information?.full_name) || 'Unknown Name'}</strong>.
+            </p>
+            <input
+              type="text"
+              value={deleteInput}
+              onChange={(e) => setDeleteInput(e.target.value)}
+              placeholder="Type DELETE"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 mb-6"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDraftToDelete(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                disabled={deletingId === draftToDelete.id}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleteInput.toLowerCase() !== 'delete' || deletingId === draftToDelete.id}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {deletingId === draftToDelete.id && <Loader2 size={14} className="animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
