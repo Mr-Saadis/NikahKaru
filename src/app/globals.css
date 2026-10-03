@@ -1,285 +1,57 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  /* ── Font ── */
-  --font-sans: var(--font-plus-jakarta-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-plus-jakarta-sans);
-
-  /* ── Shadcn colour tokens ── */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-
-  /* ── Border radius scale ── */
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-
-  /* ── NikaahKaro Brand Tokens ── */
-  /* Primary green */
-  --brand-primary:      #1F3B34;
-  --brand-primary-hover:#172E29;
-  --brand-dark:         #1F3B34;
-  --brand-deep:         #1F3B34;
-  --brand-darkest-text: #002b17;
-
-  /* Backgrounds */
-  --bg-app:             #FAF8F5;
-  --bg-sidebar:         #FBF9F5;
-  --bg-header:          #FAF8F5;
-  --bg-card-neutral:    #F8F4EC;
-  --bg-card-amber:      #FDF0D8;
-
-  /* Borders */
-  --border-main:        #E9E4DC;
-  --border-soft:        #ECE5D9;
-  --border-sidebar:     #EFE9DF;
-
-  /* Text */
-  --text-page-title:    #002b17;
-  --text-body:          #1E2022;
-  --text-muted:         #7D766C;
-  --text-subtle:        #A49C8F;
-
-  /* Accent gold */
-  --accent-gold:        #C86A4A;
-  --accent-gold-dark:   #A3B18A;
-  --accent-gold-bg:     #FDF0D8;
-}
-
-/* ─────────────────────────────────────────────
-   Root — Shadcn default light tokens
-───────────────────────────────────────────── */
-:root {
-  /* Override background to warm neutral */
-  --background: #FAF8F5;
-  --foreground: #1E2022;
-
-  --card: #ffffff;
-  --card-foreground: #1E2022;
-  --popover: #ffffff;
-  --popover-foreground: #1E2022;
-
-  /* Brand green as primary */
-  --primary: #1F3B34;
-  --primary-foreground: #ffffff;
-
-  --secondary: #F8F4EC;
-  --secondary-foreground: #24211D;
-
-  --muted: #F4EFE7;
-  --muted-foreground: #7D766C;
-
-  --accent: #FDF0D8;
-  --accent-foreground: #8B6122;
-
-  --destructive: #ba1a1a;
-
-  --border: #E9E4DC;
-  --input: #E9E4DC;
-  --ring: #1F3B34;
-
-  /* Charts */
-  --chart-1: #C86A4A;
-  --chart-2: #A3B18A;
-  --chart-3: #D4DDD8;
-  --chart-4: #1F3B34;
-  --chart-5: #E5ECE8;
-
-  --radius: 0.75rem;
-
-  /* Sidebar */
-  --sidebar: #FBF9F5;
-  --sidebar-foreground: #1E2022;
-  --sidebar-primary: #1F3B34;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #F2ECE1;
-  --sidebar-accent-foreground: #1E2022;
-  --sidebar-border: #EFE9DF;
-  --sidebar-ring: #1F3B34;
-}
-
-/* ─────────────────────────────────────────────
-   Dark mode — minimal override (app is light-only)
-───────────────────────────────────────────── */
-.dark {
-  --background: #0f1a16;
-  --foreground: #EFE9DF;
-  --card: #16241e;
-  --card-foreground: #EFE9DF;
-  --popover: #16241e;
-  --popover-foreground: #EFE9DF;
-  --primary: #D4AF37;
-  --primary-foreground: #002b17;
-  --secondary: #1a2e25;
-  --secondary-foreground: #EFE9DF;
-  --muted: #1a2e25;
-  --muted-foreground: #7D8C84;
-  --accent: #1a2e25;
-  --accent-foreground: #EFE9DF;
-  --destructive: #ff4444;
-  --border: rgba(255 255 255 / 10%);
-  --input: rgba(255 255 255 / 15%);
-  --ring: #D4AF37;
-  --sidebar: #0f1a16;
-  --sidebar-foreground: #EFE9DF;
-  --sidebar-primary: #D4AF37;
-  --sidebar-primary-foreground: #002b17;
-  --sidebar-accent: #1a2e25;
-  --sidebar-accent-foreground: #EFE9DF;
-  --sidebar-border: rgba(255 255 255 / 10%);
-  --sidebar-ring: #D4AF37;
-}
-
-/* ─────────────────────────────────────────────
-   Base layer
-───────────────────────────────────────────── */
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-
-  html {
-    @apply font-sans;
-    /* Warm neutral — never cold grey */
-    background-color: #FAF8F5;
-  }
-
-  body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  }
-
-  /* Remove all animations for users who prefer reduced motion */
-  /* 
-   * Commented out to ensure user sees animations even if OS has reduced motion enabled
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
-  */
-
-  /* Fix select chevron positioning */
-  select {
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2324211D' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
-    background-position: right 1rem center !important;
-    background-repeat: no-repeat !important;
-    background-size: 1.5em 1.5em !important;
-    padding-right: 2.75rem !important;
-  }
-}
-
-/* ─────────────────────────────────────────────
-   Custom Scrollbar — DESIGN_SYSTEM.md Section 6
-───────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #e2dcd2;
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #c8c0b4;
-}
-
-/* ─────────────────────────────────────────────
-   Utility classes for NikaahKaro design system
-───────────────────────────────────────────── */
-
-/* Capsule bar chart hover animation */
-.capsule-bar {
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-.capsule-bar:hover {
-  transform: scaleY(1.04);
-  opacity: 0.92;
-}
-
-/* Pulse animation for live badge */
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
-}
-.pulse-dot {
-  animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Smooth page transitions */
-.page-enter {
-  opacity: 0;
-  transform: translateY(6px);
-}
-.page-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 200ms ease, transform 200ms ease;
-}
-
-/* Sidebar transition overriding any other config */
-.sidebar-trans {
-  transition: all 700ms cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* Staggered fade in animation */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 .animate-fade-in-up {
   animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   opacity: 0;
 }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ─────────────────────────────────────────────
+   Request Operations Board — hidden scrollbars,
+   card hover, drag, and entry animations
+───────────────────────────────────────────── */
+.requests-scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.requests-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Card entry animation */
+@keyframes requestCardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.request-card {
+  animation: requestCardFadeIn 0.35s ease forwards;
+  opacity: 0;
+}
+.request-card:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+/* Card hover lift */
+.request-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px rgba(30,30,50,0.12) !important;
+}
+
+/* Card drag state */
+.request-card:active:not(:hover) {
+  cursor: grabbing;
+}
+
+/* Override global select styles inside filter toolbar */
+.requests-filter-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2324211D' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+  background-position: right 0.5rem center !important;
+  background-size: 1em 1em !important;
+  padding-right: 1.75rem !important;
+}
