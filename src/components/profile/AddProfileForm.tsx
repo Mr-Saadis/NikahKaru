@@ -985,12 +985,16 @@ export default function AddProfileForm() {
         ProfileService.saveParents(pid, step6.parents.map(({ _tempId, ...rest }) => ({
           ...rest,
           age: rest.age ? Number(rest.age) : null,
+          country_id: rest.country_id || null,
+          city_id: rest.city_id || null,
         }))),
         ProfileService.saveSiblings(pid, step6.siblings.map(({ _tempId, ...rest }) => ({
           ...rest,
           gender: rest.gender || 'MALE',
           age: rest.age ? Number(rest.age) : null,
           marital_status: rest.marital_status || null,
+          country_id: rest.country_id || null,
+          city_id: rest.city_id || null,
         }))),
         ProfileService.saveFamilyInfo(pid, {
           family_profession_business: step6.family_profession_business || null,
