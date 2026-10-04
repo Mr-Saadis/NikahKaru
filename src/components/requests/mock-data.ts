@@ -7,14 +7,14 @@ import { STAFF_NAMES } from './constants';
 // ============================================================
 
 const STATUS_DISTRIBUTION: { status: RequestStatus; count: number }[] = [
-  { status: 'new',       count: 5 },
-  { status: 'first',     count: 5 },
-  { status: 'second',    count: 4 },
+  { status: 'new', count: 5 },
+  { status: 'first', count: 5 },
+  { status: 'second', count: 4 },
   { status: 'responded', count: 4 },
-  { status: 'done',      count: 4 },
-  { status: 'pause',     count: 3 },
-  { status: 'archive',   count: 4 },
-  { status: 'feedback',  count: 3 },
+  { status: 'done', count: 4 },
+  { status: 'pause', count: 3 },
+  { status: 'archive', count: 4 },
+  { status: 'feedback', count: 3 },
 ];
 
 const FIRST_NAMES = [
