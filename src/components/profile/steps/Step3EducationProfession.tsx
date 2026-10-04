@@ -111,7 +111,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-8 lg:gap-12">
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Level <span className="text-red-500">*</span></label>
                 <SearchableSelect
@@ -119,7 +119,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   onChange={(val) => updateEdu(idx, { education_level_id: val ? Number(val) : undefined })}
                   options={educationLevels.map(l => ({ label: l.name_en, value: String(l.id) }))}
                   placeholder="Select level"
-                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[42px] px-3 py-2 text-[12px] rounded-lg"
+                  className=""
                 />
               </div>
               <div className="space-y-1.5">
@@ -129,7 +129,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={edu.qualification ?? ''}
                   onChange={(e) => updateEdu(idx, { qualification: e.target.value })}
                   placeholder="e.g. B.Sc Computer Science"
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
               <div className="space-y-1.5">
@@ -139,7 +139,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={edu.institution_name ?? ''}
                   onChange={(e) => updateEdu(idx, { institution_name: e.target.value })}
                   placeholder="School / University"
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
               <div className="space-y-1.5">
@@ -149,7 +149,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={edu.field_of_study ?? ''}
                   onChange={(e) => updateEdu(idx, { field_of_study: e.target.value })}
                   placeholder="e.g. Engineering"
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
               <div className="space-y-1.5">
@@ -159,7 +159,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={edu.start_year || ''}
                   onChange={(e) => updateEdu(idx, { start_year: e.target.value ? Number(e.target.value) : undefined })}
                   placeholder="YYYY"
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
               <div className="space-y-1.5">
@@ -169,7 +169,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={edu.end_year || ''}
                   onChange={(e) => updateEdu(idx, { end_year: e.target.value ? Number(e.target.value) : undefined })}
                   placeholder="YYYY (or expected)"
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
               <div className="space-y-1.5 col-span-2">
@@ -179,7 +179,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={edu.details ?? ''}
                   onChange={(e) => updateEdu(idx, { details: e.target.value })}
                   placeholder="Grades, honors, or other info..."
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
             </div>
@@ -231,7 +231,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-8 lg:gap-12">
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Occupation <span className="text-red-500">*</span></label>
                 <SearchableSelect
@@ -239,7 +239,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   onChange={(val) => updateEmp(idx, { occupation_id: val ? Number(val) : undefined })}
                   options={occupations.map(o => ({ label: o.name_en, value: String(o.id) }))}
                   placeholder="Select occupation"
-                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[42px] px-3 py-2 text-[12px] rounded-lg"
+                  className=""
                 />
               </div>
               <div className="space-y-1.5">
@@ -249,7 +249,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   onChange={(val) => updateEmp(idx, { employment_type: val as EmploymentType || undefined })}
                   options={EMPLOYMENT_TYPES.map(t => ({ label: t.label, value: t.value }))}
                   placeholder="Select type"
-                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[42px] px-3 py-2 text-[12px] rounded-lg"
+                  className=""
                 />
               </div>
               <div className="space-y-1.5">
@@ -259,7 +259,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={emp.job_title ?? ''}
                   onChange={(e) => updateEmp(idx, { job_title: e.target.value })}
                   placeholder="e.g. Software Engineer"
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
               <div className="space-y-1.5">
@@ -269,7 +269,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={emp.organization_name ?? ''}
                   onChange={(e) => updateEmp(idx, { organization_name: e.target.value })}
                   placeholder="Company / Org name"
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
               <div className="space-y-1.5">
@@ -278,7 +278,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   type="date"
                   value={emp.start_date || ''}
                   onChange={(e) => updateEmp(idx, { start_date: e.target.value })}
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none text-[#4E473D]"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
               <div className="space-y-1.5">
@@ -288,7 +288,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={emp.end_date || ''}
                   onChange={(e) => updateEmp(idx, { end_date: e.target.value })}
                   disabled={emp.is_current}
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none text-[#4E473D] disabled:opacity-50"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 disabled:opacity-50 shadow-none"
                 />
               </div>
               <div className="space-y-1.5 col-span-2">
@@ -298,7 +298,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                   value={emp.details ?? ''}
                   onChange={(e) => updateEmp(idx, { details: e.target.value })}
                   placeholder="Key responsibilities, achievements..."
-                  className="w-full h-[42px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]"
+                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
             </div>
@@ -319,7 +319,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
       {/* Income */}
       <section className="space-y-3">
         <h4 className="text-[13px] font-bold text-[#232326]">Monthly Income (PKR)</h4>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-8 lg:gap-12">
           <div className="space-y-1.5">
             <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Minimum</label>
             <input
@@ -331,7 +331,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                 set('monthly_income_min', val ? Number(val) : '');
               }}
               placeholder="e.g. 50000"
-              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+              className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
             />
           </div>
           <div className="space-y-1.5">
@@ -345,7 +345,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                 set('monthly_income_max', val ? Number(val) : '');
               }}
               placeholder="e.g. 100000"
-              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+              className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
             />
           </div>
         </div>

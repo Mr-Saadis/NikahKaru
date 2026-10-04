@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle, User, MapPin, GraduationCap, Heart, Home, Users, Activity, Star, Send } from 'lucide-react';
+import { CheckCircle, User, MapPin, GraduationCap, Heart, Home, Users, Activity, Star, Send, Pencil } from 'lucide-react';
 import type { Step1Data } from './Step1BasicInfo';
 import type { Step2Data } from './Step2MaritalPhysical';
 import type { Step3Data } from './Step3EducationProfession';
@@ -24,12 +24,12 @@ interface Step9Props {
   isSaving: boolean;
 }
 
-function ReviewRow({ label, value }: { label: string; value: string | number | null | undefined }) {
+function ReviewRow({ label, value }: { label: string; value: string | number | null | undefined | React.ReactNode }) {
   if (!value && value !== 0) return null;
   return (
-    <div className="flex items-start justify-between gap-4 py-1.5">
-      <span className="text-[11px] text-[#888174] font-medium min-w-[140px]">{label}</span>
-      <span className="text-[12px] text-[#24211D] font-semibold text-right">{String(value)}</span>
+    <div className="flex items-start justify-between gap-4 py-2 group">
+      <span className="text-[12px] text-[#676156] font-medium shrink-0">{label}</span>
+      <span className="text-[13px] text-[#2F3E51] font-semibold text-right break-words">{value}</span>
     </div>
   );
 }
@@ -39,23 +39,26 @@ function ReviewSection({ icon: Icon, title, step, onEdit, children }: {
   onEdit: (step: number) => void; children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-[22px] border border-[#ECE5D9] overflow-hidden shadow-[0_2px_14px_-3px_rgba(0,0,0,0.04)]">
-      <div className="px-5 py-3.5 flex items-center justify-between border-b border-[#F5EFE6]">
+    <div className="bg-transparent rounded-[20px] border border-[#E5DFD3] overflow-hidden">
+      <div className="px-5 py-4 flex items-center justify-between border-b border-[#E5DFD3]/60 bg-transparent">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#E5EFE9] flex items-center justify-center">
-            <Icon size={15} className="text-[#064e3b]" />
+          <div className="w-8 h-8 rounded-full bg-[#E5DFD3]/40 text-[#064e3b] flex items-center justify-center">
+            <Icon size={15} strokeWidth={2.5} />
           </div>
-          <h4 className="text-[13px] font-bold text-[#1E1F22]">{title}</h4>
+          <h4 className="text-[14px] font-bold text-[#1E1F22]">{title}</h4>
         </div>
         <button
           type="button"
           onClick={() => onEdit(step)}
-          className="text-[11px] font-bold text-[#064e3b] hover:underline"
+          className="text-[12px] font-bold text-[#C86A4A] hover:text-[#b05a3e] flex items-center gap-1.5 transition-colors"
         >
+          <Pencil size={12} />
           Edit
         </button>
       </div>
-      <div className="px-5 py-3 divide-y divide-[#F9F5EF]">{children}</div>
+      <div className="px-5 py-3 divide-y divide-[#E5DFD3]/40 flex-1 flex flex-col">
+        {children}
+      </div>
     </div>
   );
 }
@@ -68,40 +71,44 @@ export default function Step9Review({ step1, step2, step3, step4, step5, step6, 
     : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       <div>
         <h3 className="text-[15px] font-bold text-[#1E1F22] mb-1">Review & Confirm</h3>
         <p className="text-[12px] text-[#7D766C]">Review all information before saving. Click &quot;Edit&quot; to make changes.</p>
       </div>
 
       {/* Header Card */}
-      <div className="bg-gradient-to-br from-[#064e3b] to-[#0f4229] rounded-[22px] p-5 text-white">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-            <User size={28} className="text-white/80" />
-          </div>
-          <div>
-            <p className="text-[18px] font-extrabold tracking-tight">
-              {step1.full_name || 'Name not entered'}
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="bg-white/10 border border-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                {step1.gender || '—'}
+      <div className="bg-transparent rounded-[24px] border border-[#E5DFD3] p-6 flex flex-col md:flex-row md:items-center gap-5">
+        <div className="w-16 h-16 rounded-full bg-transparent border border-[#E5DFD3] flex items-center justify-center shrink-0 overflow-hidden">
+          {step1.profile_picture ? (
+            <img src={step1.profile_picture} alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            <User size={28} className="text-[#A3B18A]" />
+          )}
+        </div>
+        <div className="flex-1">
+          <p className="text-[20px] font-extrabold text-[#1E1F22] mb-2 tracking-tight">
+            {step1.full_name || 'Name not entered'}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1.5 bg-transparent border border-[#E5DFD3] text-[#2F3E51] text-[10px] uppercase font-bold px-2.5 py-1 rounded-full">
+              <User size={10} />
+              {step1.gender || '—'}
+            </span>
+            {age && (
+              <span className="flex items-center gap-1.5 bg-transparent border border-[#E5DFD3] text-[#2F3E51] text-[10px] uppercase font-bold px-2.5 py-1 rounded-full">
+                {age} yrs
               </span>
-              {age && (
-                <span className="bg-white/10 border border-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  {age} yrs
-                </span>
-              )}
-              <span className="bg-[#D4AF37]/30 border border-[#D4AF37]/40 text-[#FDF0D8] text-[10px] font-bold px-2 py-0.5 rounded-full">
-                DRAFT
-              </span>
-            </div>
+            )}
+            <span className="flex items-center gap-1 bg-[#FDF0D8] border border-[#F5C770]/40 text-[#D4AF37] text-[10px] uppercase font-bold px-2.5 py-1 rounded-full">
+              <CheckCircle size={10} />
+              DRAFT
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         {/* Basic Info */}
         <ReviewSection icon={User} title="Basic Information" step={1} onEdit={onGoToStep}>
           <ReviewRow label="Full Name" value={step1.full_name} />

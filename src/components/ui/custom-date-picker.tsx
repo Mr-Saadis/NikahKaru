@@ -235,8 +235,8 @@ export default function CustomDatePicker({ value, onChange, placeholder = 'dd/mm
           onBlur={handleInputBlur}
           onKeyDown={handleInputKeyDown}
           placeholder={placeholder}
-          className={`w-full h-[46px] bg-white border border-[#EFE9DF] rounded-xl pl-4 pr-11 py-3 text-[13px] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all ${
-            !inputText ? 'text-[#A8A296]' : 'text-[#24211D]'
+          className={`w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] pl-5 pr-11 py-3.5 text-[14px] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none ${
+            !inputText ? 'text-[#94A3B8]' : 'text-[#2F3E51]'
           }`}
         />
         <button

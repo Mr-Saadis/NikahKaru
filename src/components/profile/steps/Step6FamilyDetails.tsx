@@ -89,8 +89,8 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
     set('siblings', updated);
   };
 
-  const inputClass = "w-full h-[46px] bg-[#FAF8F5] border border-[#EFE9DF] rounded-lg px-3 py-2 text-[12px] focus:border-[#064e3b] focus:outline-none placeholder:text-[#C4BDB5]";
-  const textareaClass = "w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all resize-none";
+  const inputClass = "w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none";
+  const textareaClass = "w-full min-h-[100px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none resize-y";
 
   return (
     <div className="space-y-8">
@@ -145,7 +145,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-8 lg:gap-12">
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Full Name {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
                 <input type="text" value={parent.full_name} onChange={(e) => {
                   if (/^[A-Za-z\s]*$/.test(e.target.value)) updateParent(idx, { full_name: e.target.value });
@@ -166,7 +166,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                   onChange={(val) => updateParent(idx, { country_id: val ? Number(val) : '', city_id: '' })}
                   options={countries.map(c => ({ label: c.name_en, value: String(c.id) }))}
                   placeholder="Select"
-                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                  className=""
                 /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">City</label>
                 <SearchableSelect
@@ -174,7 +174,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                   onChange={(val) => updateParent(idx, { city_id: val ? Number(val) : '' })}
                   options={parent.country_id ? cities.filter(c => c.country_id === parent.country_id).map(c => ({ label: c.name_en, value: String(c.id) })) : []}
                   placeholder="Select"
-                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                  className=""
                   disabled={!parent.country_id}
                 /></div>
 
@@ -188,7 +188,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                     { label: 'Living with others', value: 'Living with others' }
                   ]}
                   placeholder="Select Arrangement"
-                  className="bg-white border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg w-full"
+                  className=""
                 />
               </div>
               <div className="col-span-2">
@@ -226,7 +226,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4 lg:gap-6">
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Gender</label>
                 <SearchableSelect
                   value={sib.gender || ''}
@@ -236,7 +236,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                     { label: 'Female', value: 'FEMALE' }
                   ]}
                   placeholder="Select"
-                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                  className=""
                 /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Name</label>
                 <input type="text" value={sib.full_name} onChange={(e) => {
@@ -253,7 +253,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                   onChange={(val) => updateSibling(idx, { marital_status: val as RelationshipStatus })}
                   options={['MARRIED', 'UNMARRIED', 'DIVORCED', 'WIDOWED'].map(s => ({ label: s.charAt(0) + s.slice(1).toLowerCase(), value: s }))}
                   placeholder="Select"
-                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                  className=""
                 /></div>
               <div className="col-span-2"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession</label>
                 <input type="text" value={sib.profession} onChange={(e) => updateSibling(idx, { profession: e.target.value })} placeholder="e.g. Doctor" className={inputClass} /></div>
@@ -267,7 +267,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                   onChange={(val) => updateSibling(idx, { country_id: val ? Number(val) : '', city_id: '' })}
                   options={countries.map(c => ({ label: c.name_en, value: String(c.id) }))}
                   placeholder="Select"
-                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                  className=""
                 /></div>
               <div className="col-span-2"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">City</label>
                 <SearchableSelect
@@ -275,7 +275,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                   onChange={(val) => updateSibling(idx, { city_id: val ? Number(val) : '' })}
                   options={sib.country_id ? cities.filter(c => c.country_id === sib.country_id).map(c => ({ label: c.name_en, value: String(c.id) })) : []}
                   placeholder="Select"
-                  className="bg-[#FAF8F5] border-[#EFE9DF] h-[46px] px-3 py-2 text-[12px] rounded-lg"
+                  className=""
                   disabled={!sib.country_id}
                 /></div>
             </div>
@@ -288,7 +288,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
         <h4 className="text-[13px] font-bold text-[#232326]">Family Background</h4>
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">Family Profession / Business</label>
-          <input type="text" value={data.family_profession_business} onChange={(e) => set('family_profession_business', e.target.value)} placeholder="e.g. Business family — textile" className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none" />
+          <input type="text" value={data.family_profession_business} onChange={(e) => set('family_profession_business', e.target.value)} placeholder="e.g. Business family — textile" className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none" />
         </div>
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">Social Background</label>

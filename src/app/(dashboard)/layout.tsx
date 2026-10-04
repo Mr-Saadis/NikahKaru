@@ -24,7 +24,7 @@ export default function DashboardLayout({
         <Sidebar activePage={activePage} />
         
         {/* Main Content Area */}
-        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto hide-scrollbar">
           {children}
         </main>
         

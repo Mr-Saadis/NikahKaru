@@ -50,7 +50,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
       </div>
 
       {/* Height & Weight */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-8 lg:gap-12">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Height <span className="text-red-500">*</span>
@@ -66,7 +66,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
                   handleHeightChange(val ? Number(val) : '', currentInches);
                 }}
                 placeholder="Feet"
-                className="w-full bg-white border border-[#EFE9DF] rounded-xl pl-4 pr-8 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+                className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] pl-5 pr-8 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#A8A296] pointer-events-none">ft</span>
             </div>
@@ -80,7 +80,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
                   handleHeightChange(currentFeet, val ? Number(val) : '');
                 }}
                 placeholder="Inches"
-                className="w-full bg-white border border-[#EFE9DF] rounded-xl pl-4 pr-8 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+                className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] pl-5 pr-8 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#A8A296] pointer-events-none">in</span>
             </div>
@@ -101,7 +101,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
               set('weight_kg', val ? Number(val) : '');
             }}
             placeholder="e.g. 65"
-            className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+            className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
           />
           <p className="text-[10px] text-[#A8A296]">Range: 20–400 kg</p>
         </div>
@@ -118,10 +118,10 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
               key={c}
               type="button"
               onClick={() => set('complexion', data.complexion === c ? '' : c)}
-              className={`py-2 px-3 rounded-xl text-[12px] font-medium border transition-all ${
+              className={`py-2 px-3 rounded-[20px] text-[13px] font-semibold border transition-all ${
                 data.complexion === c
-                  ? 'bg-[#064e3b] text-white border-[#064e3b]'
-                  : 'bg-white border-[#E9E4DC] text-[#4E473D] hover:border-[#064e3b]/30'
+                  ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md'
+                  : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
               }`}
             >
               {c}
@@ -132,7 +132,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
 
       {/* Disability */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-[#E9E4DC]">
+        <div className="flex items-center justify-between p-5 bg-[#FAF8F5] rounded-[20px] border border-[#8A968C] shadow-none">
           <div>
             <p className="text-[13px] font-semibold text-[#1E2022]">Has Disability?</p>
             <p className="text-[11px] text-[#7D766C] mt-0.5">Physical or health condition</p>
@@ -162,7 +162,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
               onChange={(e) => set('disability_details', e.target.value)}
               rows={3}
               placeholder="Describe the disability or health condition..."
-              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all resize-none"
+              className="w-full bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-4 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none resize-none"
             />
           </div>
         )}

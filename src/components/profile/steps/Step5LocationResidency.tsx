@@ -63,7 +63,7 @@ function LocationRow({
         </p>
         {headerRight}
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-4 lg:gap-6">
         <div>
           <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">
             Country {isMandatory && <span className="text-red-500">*</span>}
@@ -73,7 +73,7 @@ function LocationRow({
             onChange={(val) => onCountry(val ? Number(val) : '')}
             options={countries.map(c => ({ label: c.name_en, value: String(c.id) }))}
             placeholder="Select"
-            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            className=""
           />
         </div>
         <div>
@@ -87,7 +87,7 @@ function LocationRow({
               options={provinceOptions.map(p => ({ label: p.name_en, value: String(p.id) }))}
               placeholder="Select"
               disabled={!provinceOptions.length}
-              className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+              className=""
             />
           ) : (
             <input
@@ -95,7 +95,7 @@ function LocationRow({
               value={provinceText || ''}
               onChange={(e) => onProvinceTextChange?.(e.target.value)}
               placeholder="State / Province"
-              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px]"
+              className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none disabled:opacity-50"
               disabled={!countryVal}
             />
           )}
@@ -111,7 +111,7 @@ function LocationRow({
               options={cityOptions.map(c => ({ label: c.name_en, value: String(c.id) }))}
               placeholder="Select"
               disabled={!cityOptions.length}
-              className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+              className=""
             />
           ) : (
             <input
@@ -119,7 +119,7 @@ function LocationRow({
               value={cityText || ''}
               onChange={(e) => onCityTextChange?.(e.target.value)}
               placeholder="City name"
-              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all h-[46px]"
+              className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none disabled:opacity-50"
               disabled={!countryVal}
             />
           )}
@@ -134,7 +134,7 @@ function LocationRow({
           value={locationText || ''}
           onChange={(e) => onLocationTextChange(e.target.value)}
           placeholder="e.g. DHA Phase 5, Lahore"
-          className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+          className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
         />
       </div>
     </div>
@@ -236,7 +236,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
       />
 
       {/* Residency Info */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-8 lg:gap-12">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">House Status</label>
           <SearchableSelect
@@ -244,7 +244,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
             onChange={(val) => set('house_status', val as HouseStatus)}
             options={[['OWN', 'Own'], ['RENTED', 'Rented'], ['FAMILY_HOUSE', 'Family House'], ['OTHER', 'Other']].map(([v, l]) => ({ label: l, value: v }))}
             placeholder="Select"
-            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            className=""
           />
         </div>
         <div className="space-y-2">
@@ -254,7 +254,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
             onChange={(val) => set('property_type', val as PropertyType)}
             options={[['HOUSE', 'House'], ['APARTMENT', 'Apartment'], ['OTHER', 'Other']].map(([v, l]) => ({ label: l, value: v }))}
             placeholder="Select"
-            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            className=""
           />
         </div>
         <div className="space-y-2">
@@ -264,7 +264,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
             onChange={(val) => set('family_setup', val as FamilySetup)}
             options={[['JOINT', 'Joint Family'], ['SEPARATE', 'Separate / Nuclear']].map(([v, l]) => ({ label: l, value: v }))}
             placeholder="Select"
-            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            className=""
             direction="up"
           />
         </div>
@@ -275,7 +275,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
             onChange={(val) => set('living_with', val as LivingWith)}
             options={[['PARENTS', 'Parents'], ['FATHER', 'Father'], ['MOTHER', 'Mother'], ['SIBLINGS', 'Siblings'], ['ALONE', 'Alone'], ['OTHER', 'Other']].map(([v, l]) => ({ label: l, value: v }))}
             placeholder="Select"
-            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            className=""
             direction="up"
           />
         </div>
@@ -290,7 +290,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
               value={data.living_with_other_details || ''}
               onChange={(e) => set('living_with_other_details', e.target.value)}
               placeholder="e.g. Living with Uncle"
-              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none"
+              className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
             />
           </div>
         )}

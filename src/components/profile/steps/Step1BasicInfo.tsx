@@ -136,7 +136,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
               if (/^[A-Za-z\s]*$/.test(e.target.value)) set('full_name', e.target.value);
             }}
             placeholder="Enter full name"
-            className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+            className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
           />
         </div>
       </div>
@@ -146,15 +146,15 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
         <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
           Gender <span className="text-red-500">*</span>
         </label>
-        <div className="flex gap-3">
+        <div className="flex gap-8 lg:gap-12">
           {(['MALE', 'FEMALE'] as ProfileGender[]).map((g) => (
             <button
               key={g}
               type="button"
               onClick={() => set('gender', data.gender === g ? '' : g)}
-              className={`flex-1 py-3 rounded-xl text-[13px] font-semibold border transition-all flex items-center justify-center gap-2 ${data.gender === g
-                  ? 'bg-[#064e3b] text-white border-[#064e3b] shadow-sm'
-                  : 'bg-white border-[#E9E4DC] text-[#4E473D] hover:border-[#064e3b]/30 hover:bg-[#F7FAF8]'
+              className={`flex-1 h-[52px] rounded-[20px] text-[14px] font-semibold border transition-all flex items-center justify-center gap-2 ${data.gender === g
+                  ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md'
+                  : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
                 }`}
             >
               {g === 'MALE' ? (
@@ -178,7 +178,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
       </div>
 
       {/* Date of Birth & Age */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-8 lg:gap-12">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Date of Birth
@@ -200,7 +200,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
               readOnly
               value={data.date_of_birth ? `${calculateAge(data.date_of_birth)} years` : ''}
               placeholder="Auto-calculated"
-              className="w-full h-[46px] bg-[#FBF9F5] border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#888174] font-medium cursor-not-allowed outline-none"
+              className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C]/50 rounded-[20px] px-5 py-3.5 text-[14px] text-[#888174] font-medium cursor-not-allowed outline-none shadow-none"
             />
           </div>
         </div>
@@ -225,7 +225,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
             onChange(newData);
           }}
         >
-          <SelectTrigger className="w-full h-[46px] bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all shadow-none">
+          <SelectTrigger className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none">
             <SelectValue placeholder="Select marital status" />
           </SelectTrigger>
           <SelectContent>
@@ -340,7 +340,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
 
 
       {/* Nationality */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-8 lg:gap-12">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Nationality
