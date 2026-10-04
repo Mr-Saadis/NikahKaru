@@ -20,6 +20,7 @@ interface HeaderProps {
   };
   idBadge?: string;
   isLive?: boolean;
+  variant?: 'light' | 'dark';
 }
 
 export default function Header({
@@ -31,6 +32,7 @@ export default function Header({
   secondaryAction,
   idBadge,
   isLive,
+  variant = 'light',
 }: HeaderProps) {
   const router = useRouter();
   const [isDraftsOpen, setIsDraftsOpen] = useState(false);
@@ -64,31 +66,36 @@ export default function Header({
 
     fetchDraftCount();
 
-    // Optionally set up a small interval or just rely on manual refresh
     return () => {
       mounted = false;
     };
-  }, [isDraftsOpen]); // Re-fetch when drafts dialog is closed/opened
+  }, [isDraftsOpen]);
+
+  const isDark = variant === 'dark';
+  const btnClass = isDark
+    ? "relative w-9 h-9 rounded-full bg-transparent border border-white/20 hover:bg-white/10 shadow-sm flex items-center justify-center text-white/80 transition-colors"
+    : "relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#064e3b] transition-colors";
+
+  const badgeBorder = isDark ? "border-[#2F3E51]" : "border-white";
 
   return (
     <>
-      <div className="absolute top-4 right-8 flex items-center gap-3 z-[40]">
+      <div className="absolute top-9 right-12 flex items-center gap-3 z-[40]">
         <button 
           onClick={() => setIsDraftsOpen(true)}
           title="Saved Drafts"
-          className="relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#064e3b] transition-colors"
+          className={btnClass}
         >
           <FileEdit className="w-4 h-4" />
           {draftCount > 0 && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ba1a1a] border-2 border-white flex items-center justify-center text-[9px] font-bold text-white">
+            <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#C86A4A] border-2 ${badgeBorder} flex items-center justify-center text-[9px] font-bold text-white`}>
               {draftCount}
             </div>
           )}
         </button>
 
-        <button className="relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#4E473D] transition-colors">
+        <button className={btnClass}>
           <Bell className="w-4 h-4" />
-          <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#ba1a1a] ring-2 ring-white" />
         </button>
       </div>
 

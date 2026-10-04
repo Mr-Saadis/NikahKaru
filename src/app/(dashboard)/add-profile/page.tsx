@@ -5,8 +5,11 @@ import { Suspense } from 'react';
 
 export default function AddProfilePage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-sm font-medium text-[#7D766C]">Loading form...</div>}>
-      <AddProfileForm />
-    </Suspense>
+    <>
+      <Header title="Add Profile" variant="dark" />
+      <Suspense fallback={<div className="p-8 text-center text-sm font-medium text-[#7D766C]">Loading form...</div>}>
+        <AddProfileForm />
+      </Suspense>
+    </>
   );
 }
