@@ -261,6 +261,7 @@ export interface PersonalInformation {
   marital_status: MaritalStatus;
   number_of_children: number;
   nationality_country_id: number | null;
+  cnic: number | null;
   mother_tongue_id: number | null;
   created_at: string;
   updated_at: string;
@@ -822,3 +823,134 @@ export interface ReferenceData {
   occupations: Occupation[];
   rejectionReasons: RejectionReason[];
 }
+
+// ============================================================
+// 9. VIEWS
+// ============================================================
+
+export interface MvMatchingProfiles {
+  profile_id: string | null;
+  gender: string | null;
+  status: string | null;
+  full_name: string | null;
+  date_of_birth: string | null;
+  marital_status: string | null;
+  number_of_children: number | null;
+  nationality_country_id: number | null;
+  mother_tongue_id: number | null;
+  height_cm: number | null;
+  weight_kg: number | null;
+  complexion: string | null;
+  has_disability: boolean | null;
+  religion_id: number | null;
+  sect_id: number | null;
+  caste_id: number | null;
+  current_country_id: number | null;
+  current_province_id: number | null;
+  current_city_id: number | null;
+  permanent_country_id: number | null;
+  permanent_province_id: number | null;
+  permanent_city_id: number | null;
+  house_status: string | null;
+  property_type: string | null;
+  family_setup: string | null;
+  living_with: string | null;
+  beard: string | null;
+  hijab: string | null;
+  religious_practice: string | null;
+  smoking: string | null;
+  willing_to_relocate: string | null;
+  relocation_country_id: number | null;
+  relocation_province_id: number | null;
+  relocation_city_id: number | null;
+  monthly_income_min: number | null;
+  monthly_income_max: number | null;
+  currency_code: string | null;
+  education_level_id: number | null;
+  qualification: string | null;
+  field_of_study: string | null;
+  occupation_id: number | null;
+  job_title: string | null;
+  employment_type: string | null;
+  family_profession_business: string | null;
+  family_social_background: string | null;
+  family_values: string | null;
+}
+
+export interface VCurrentMatchingPreferences {
+  preference_set_id: string | null;
+  profile_id: string | null;
+  version: number | null;
+  min_age: number | null;
+  max_age: number | null;
+  age_importance: string | null;
+  preferred_marital_status: string | null;
+  marital_status_importance: string | null;
+  children_allowed: string | null;
+  children_importance: string | null;
+  preferred_gender: string | null;
+  gender_importance: string | null;
+  min_height_cm: number | null;
+  max_height_cm: number | null;
+  height_importance: string | null;
+  min_weight_kg: number | null;
+  max_weight_kg: number | null;
+  weight_importance: string | null;
+  preferred_complexion: string | null;
+  complexion_importance: string | null;
+  disability_allowed: string | null;
+  disability_importance: string | null;
+  beard_preference: string | null;
+  beard_importance: string | null;
+  hijab_preference: string | null;
+  hijab_importance: string | null;
+  minimum_education_level_id: number | null;
+  education_importance: string | null;
+  preferred_field_of_study: string | null;
+  field_importance: string | null;
+  preferred_occupation_id: number | null;
+  occupation_importance: string | null;
+  preferred_employment_type: string | null;
+  employment_type_importance: string | null;
+  minimum_monthly_income: number | null;
+  maximum_monthly_income: number | null;
+  income_importance: string | null;
+  preferred_religion_id: number | null;
+  religion_importance: string | null;
+  preferred_sect_id: number | null;
+  sect_importance: string | null;
+  preferred_caste_id: number | null;
+  caste_importance: string | null;
+  preferred_religious_practice: string | null;
+  religion_practice_importance: string | null;
+  preferred_country_id: number | null;
+  country_importance: string | null;
+  preferred_province_id: number | null;
+  province_importance: string | null;
+  preferred_city_id: number | null;
+  city_importance: string | null;
+  location_details: string | null;
+  preferred_family_setup: string | null;
+  family_setup_importance: string | null;
+  preferred_living_with: string | null;
+  living_with_importance: string | null;
+  parents_status_preference: string | null;
+  parents_status_importance: string | null;
+  preferred_smoking: string | null;
+  smoking_importance: string | null;
+  preferred_lifestyle_religious_practice: string | null;
+  lifestyle_religious_practice_importance: string | null;
+  preferred_lifestyle_beard: string | null;
+  lifestyle_beard_importance: string | null;
+  preferred_lifestyle_hijab: string | null;
+  lifestyle_hijab_importance: string | null;
+  willing_to_relocate_required: string | null;
+  relocation_importance: string | null;
+  relocation_country_id: number | null;
+  relocation_country_importance: string | null;
+  relocation_province_id: number | null;
+  relocation_province_importance: string | null;
+  relocation_city_id: number | null;
+  relocation_city_importance: string | null;
+}
+
