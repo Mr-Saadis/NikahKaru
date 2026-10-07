@@ -1,8 +1,10 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import type { RequestItem, ColumnDef } from './types';
 import RequestCard from './RequestCard';
 import EmptyColumn from './EmptyColumn';
+import { useIntersectionObserver } from '@/lib/hooks/useIntersectionObserver';
 
 // ============================================================
 // BoardColumn — Single Kanban column with header + card list
@@ -26,6 +28,25 @@ export default function BoardColumn({
   onDragStart,
   onDragEnd,
 }: BoardColumnProps) {
+  // Infinite scroll simulation state
+  const [visibleCount, setVisibleCount] = useState(10);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const isIntersecting = useIntersectionObserver(loadMoreRef, { threshold: 0.1, rootMargin: '200px' });
+
+  // Reset pagination if total cards change significantly (e.g. filters applied)
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [cards.length]);
+
+  // Load 10 more items when scrolled to the bottom
+  useEffect(() => {
+    if (isIntersecting && visibleCount < cards.length) {
+      setVisibleCount((prev) => prev + 10);
+    }
+  }, [isIntersecting, cards.length, visibleCount]);
+
+  const visibleCards = cards.slice(0, visibleCount);
+
   return (
     <div
       style={{
@@ -82,10 +103,10 @@ export default function BoardColumn({
           padding: '2px 2px 16px',
         }}
       >
-        {cards.length === 0 ? (
+        {visibleCards.length === 0 ? (
           <EmptyColumn />
         ) : (
-          cards.map((card, i) => (
+          visibleCards.map((card, i) => (
             <RequestCard
               key={card.id}
               item={card}
@@ -97,6 +118,11 @@ export default function BoardColumn({
               onDragEnd={onDragEnd}
             />
           ))
+        )}
+        
+        {/* Invisible element to trigger intersection observer for Infinite Scroll */}
+        {visibleCount < cards.length && (
+          <div ref={loadMoreRef} className="h-4 shrink-0" />
         )}
       </div>
     </div>

@@ -1,5 +1,5 @@
 'use client';
-
+import { Suspense } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import RequestsBoard from '@/components/requests/RequestsBoard';
 
@@ -40,7 +40,9 @@ export default function RequestsPage() {
         borderRadius: 26,
       }}
     >
-      <RequestsBoard />
+      <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading board...</div>}>
+        <RequestsBoard />
+      </Suspense>
     </div>
   );
 }

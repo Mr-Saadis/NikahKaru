@@ -10,6 +10,16 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
 } from './icons';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format, parseISO } from 'date-fns';
 
 // ============================================================
 // FilterToolbar — Expandable filter pills + scroll buttons
@@ -64,9 +74,27 @@ export default function FilterToolbar({
   useEffect(() => {
     if (!expandedFilter) return;
     const handler = (e: MouseEvent) => {
-      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
-        onCloseFilter();
+      const target = e.target as Element | null;
+      if (!target) return;
+
+      // If the clicked element was removed from the DOM before this handler ran, ignore it.
+      if (!document.contains(target)) return;
+
+      // Ignore clicks inside the toolbar itself
+      if (toolbarRef.current && toolbarRef.current.contains(target)) return;
+
+      // Ignore clicks inside Base UI portals (Popover for dates, Select for staff) or Calendar
+      if (
+        target.closest('[data-slot="popover-content"]') ||
+        target.closest('[data-slot="select-content"]') ||
+        target.closest('.rdp') ||
+        target.closest('[role="dialog"]') ||
+        target.closest('[role="listbox"]')
+      ) {
+        return;
       }
+
+      onCloseFilter();
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -141,26 +169,6 @@ export default function FilterToolbar({
     [onUpdateFilter],
   );
 
-  const handleDateFromChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onUpdateFilter('dateFrom', e.target.value);
-    },
-    [onUpdateFilter],
-  );
-
-  const handleDateToChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onUpdateFilter('dateTo', e.target.value);
-    },
-    [onUpdateFilter],
-  );
-
-  const handleStaffChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      onUpdateFilter('staff', e.target.value);
-    },
-    [onUpdateFilter],
-  );
 
   return (
     <div ref={toolbarRef} className="flex items-center gap-[8px]">
@@ -235,33 +243,78 @@ export default function FilterToolbar({
             <span style={{ fontSize: 11, color: '#A3B18A', fontWeight: 500, whiteSpace: 'nowrap' }}>
               From
             </span>
-            <input
-              type="date"
-              value={filters.dateFrom}
-              onChange={handleDateFromChange}
-              style={{
-                ...inputBase,
-                width: 118,
-                background: '#F2EDE1', // Cannoli Cream
-                borderRadius: 9999,
-                padding: '6px 10px',
-              }}
-            />
+            <Popover>
+              <PopoverTrigger
+                className="flex items-center text-left"
+                style={{
+                  ...inputBase,
+                  width: 118,
+                  background: '#F2EDE1', // Cannoli Cream
+                  borderRadius: 9999,
+                  padding: '6px 10px',
+                  color: filters.dateFrom ? '#1F3B34' : '#A3B18A',
+                }}
+              >
+                {filters.dateFrom ? format(parseISO(filters.dateFrom), 'dd/MM/yyyy') : 'dd/mm/yyyy'}
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={filters.dateFrom ? parseISO(filters.dateFrom) : undefined}
+                  onSelect={(date) => {
+                    if (date) {
+                      const tzDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                      onUpdateFilter('dateFrom', tzDate.toISOString().split('T')[0]);
+                    } else {
+                      onUpdateFilter('dateFrom', '');
+                    }
+                  }}
+                  initialFocus
+                  showOutsideDays={false}
+                  captionLayout="dropdown"
+                  fromYear={1900}
+                  toYear={2100}
+                />
+              </PopoverContent>
+            </Popover>
+
             <span style={{ fontSize: 11, color: '#A3B18A', fontWeight: 500, whiteSpace: 'nowrap' }}>
               To
             </span>
-            <input
-              type="date"
-              value={filters.dateTo}
-              onChange={handleDateToChange}
-              style={{
-                ...inputBase,
-                width: 118,
-                background: '#F2EDE1', // Cannoli Cream
-                borderRadius: 9999,
-                padding: '6px 10px',
-              }}
-            />
+            <Popover>
+              <PopoverTrigger
+                className="flex items-center text-left"
+                style={{
+                  ...inputBase,
+                  width: 118,
+                  background: '#F2EDE1', // Cannoli Cream
+                  borderRadius: 9999,
+                  padding: '6px 10px',
+                  color: filters.dateTo ? '#1F3B34' : '#A3B18A',
+                }}
+              >
+                {filters.dateTo ? format(parseISO(filters.dateTo), 'dd/MM/yyyy') : 'dd/mm/yyyy'}
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={filters.dateTo ? parseISO(filters.dateTo) : undefined}
+                  onSelect={(date) => {
+                    if (date) {
+                      const tzDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                      onUpdateFilter('dateTo', tzDate.toISOString().split('T')[0]);
+                    } else {
+                      onUpdateFilter('dateTo', '');
+                    }
+                  }}
+                  initialFocus
+                  showOutsideDays={false}
+                  captionLayout="dropdown"
+                  fromYear={1900}
+                  toYear={2100}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         )}
       </div>
@@ -288,26 +341,27 @@ export default function FilterToolbar({
           {activeFilters.staff && <ActiveDot />}
         </button>
         {expandedFilter === 'staff' && (
-          <select
-            className="requests-filter-select"
-            value={filters.staff}
-            onChange={handleStaffChange}
-            style={{
-              ...inputBase,
-              flex: 1,
-              paddingRight: 12,
-              cursor: 'pointer',
-              appearance: 'none' as const,
-              backgroundImage: 'none',
-            }}
-          >
-            <option value="">All staff</option>
-            {staffNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <div className="flex-1 pr-3 w-full">
+            <Select
+              value={filters.staff === '' ? 'all' : filters.staff}
+              onValueChange={(val) => onUpdateFilter('staff', val === 'all' ? '' : val)}
+            >
+              <SelectTrigger 
+                className="w-full flex items-center justify-between border-none shadow-none focus:ring-0 focus:ring-offset-0 bg-transparent p-0 h-auto"
+                style={{ ...inputBase, minHeight: 'unset' }}
+              >
+                <SelectValue placeholder="All staff" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-[#E9E4DC]">
+                <SelectItem value="all">All staff</SelectItem>
+                {staffNames.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
       </div>
 

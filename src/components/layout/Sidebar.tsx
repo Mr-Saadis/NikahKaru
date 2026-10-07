@@ -352,7 +352,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
               }}
             >
               <Image src="/nikah_icon_w.png" alt="nikahkaru_logo" width={35} height={35} suppressHydrationWarning/>
-              <span style={{ color: '#ffffff', fontFamily: 'var(--font-poppins)', fontWeight: 600 , fontSize: 17, marginTop:5 , letterSpacing: '-0.3px' }}>
+              <span style={{ color: '#ffffff', fontWeight: 600 , fontSize: 17, marginTop:5 , letterSpacing: '-0.3px' }}>
                 Nikah Karu 
               </span>
             </div>

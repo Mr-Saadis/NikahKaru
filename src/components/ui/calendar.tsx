@@ -11,6 +11,7 @@ import {
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 function Calendar({
   className,
@@ -51,17 +52,17 @@ function Calendar({
         ),
         month: cn("flex w-full flex-col gap-4", defaultClassNames.month),
         nav: cn(
-          "absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1",
+          "absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1 pointer-events-none",
           defaultClassNames.nav
         ),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
+          "pointer-events-auto z-10 size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
           defaultClassNames.button_previous
         ),
         button_next: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
+          "pointer-events-auto z-10 size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
           defaultClassNames.button_next
         ),
         month_caption: cn(
@@ -84,7 +85,7 @@ function Calendar({
           "font-medium select-none",
           captionLayout === "label"
             ? "text-sm"
-            : "flex items-center gap-1 rounded-(--cell-radius) text-sm [&>svg]:size-3.5 [&>svg]:text-muted-foreground",
+            : "hidden", // Hide the native caption_label so our SelectTrigger isn't blocked!
           defaultClassNames.caption_label
         ),
         month_grid: cn("w-full border-collapse", defaultClassNames.month_grid),
@@ -172,6 +173,30 @@ function Calendar({
               </div>
             </td>
           )
+        },
+        Dropdown: ({ value, onChange, options, ...props }: any) => {
+          return (
+            <Select
+              value={value?.toString()}
+              onValueChange={(val) => {
+                const e = { target: { value: val } };
+                onChange?.(e as any);
+              }}
+            >
+              <SelectTrigger className="h-7 w-fit border-none shadow-none focus-visible:ring-0 focus:ring-0 hover:bg-muted font-medium text-sm gap-1 px-2 py-0">
+                <SelectValue>
+                  {options?.find((o: any) => o.value?.toString() === value?.toString())?.label ?? value}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="max-h-60 bg-white shadow-lg border-[#E9E4DC]">
+                {options?.map((option: any) => (
+                  <SelectItem key={option.value} value={option.value?.toString()}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
         },
         ...components,
       }}

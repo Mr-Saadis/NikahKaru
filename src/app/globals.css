@@ -334,3 +334,16 @@
 }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .hide-scrollbar::-webkit-scrollbar { display: none; }
+/* Bell ding-dong animation */
+@keyframes ding-dong {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(20deg); }
+  30% { transform: rotate(-15deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-5deg); }
+  75%, 100% { transform: rotate(0); }
+}
+.group:hover .animate-ding-dong-hover {
+  transform-origin: top center;
+  animation: ding-dong 1.5s ease-in-out infinite;
+}
