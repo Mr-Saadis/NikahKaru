@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useCallback } from 'react';
+import { Inter } from 'next/font/google';
 import { COLUMNS } from './constants';
 import { useRequestsBoard } from './useRequestsBoard';
 import BoardHeader from './BoardHeader';
@@ -13,6 +14,11 @@ import RespondLaterPanel from './RespondLaterPanel';
 // RequestsBoard — State owner and layout orchestrator
 // ============================================================
 
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+});
 
 export default function RequestsBoard() {
   const {
@@ -76,8 +82,9 @@ export default function RequestsBoard() {
 
   return (
     <div
-      className="flex h-full font-sans"
+      className={`${inter.variable} flex h-full`}
       style={{
+        fontFamily: 'var(--font-inter), sans-serif',
         fontSize: 13,
         color: '#111',
         WebkitFontSmoothing: 'antialiased',
