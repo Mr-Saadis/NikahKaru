@@ -48,14 +48,14 @@ const SIDEBAR_STEPS = STEPS.map((s) => ({
 }));
 
 // ── Default form state ─────────────────────────────────────────
-const defaultStep1 = (): Step1Data => ({ gender: '', full_name: '', date_of_birth: '', marital_status: 'NEVER_MARRIED', number_of_children: '', children_living_with: '', nationality_country_id: '', mother_tongue_id: '', profile_picture: '' });
+const defaultStep1 = (): Step1Data => ({ gender: '', full_name: '', date_of_birth: '', marital_status: 'NEVER_MARRIED', number_of_children: '', children_living_with: '', nationality_country_id: '', mother_tongue_id: '', profile_picture: '', children: [], previous_marriages: [] });
 const defaultStep2 = (): Step2Data => ({ height_cm: '', weight_kg: '', complexion: '', has_disability: false, disability_details: '' });
 const defaultStep3 = (): Step3Data => ({ education_records: [], employment_records: [], monthly_income_min: '', monthly_income_max: '' });
 const defaultStep4 = (): Step4Data => ({ religion_id: 1, sect_id: '', caste_id: '', other_caste_text: '' });
-const defaultStep5 = (): Step5Data => ({ current_country_id: '', current_province_id: '', current_city_id: '', permanent_country_id: '', permanent_province_id: '', permanent_city_id: '', current_location_text: '', permanent_location_text: '', house_status: '', property_type: '', family_setup: '', living_with: '' });
-const defaultStep6 = (): Step6Data => ({ parents: [], siblings: [], family_profession_business: '', social_background: '', family_values: '', family_introduction: '' });
+const defaultStep5 = (): Step5Data => ({ current_country_id: '', current_province_id: '', current_city_id: '', permanent_country_id: '', permanent_province_id: '', permanent_city_id: '', current_location_text: '', permanent_location_text: '', house_status: '', property_type: '', family_setup: '', living_with: '', living_with_other_details: '' });
+const defaultStep6 = (): Step6Data => ({ parents: [], siblings: [], family_profession_business: '', social_background: '', family_values: '', family_introduction: '', important_family_circumstances: '', additional_details: '' });
 const defaultStep7 = (): Step7Data => ({ beard: '', hijab: '', religious_practice: '', smoking: '', other_lifestyle_information: '', willing_to_relocate: '', preferred_country_id: '', preferred_province_id: '', preferred_city_id: '', relocation_details: '' });
-const defaultStep8 = (): Step8Data => ({ pref_min_age: '', pref_max_age: '', pref_age_importance: '', pref_marital_status: '', pref_marital_importance: '', pref_children_allowed: '', pref_children_importance: '', pref_min_height: '', pref_max_height: '', pref_height_importance: '', pref_disability_allowed: '', pref_disability_importance: '', pref_religion_id: 1, pref_religion_importance: '', pref_sect_id: '', pref_sect_importance: '', pref_caste_id: '', pref_caste_importance: '', pref_religious_practice: '', pref_religious_practice_importance: '', pref_min_income: '', pref_max_income: '', pref_income_importance: '', pref_location_country_id: '', pref_location_importance: '', pref_family_setup: '', pref_family_setup_importance: '', pref_smoking: '', pref_smoking_importance: '' });
+const defaultStep8 = (): Step8Data => ({ pref_min_age: '', pref_max_age: '', pref_age_importance: '', pref_marital_status: '', pref_marital_importance: '', pref_children_allowed: '', pref_children_importance: '', pref_min_height: '', pref_max_height: '', pref_height_importance: '', pref_min_weight: '', pref_max_weight: '', pref_weight_importance: '', pref_complexion: '', pref_complexion_importance: '', pref_disability_allowed: '', pref_disability_importance: '', pref_beard: '', pref_beard_importance: '', pref_hijab: '', pref_hijab_importance: '', pref_education_level_id: '', pref_education_importance: '', pref_field_of_study: '', pref_field_importance: '', pref_occupation_id: '', pref_occupation_importance: '', pref_employment_type: '', pref_employment_type_importance: '', pref_min_income: '', pref_max_income: '', pref_income_importance: '', pref_religion_id: 1, pref_religion_importance: '', pref_sect_id: '', pref_sect_importance: '', pref_caste_id: '', pref_caste_importance: '', pref_religious_practice: '', pref_religious_practice_importance: '', pref_location_country_id: '', pref_location_country_importance: '', pref_location_province_id: '', pref_location_province_importance: '', pref_location_city_id: '', pref_location_city_importance: '', pref_family_setup: '', pref_family_setup_importance: '', pref_living_with: '', pref_living_with_importance: '', pref_parents_status: '', pref_parents_status_importance: '', pref_smoking: '', pref_smoking_importance: '', pref_additional_lifestyle: '', pref_willing_to_relocate_required: '', pref_relocation_importance: '', pref_relocate_country_id: '', pref_relocate_province_id: '', pref_relocate_city_id: '' });
 
 export default function AddProfileForm() {
   const router = useRouter();
@@ -118,9 +118,7 @@ export default function AddProfileForm() {
 
           // Step 1
           if (profile.personal_information) {
-            // Note: If personal_information is returned as an array, use [0]
             const pi = Array.isArray(profile.personal_information) ? profile.personal_information[0] : profile.personal_information;
-
             if (pi) {
               setStep1(prev => ({
                 ...prev,
@@ -132,6 +130,8 @@ export default function AddProfileForm() {
                 number_of_children: pi.number_of_children?.toString() || '',
                 nationality_country_id: pi.nationality_country_id?.toString() || '',
                 mother_tongue_id: pi.mother_tongue_id?.toString() || '',
+                children: (profile.children || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), age: r.age != null ? String(r.age) : '', living_with_profile: r.living_with_profile ? 'YES' : 'NO' })),
+                previous_marriages: (profile.previous_marriages || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), marriage_year: r.marriage_year != null ? String(r.marriage_year) : '', end_year: r.end_year != null ? String(r.end_year) : '', children_count: r.children_count != null ? String(r.children_count) : '0', children_live_with_profile: r.children_live_with_profile ? 'YES' : 'NO' }))
               }));
             }
           } else {
@@ -196,7 +196,8 @@ export default function AddProfileForm() {
               house_status: res?.house_status || '',
               property_type: res?.property_type || '',
               family_setup: res?.family_setup || '',
-              living_with: res?.living_with || ''
+              living_with: res?.living_with || '',
+              living_with_other_details: res?.living_with_other_details || ''
             }));
           }
 
@@ -205,12 +206,14 @@ export default function AddProfileForm() {
             const fi = Array.isArray(profile.family_information) ? profile.family_information[0] : (profile.family_information || {});
             setStep6(prev => ({
               ...prev,
-              parents: (profile.parents || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID() })),
-              siblings: (profile.siblings || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID() })),
+              parents: (profile.parents || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), age: r.age != null ? String(r.age) : '', country_id: r.country_id?.toString() || '', city_id: r.city_id?.toString() || '' })),
+              siblings: (profile.siblings || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), age: r.age != null ? String(r.age) : '', country_id: r.country_id?.toString() || '', city_id: r.city_id?.toString() || '' })),
               family_profession_business: fi?.family_profession_business || '',
               social_background: fi?.social_background || '',
               family_values: fi?.family_values || '',
-              family_introduction: fi?.family_introduction || ''
+              family_introduction: fi?.family_introduction || '',
+              important_family_circumstances: fi?.important_family_circumstances || '',
+              additional_details: fi?.additional_details || ''
             }));
           }
 
@@ -240,55 +243,85 @@ export default function AddProfileForm() {
               ...(prefs.basic && {
                 pref_min_age: prefs.basic.min_age || '',
                 pref_max_age: prefs.basic.max_age || '',
-                pref_age_importance: prefs.basic.age_importance || '',
+                pref_age_importance: prefs.basic.age_importance || 'DOES_NOT_MATTER',
                 pref_marital_status: prefs.basic.preferred_marital_status || '',
-                pref_marital_importance: prefs.basic.marital_status_importance || '',
+                pref_marital_importance: prefs.basic.marital_status_importance || 'DOES_NOT_MATTER',
                 pref_children_allowed: prefs.basic.children_allowed || '',
-                pref_children_importance: prefs.basic.children_importance || '',
+                pref_children_importance: prefs.basic.children_importance || 'DOES_NOT_MATTER',
               }),
               ...(prefs.physical && {
                 pref_min_height: prefs.physical.min_height_cm || '',
                 pref_max_height: prefs.physical.max_height_cm || '',
-                pref_height_importance: prefs.physical.height_importance || '',
+                pref_height_importance: prefs.physical.height_importance || 'DOES_NOT_MATTER',
                 pref_disability_allowed: prefs.physical.disability_allowed || '',
-                pref_disability_importance: prefs.physical.disability_importance || '',
+                pref_disability_importance: prefs.physical.disability_importance || 'DOES_NOT_MATTER',
+                pref_min_weight: prefs.physical.min_weight_kg || '',
+                pref_max_weight: prefs.physical.max_weight_kg || '',
+                pref_weight_importance: prefs.physical.weight_importance || 'DOES_NOT_MATTER',
+                pref_complexion: prefs.physical.preferred_complexion || '',
+                pref_complexion_importance: prefs.physical.complexion_importance || 'DOES_NOT_MATTER',
+                pref_beard: prefs.physical.beard_preference || '',
+                pref_beard_importance: prefs.physical.beard_importance || 'DOES_NOT_MATTER',
+                pref_hijab: prefs.physical.hijab_preference || '',
+                pref_hijab_importance: prefs.physical.hijab_importance || 'DOES_NOT_MATTER',
+              }),
+              ...(prefs.education && {
+                pref_education_level_id: prefs.education.minimum_education_level_id || '',
+                pref_education_importance: prefs.education.education_importance || 'DOES_NOT_MATTER',
+                pref_field_of_study: prefs.education.preferred_field_of_study || '',
+                pref_field_importance: prefs.education.field_importance || 'DOES_NOT_MATTER',
+              }),
+              ...(prefs.profession && {
+                pref_occupation_id: prefs.profession.preferred_occupation_id || '',
+                pref_occupation_importance: prefs.profession.occupation_importance || 'DOES_NOT_MATTER',
+                pref_employment_type: prefs.profession.preferred_employment_type || '',
+                pref_employment_type_importance: prefs.profession.employment_type_importance || 'DOES_NOT_MATTER',
+                pref_min_income: prefs.profession.minimum_monthly_income || '',
+                pref_max_income: prefs.profession.maximum_monthly_income || '',
+                pref_income_importance: prefs.profession.income_importance || 'DOES_NOT_MATTER',
               }),
               ...(prefs.religion && {
                 pref_religion_id: prefs.religion.religion_id || 1,
-                pref_religion_importance: prefs.religion.religion_importance || '',
+                pref_religion_importance: prefs.religion.religion_importance || 'DOES_NOT_MATTER',
                 pref_sect_id: prefs.religion.sect_id || '',
-                pref_sect_importance: prefs.religion.sect_importance || '',
+                pref_sect_importance: prefs.religion.sect_importance || 'DOES_NOT_MATTER',
                 pref_caste_id: prefs.religion.caste_id || '',
-                pref_caste_importance: prefs.religion.caste_importance || '',
+                pref_caste_importance: prefs.religion.caste_importance || 'DOES_NOT_MATTER',
                 pref_religious_practice: prefs.religion.religious_practice || '',
-                pref_religious_practice_importance: prefs.religion.religious_practice_importance || '',
-              }),
-              ...(prefs.profession && {
-                pref_min_income: prefs.profession.minimum_monthly_income || '',
-                pref_max_income: prefs.profession.maximum_monthly_income || '',
-                pref_income_importance: prefs.profession.income_importance || '',
+                pref_religious_practice_importance: prefs.religion.religious_practice_importance || 'DOES_NOT_MATTER',
               }),
               ...(prefs.location && {
                 pref_location_country_id: prefs.location.country_id || '',
-                pref_location_importance: prefs.location.country_importance || '',
+                pref_location_country_importance: prefs.location.country_importance || 'DOES_NOT_MATTER',
+                pref_location_province_id: prefs.location.province_id || '',
+                pref_location_province_importance: prefs.location.province_importance || 'DOES_NOT_MATTER',
+                pref_location_city_id: prefs.location.city_id || '',
+                pref_location_city_importance: prefs.location.city_importance || 'DOES_NOT_MATTER',
               }),
               ...(prefs.family && {
                 pref_family_setup: prefs.family.family_setup || '',
-                pref_family_setup_importance: prefs.family.family_setup_importance || '',
+                pref_family_setup_importance: prefs.family.family_setup_importance || 'DOES_NOT_MATTER',
+                pref_living_with: prefs.family.living_with || '',
+                pref_living_with_importance: prefs.family.living_with_importance || 'DOES_NOT_MATTER',
+                pref_parents_status: prefs.family.parents_status_preference || '',
+                pref_parents_status_importance: prefs.family.parents_status_importance || 'DOES_NOT_MATTER',
               }),
               ...(prefs.lifestyle && {
                 pref_smoking: prefs.lifestyle.smoking || '',
-                pref_smoking_importance: prefs.lifestyle.smoking_importance || '',
+                pref_smoking_importance: prefs.lifestyle.smoking_importance || 'DOES_NOT_MATTER',
+                pref_additional_lifestyle: prefs.lifestyle.additional_preferences || '',
+              }),
+              ...(prefs.relocation && {
+                pref_willing_to_relocate_required: prefs.relocation.willing_to_relocate_required || '',
+                pref_relocation_importance: prefs.relocation.relocation_importance || 'DOES_NOT_MATTER',
+                pref_relocate_country_id: prefs.relocation.country_id || '',
+                pref_relocate_province_id: prefs.relocation.province_id || '',
+                pref_relocate_city_id: prefs.relocation.city_id || '',
               })
             }));
           }
-
-          // We intentionally DO NOT merge localData here when editing an existing profile,
-          // because an empty localData skeleton would overwrite the actual DB data with empty strings.
-
         } catch (e) {
           console.error('Failed to load draft from DB', e);
-          // Fall back to localStorage only
           if (localData) {
             if (localData.step1) setStep1(localData.step1);
             if (localData.step2) setStep2(localData.step2);
@@ -359,6 +392,20 @@ export default function AddProfileForm() {
           mother_tongue_id: data.step1.mother_tongue_id ? Number(data.step1.mother_tongue_id) : null,
           number_of_children: data.step1.number_of_children ? Number(data.step1.number_of_children) : 0,
         }));
+        if (data.step1.marital_status && data.step1.marital_status !== 'NEVER_MARRIED') {
+          tasks.push(ProfileService.saveChildren(pid, data.step1.children.map(({ _tempId, ...rest }) => ({
+            ...rest,
+            age: rest.age ? Number(rest.age) : null,
+            living_with_profile: rest.living_with_profile === 'YES'
+          }))));
+          tasks.push(ProfileService.savePreviousMarriages(pid, data.step1.previous_marriages.map(({ _tempId, ...rest }) => ({
+            ...rest,
+            marriage_year: rest.marriage_year ? Number(rest.marriage_year) : null,
+            end_year: rest.end_year ? Number(rest.end_year) : null,
+            children_count: rest.children_count ? Number(rest.children_count) : 0,
+            children_live_with_profile: rest.children_live_with_profile === 'YES'
+          }))));
+        }
       }
 
       if (dirtyKeys.includes('step2')) {
@@ -411,6 +458,7 @@ export default function AddProfileForm() {
           property_type: data.step5.property_type || null,
           family_setup: data.step5.family_setup || null,
           living_with: data.step5.living_with || null,
+          living_with_other_details: data.step5.living_with === 'OTHER' ? data.step5.living_with_other_details : null,
         }));
       }
 
@@ -418,18 +466,24 @@ export default function AddProfileForm() {
         tasks.push(ProfileService.saveParents(pid, data.step6.parents.map(({ _tempId, ...rest }) => ({
           ...rest,
           age: rest.age ? Number(rest.age) : null,
+          country_id: (rest.country_id ? Number(rest.country_id) : null) as any,
+          city_id: (rest.city_id ? Number(rest.city_id) : null) as any,
         }))));
         tasks.push(ProfileService.saveSiblings(pid, data.step6.siblings.map(({ _tempId, ...rest }) => ({
           ...rest,
           gender: rest.gender || 'MALE',
           age: rest.age ? Number(rest.age) : null,
           marital_status: rest.marital_status || null,
+          country_id: (rest.country_id ? Number(rest.country_id) : null) as any,
+          city_id: (rest.city_id ? Number(rest.city_id) : null) as any,
         }))));
         tasks.push(ProfileService.saveFamilyInfo(pid, {
           family_profession_business: data.step6.family_profession_business || null,
           social_background: data.step6.social_background || null,
           family_values: data.step6.family_values || null,
           family_introduction: data.step6.family_introduction || null,
+          important_family_circumstances: data.step6.important_family_circumstances || null,
+          additional_details: data.step6.additional_details || null,
         }));
       }
 
@@ -457,11 +511,11 @@ export default function AddProfileForm() {
             preference_set_id: '',
             min_age: data.step8.pref_min_age ? Number(data.step8.pref_min_age) : null,
             max_age: data.step8.pref_max_age ? Number(data.step8.pref_max_age) : null,
-            age_importance: data.step8.pref_age_importance || null,
+            age_importance: data.step8.pref_age_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_age_importance || null),
             preferred_marital_status: data.step8.pref_marital_status || null,
-            marital_status_importance: data.step8.pref_marital_importance || null,
+            marital_status_importance: data.step8.pref_marital_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_marital_importance || null),
             children_allowed: data.step8.pref_children_allowed || null,
-            children_importance: data.step8.pref_children_importance || null,
+            children_importance: data.step8.pref_children_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_children_importance || null),
             preferred_gender: null,
             gender_importance: null,
             created_at: new Date().toISOString()
@@ -470,94 +524,94 @@ export default function AddProfileForm() {
             preference_set_id: '',
             min_height_cm: data.step8.pref_min_height ? Number(data.step8.pref_min_height) : null,
             max_height_cm: data.step8.pref_max_height ? Number(data.step8.pref_max_height) : null,
-            height_importance: data.step8.pref_height_importance || null,
+            height_importance: data.step8.pref_height_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_height_importance || null),
             disability_allowed: data.step8.pref_disability_allowed || null,
-            disability_importance: data.step8.pref_disability_importance || null,
-            min_weight_kg: null,
-            max_weight_kg: null,
-            weight_importance: null,
-            preferred_complexion: null,
-            complexion_importance: null,
-            beard_preference: null,
-            beard_importance: null,
-            hijab_preference: null,
-            hijab_importance: null,
+            disability_importance: data.step8.pref_disability_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_disability_importance || null),
+            min_weight_kg: data.step8.pref_min_weight ? Number(data.step8.pref_min_weight) : null,
+            max_weight_kg: data.step8.pref_max_weight ? Number(data.step8.pref_max_weight) : null,
+            weight_importance: data.step8.pref_weight_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_weight_importance || null),
+            preferred_complexion: data.step8.pref_complexion || null,
+            complexion_importance: data.step8.pref_complexion_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_complexion_importance || null),
+            beard_preference: data.step8.pref_beard || null,
+            beard_importance: data.step8.pref_beard_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_beard_importance || null),
+            hijab_preference: data.step8.pref_hijab || null,
+            hijab_importance: data.step8.pref_hijab_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_hijab_importance || null),
             created_at: new Date().toISOString()
           },
           education: {
             preference_set_id: '',
-            minimum_education_level_id: null,
-            education_importance: null,
-            preferred_field_of_study: null,
-            field_importance: null,
+            minimum_education_level_id: data.step8.pref_education_level_id ? Number(data.step8.pref_education_level_id) : null,
+            education_importance: data.step8.pref_education_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_education_importance || null),
+            preferred_field_of_study: data.step8.pref_field_of_study || null,
+            field_importance: data.step8.pref_field_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_field_importance || null),
             created_at: new Date().toISOString()
           },
           profession: {
             preference_set_id: '',
             minimum_monthly_income: data.step8.pref_min_income ? Number(data.step8.pref_min_income) : null,
             maximum_monthly_income: data.step8.pref_max_income ? Number(data.step8.pref_max_income) : null,
-            income_importance: data.step8.pref_income_importance || null,
-            preferred_occupation_id: null,
-            occupation_importance: null,
-            preferred_employment_type: null,
-            employment_type_importance: null,
+            income_importance: data.step8.pref_income_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_income_importance || null),
+            preferred_occupation_id: data.step8.pref_occupation_id ? Number(data.step8.pref_occupation_id) : null,
+            occupation_importance: data.step8.pref_occupation_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_occupation_importance || null),
+            preferred_employment_type: data.step8.pref_employment_type as any || null,
+            employment_type_importance: data.step8.pref_employment_type_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_employment_type_importance || null),
             created_at: new Date().toISOString()
           },
           religion: {
             preference_set_id: '',
             religion_id: data.step8.pref_religion_id ? Number(data.step8.pref_religion_id) : null,
-            religion_importance: data.step8.pref_religion_importance || null,
+            religion_importance: data.step8.pref_religion_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_religion_importance || null),
             sect_id: data.step8.pref_sect_id ? Number(data.step8.pref_sect_id) : null,
-            sect_importance: data.step8.pref_sect_importance || null,
+            sect_importance: data.step8.pref_sect_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_sect_importance || null),
             caste_id: data.step8.pref_caste_id ? Number(data.step8.pref_caste_id) : null,
-            caste_importance: data.step8.pref_caste_importance || null,
+            caste_importance: data.step8.pref_caste_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_caste_importance || null),
             religious_practice: data.step8.pref_religious_practice || null,
-            religious_practice_importance: data.step8.pref_religious_practice_importance || null,
+            religious_practice_importance: data.step8.pref_religious_practice_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_religious_practice_importance || null),
             created_at: new Date().toISOString()
           },
           location: {
             preference_set_id: '',
             country_id: data.step8.pref_location_country_id ? Number(data.step8.pref_location_country_id) : null,
-            country_importance: data.step8.pref_location_importance || null,
-            province_id: null,
-            province_importance: null,
-            city_id: null,
-            city_importance: null,
+            country_importance: data.step8.pref_location_country_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_location_country_importance || null),
+            province_id: data.step8.pref_location_province_id ? Number(data.step8.pref_location_province_id) : null,
+            province_importance: data.step8.pref_location_province_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_location_province_importance || null),
+            city_id: data.step8.pref_location_city_id ? Number(data.step8.pref_location_city_id) : null,
+            city_importance: data.step8.pref_location_city_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_location_city_importance || null),
             location_details: null,
             created_at: new Date().toISOString()
           },
           family: {
             preference_set_id: '',
             family_setup: data.step8.pref_family_setup || null,
-            family_setup_importance: data.step8.pref_family_setup_importance || null,
-            living_with: null,
-            living_with_importance: null,
-            parents_status_preference: null,
-            parents_status_importance: null,
+            family_setup_importance: data.step8.pref_family_setup_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_family_setup_importance || null),
+            living_with: data.step8.pref_living_with || null,
+            living_with_importance: data.step8.pref_living_with_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_living_with_importance || null),
+            parents_status_preference: data.step8.pref_parents_status || null,
+            parents_status_importance: data.step8.pref_parents_status_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_parents_status_importance || null),
             created_at: new Date().toISOString()
           },
           lifestyle: {
             preference_set_id: '',
             smoking: data.step8.pref_smoking || null,
-            smoking_importance: data.step8.pref_smoking_importance || null,
+            smoking_importance: data.step8.pref_smoking_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_smoking_importance || null),
             religious_practice: data.step8.pref_religious_practice || null,
-            religious_practice_importance: data.step8.pref_religious_practice_importance || null,
-            beard_preference: null,
-            beard_importance: null,
-            hijab_preference: null,
-            hijab_importance: null,
-            additional_preferences: null,
+            religious_practice_importance: data.step8.pref_religious_practice_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_religious_practice_importance || null),
+            beard_preference: data.step8.pref_beard || null,
+            beard_importance: data.step8.pref_beard_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_beard_importance || null),
+            hijab_preference: data.step8.pref_hijab || null,
+            hijab_importance: data.step8.pref_hijab_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_hijab_importance || null),
+            additional_preferences: data.step8.pref_additional_lifestyle || null,
             created_at: new Date().toISOString()
           },
           relocation: {
             preference_set_id: '',
-            willing_to_relocate_required: null,
-            relocation_importance: null,
-            country_id: null,
+            willing_to_relocate_required: data.step8.pref_willing_to_relocate_required || null,
+            relocation_importance: data.step8.pref_relocation_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_relocation_importance || null),
+            country_id: data.step8.pref_relocate_country_id ? Number(data.step8.pref_relocate_country_id) : null,
             country_importance: null,
-            province_id: null,
+            province_id: data.step8.pref_relocate_province_id ? Number(data.step8.pref_relocate_province_id) : null,
             province_importance: null,
-            city_id: null,
+            city_id: data.step8.pref_relocate_city_id ? Number(data.step8.pref_relocate_city_id) : null,
             city_importance: null,
             created_at: new Date().toISOString()
           }
@@ -638,7 +692,7 @@ export default function AddProfileForm() {
 
   // ── Navigation ─────────────────────────────────────────────
   const goToStep = async (step: number) => {
-    if (isUploadingImage) return; // Prevent navigation while uploading
+    if (isUploadingImage || isSaving) return; // Prevent navigation while uploading or saving
 
     // If we are at Step 1 and trying to move forward, and we don't have a profileId yet
     if (currentStep === 1 && !profileId && step > 1) {
@@ -806,15 +860,52 @@ export default function AddProfileForm() {
         return { completed, total, mandatoryComplete };
       }
       case 8: {
-        const total = 29;
-        const completed = Object.values(step8).filter(v => v !== '' && v !== null && v !== undefined).length;
+        let total = 0;
+        let completed = 0;
 
-        // Age and Height are the only strict numeric ranges without an "Any" option, so we require them.
-        const reqBasic = !!(step8.pref_min_age && step8.pref_max_age && step8.pref_age_importance);
-        const reqPhys = !!(step8.pref_min_height && step8.pref_max_height && step8.pref_height_importance);
+        const countField = (val: any) => {
+          total++;
+          if (val !== '' && val !== null && val !== undefined) completed++;
+        };
 
-        // For other fields, "Any" sets them to '', so we cannot strictly require them to be truthy 
-        // without blocking the user. We will just require the most critical ones (Age and Height).
+        const countImp = (imp: any, deps: any[]) => {
+          total++;
+          if (imp !== '' && imp !== null && imp !== undefined) {
+            completed++;
+            if (imp !== 'DOES_NOT_MATTER') {
+              deps.forEach(countField);
+            }
+          } else {
+            deps.forEach(countField);
+          }
+        };
+
+        countImp(step8.pref_age_importance, [step8.pref_min_age, step8.pref_max_age]);
+        countImp(step8.pref_marital_importance, [step8.pref_marital_status]);
+
+        if (step8.pref_marital_importance !== 'DOES_NOT_MATTER' && ['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(step8.pref_marital_status as string)) {
+          countImp(step8.pref_children_importance, [step8.pref_children_allowed]);
+        }
+
+        countImp(step8.pref_height_importance, [step8.pref_min_height, step8.pref_max_height]);
+        countImp(step8.pref_disability_importance, [step8.pref_disability_allowed]);
+
+        countField(step8.pref_religion_id);
+        if (step8.pref_religion_id) {
+          countImp(step8.pref_sect_importance, [step8.pref_sect_id]);
+        }
+
+        countImp(step8.pref_caste_importance, [step8.pref_caste_id]);
+        countImp(step8.pref_religious_practice_importance, [step8.pref_religious_practice]);
+
+        countImp(step8.pref_income_importance, [step8.pref_min_income]);
+        countImp(step8.pref_location_country_importance, [step8.pref_location_country_id]);
+        countImp(step8.pref_family_setup_importance, [step8.pref_family_setup]);
+        countImp(step8.pref_smoking_importance, [step8.pref_smoking]);
+
+        const reqBasic = step8.pref_age_importance === 'DOES_NOT_MATTER' ? true : !!(step8.pref_min_age && step8.pref_max_age && step8.pref_age_importance);
+        const reqPhys = step8.pref_height_importance === 'DOES_NOT_MATTER' ? true : !!(step8.pref_min_height && step8.pref_max_height && step8.pref_height_importance);
+
         const mandatoryComplete = reqBasic && reqPhys;
         return { completed, total, mandatoryComplete };
       }
@@ -894,12 +985,16 @@ export default function AddProfileForm() {
         ProfileService.saveParents(pid, step6.parents.map(({ _tempId, ...rest }) => ({
           ...rest,
           age: rest.age ? Number(rest.age) : null,
+          country_id: rest.country_id || null,
+          city_id: rest.city_id || null,
         }))),
         ProfileService.saveSiblings(pid, step6.siblings.map(({ _tempId, ...rest }) => ({
           ...rest,
           gender: rest.gender || 'MALE',
           age: rest.age ? Number(rest.age) : null,
           marital_status: rest.marital_status || null,
+          country_id: rest.country_id || null,
+          city_id: rest.city_id || null,
         }))),
         ProfileService.saveFamilyInfo(pid, {
           family_profession_business: step6.family_profession_business || null,
@@ -938,11 +1033,11 @@ export default function AddProfileForm() {
           preference_set_id: '', // Set in service
           min_age: step8.pref_min_age ? Number(step8.pref_min_age) : null,
           max_age: step8.pref_max_age ? Number(step8.pref_max_age) : null,
-          age_importance: step8.pref_age_importance || null,
+          age_importance: step8.pref_age_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_age_importance || null),
           preferred_marital_status: step8.pref_marital_status || null,
-          marital_status_importance: step8.pref_marital_importance || null,
+          marital_status_importance: step8.pref_marital_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_marital_importance || null),
           children_allowed: step8.pref_children_allowed || null,
-          children_importance: step8.pref_children_importance || null,
+          children_importance: step8.pref_children_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_children_importance || null),
           preferred_gender: null, // Default
           gender_importance: null, // Default
           created_at: new Date().toISOString()
@@ -951,9 +1046,9 @@ export default function AddProfileForm() {
           preference_set_id: '',
           min_height_cm: step8.pref_min_height ? Number(step8.pref_min_height) : null,
           max_height_cm: step8.pref_max_height ? Number(step8.pref_max_height) : null,
-          height_importance: step8.pref_height_importance || null,
+          height_importance: step8.pref_height_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_height_importance || null),
           disability_allowed: step8.pref_disability_allowed || null,
-          disability_importance: step8.pref_disability_importance || null,
+          disability_importance: step8.pref_disability_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_disability_importance || null),
           min_weight_kg: null,
           max_weight_kg: null,
           weight_importance: null,
@@ -977,7 +1072,7 @@ export default function AddProfileForm() {
           preference_set_id: '',
           minimum_monthly_income: step8.pref_min_income ? Number(step8.pref_min_income) : null,
           maximum_monthly_income: step8.pref_max_income ? Number(step8.pref_max_income) : null,
-          income_importance: step8.pref_income_importance || null,
+          income_importance: step8.pref_income_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_income_importance || null),
           preferred_occupation_id: null,
           occupation_importance: null,
           preferred_employment_type: null,
@@ -987,19 +1082,19 @@ export default function AddProfileForm() {
         religion: {
           preference_set_id: '',
           religion_id: step8.pref_religion_id ? Number(step8.pref_religion_id) : null,
-          religion_importance: step8.pref_religion_importance || null,
+          religion_importance: step8.pref_religion_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_religion_importance || null),
           sect_id: step8.pref_sect_id ? Number(step8.pref_sect_id) : null,
-          sect_importance: step8.pref_sect_importance || null,
+          sect_importance: step8.pref_sect_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_sect_importance || null),
           caste_id: step8.pref_caste_id ? Number(step8.pref_caste_id) : null,
-          caste_importance: step8.pref_caste_importance || null,
+          caste_importance: step8.pref_caste_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_caste_importance || null),
           religious_practice: step8.pref_religious_practice || null,
-          religious_practice_importance: step8.pref_religious_practice_importance || null,
+          religious_practice_importance: step8.pref_religious_practice_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_religious_practice_importance || null),
           created_at: new Date().toISOString()
         },
         location: {
           preference_set_id: '',
           country_id: step8.pref_location_country_id ? Number(step8.pref_location_country_id) : null,
-          country_importance: step8.pref_location_importance || null,
+          country_importance: step8.pref_location_country_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_location_country_importance || null),
           province_id: null,
           province_importance: null,
           city_id: null,
@@ -1010,7 +1105,7 @@ export default function AddProfileForm() {
         family: {
           preference_set_id: '',
           family_setup: step8.pref_family_setup || null,
-          family_setup_importance: step8.pref_family_setup_importance || null,
+          family_setup_importance: step8.pref_family_setup_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_family_setup_importance || null),
           living_with: null,
           living_with_importance: null,
           parents_status_preference: null,
@@ -1020,9 +1115,9 @@ export default function AddProfileForm() {
         lifestyle: {
           preference_set_id: '',
           smoking: step8.pref_smoking || null,
-          smoking_importance: step8.pref_smoking_importance || null,
+          smoking_importance: step8.pref_smoking_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_smoking_importance || null),
           religious_practice: step8.pref_religious_practice || null, // Shared with religion? Let's use same for now or null
-          religious_practice_importance: step8.pref_religious_practice_importance || null,
+          religious_practice_importance: step8.pref_religious_practice_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_religious_practice_importance || null),
           beard_preference: null,
           beard_importance: null,
           hijab_preference: null,
@@ -1045,7 +1140,11 @@ export default function AddProfileForm() {
       }, user.id);
 
       // 4. Update profile status based on whether all mandatory fields across all steps are filled
-      const allMandatoryCompleted = SIDEBAR_STEPS.every(s => getStepStats(s.id).mandatoryComplete);
+      const missingMandatorySteps = SIDEBAR_STEPS.filter(s => !getStepStats(s.id).mandatoryComplete);
+      if (missingMandatorySteps.length > 0) {
+        console.warn('Profile remains DRAFT. Missing mandatory fields in steps:', missingMandatorySteps.map(s => s.name));
+      }
+      const allMandatoryCompleted = missingMandatorySteps.length === 0;
       await ProfileService.updateProfileStatus(pid, allMandatoryCompleted ? 'ACTIVE' : 'DRAFT');
 
       // Clear local storage drafts (both profile-specific and 'new' keys)
@@ -1087,15 +1186,12 @@ export default function AddProfileForm() {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-7">
-
-        {/* ── Main form card ── */}
-        <div className="lg:col-span-8">
-          <div className="bg-white rounded-[32px] border border-[#E9E4DC] shadow-[0_2px_14px_-3px_rgba(0,0,0,0.04),0_1px_4px_-1px_rgba(0,0,0,0.02)]">
-
-            {/* Step content */}
-            <div className="p-8">
+    <div className="block w-full h-full">
+      <div className="w-full max-w-[1500px] mx-auto min-h-full flex flex-col lg:flex-row justify-between gap-8 lg:gap-16 pt-2 pb-2 pl-4 pr-4 lg:pl-12 lg:pr-6">
+        {/* ── Main form area (Left) ── */}
+        <div className="flex-1 flex flex-col min-w-0 lg:max-w-[850px] mx-auto lg:mx-0 lg:mt-2">
+          <div className="flex-1 bg-transparent p-6 lg:p-10 flex flex-col">
+            <div className="flex-1 pb-10">
               {error && (
                 <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[13px] font-medium">
                   {error}
@@ -1105,42 +1201,43 @@ export default function AddProfileForm() {
             </div>
 
             {/* Navigation buttons */}
-            <div className="px-8 pb-8 flex items-center justify-between">
+            <div className="shrink-0 flex items-center justify-between mt-auto pt-8 border-t border-[#EFE9DF]/50">
               <button
                 type="button"
                 onClick={back}
                 disabled={currentStep === 1 || isUploadingImage}
-                className="flex items-center gap-2 bg-white border border-[#E9E4DC] text-[#4E473D] font-bold text-[13px] px-5 py-2.5 rounded-full hover:bg-[#F4ECE1] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="flex items-center gap-2 bg-[#EAE4D9] text-[#2F3E51] font-bold text-[14px] px-8 py-3.5 rounded-2xl hover:bg-[#DED5C5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
-                <ArrowLeft size={16} />
+                <ArrowLeft size={18} />
                 Back
               </button>
-
-              <div className="text-[11px] text-[#A8A296] font-medium">
-                Step {currentStep} of {STEPS.length}
-              </div>
 
               {currentStep < STEPS.length ? (
                 <button
                   type="button"
                   onClick={next}
-                  disabled={isUploadingImage}
-                  className="flex items-center gap-2 bg-[#064e3b] text-white font-bold text-[13px] px-5 py-2.5 rounded-full hover:bg-[#0f4229] hover:-translate-y-0.5 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+                  disabled={isUploadingImage || isSaving}
+                  className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-8 py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  Next
-                  <ArrowRight size={16} />
+                  {isSaving && currentStep === 1 && !profileId ? (
+                    <><Loader2 size={18} className="animate-spin" /> Creating...</>
+                  ) : isSaving ? (
+                    <><Loader2 size={18} className="animate-spin" /> Next</>
+                  ) : (
+                    <>Continue <ArrowRight size={18} /></>
+                  )}
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={handleSave}
                   disabled={isSaving || isUploadingImage || !step1.full_name || !step1.gender}
-                  className="flex items-center gap-2 bg-[#064e3b] text-white font-bold text-[13px] px-6 py-2.5 rounded-full hover:bg-[#0f4229] hover:-translate-y-0.5 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+                  className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-8 py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {isSaving ? (
-                    <><Loader2 size={15} className="animate-spin" /> Saving...</>
+                    <><Loader2 size={18} className="animate-spin" /> Saving...</>
                   ) : (
-                    <><Save size={15} /> Save Profile</>
+                    <><Save size={18} /> Save Profile</>
                   )}
                 </button>
               )}
@@ -1148,8 +1245,8 @@ export default function AddProfileForm() {
           </div>
         </div>
 
-        {/* ── Profile sidebar ── */}
-        <div className="lg:col-span-4">
+        {/* ── Profile sidebar (Right) — floating dark panel ── */}
+        <div className="bg-[#2F3E51] !bg-opacity-100 mix-blend-normal opacity-100 rounded-[32px] lg:sticky lg:top-6 overflow-hidden p-8 lg:p-10 shadow-2xl w-full lg:w-[460px] shrink-0 h-auto lg:h-[calc(100vh-48px)] overflow-y-auto hide-scrollbar self-start">
           <ProfileSidebar
             steps={dynamicSidebarSteps}
             currentStep={currentStep}

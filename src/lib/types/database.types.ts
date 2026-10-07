@@ -53,7 +53,7 @@ export type SmokingStatus = 'NO' | 'YES' | 'OCCASIONALLY';
 
 export type YesNo = 'YES' | 'NO';
 
-export type PreferenceImportance = 'MANDATORY' | 'HIGH' | 'MEDIUM' | 'LOW';
+export type PreferenceImportance = 'MANDATORY' | 'HIGH' | 'MEDIUM' | 'LOW' | 'DOES_NOT_MATTER';
 
 export type PreferenceMatchMode =
   | 'EXACT'

@@ -318,10 +318,36 @@ export default function ProfilesListPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [isLocked]);
 
-  // Reset request state when profile changes
+  // Check if a request is already sent when profile changes
   useEffect(() => {
-    setMatchRequested(false);
     setSelectedMatchId(null);
+    setMatchRequested(false);
+    
+    if (!selectedId) return;
+
+    const checkExistingRequest = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('information_requests')
+          .select('id')
+          .eq('source_profile_id', selectedId)
+          .eq('requested_by', user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (data && !error) {
+          setMatchRequested(true);
+        }
+      } catch (err) {
+        console.error("Error checking existing request:", err);
+      }
+    };
+
+    checkExistingRequest();
   }, [selectedId]);
 
   // ── Matching data (Mock or Real) ────────
@@ -430,13 +456,35 @@ export default function ProfilesListPage() {
     }
   };
 
-  // ── Handle request match (demo) ───────────────────────────────
+  // ── Handle request match (real DB call) ─────────────────────────
   const handleRequestMatch = async () => {
+    if (!selectedId) return;
+    
     setMatchRequesting(true);
-    // Simulate network delay — no real backend call
-    await new Promise((r) => setTimeout(r, 900));
-    setMatchRequesting(false);
-    setMatchRequested(true);
+    try {
+      const supabase = createClient();
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('You must be logged in to request a match analysis.');
+      }
+      
+      const { error } = await supabase.rpc('submit_information_request', {
+        p_agent_id: user.id,
+        p_source_profile_id: selectedId,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setMatchRequested(true);
+    } catch (error: any) {
+      console.error('Error requesting match:', error);
+      alert(error.message || 'Failed to send request. Please try again.');
+    } finally {
+      setMatchRequesting(false);
+    }
   };
 
   // ── Load stats (once) ─────────────────────────────────────────
@@ -962,9 +1010,20 @@ export default function ProfilesListPage() {
                       Request a detailed compatibility breakdown and expert insights for this profile.
                     </p>
                     {realMatchResultsMap[selectedId!] ? (
-                      <div className="inline-flex items-center gap-1.5 text-[12px] font-bold px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm shadow-sm border border-white/10">
-                        <CheckCircle className="w-4 h-4" /> Algorithm Complete
-                      </div>
+                      matchRequested ? (
+                        <div className="inline-flex items-center gap-1.5 text-[12px] font-bold px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm shadow-sm border border-white/10">
+                          <CheckCircle className="w-4 h-4" /> Request Sent
+                        </div>
+                      ) : (
+                        <button
+                          onClick={handleRequestMatch}
+                          disabled={matchRequesting}
+                          className="inline-flex items-center gap-2 bg-white text-[#C86A4A] hover:bg-white/90 font-bold text-[12px] px-5 py-2.5 rounded-full shadow-sm transition-all disabled:opacity-70"
+                        >
+                          {matchRequesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                          {matchRequesting ? 'Sending...' : 'Send Request'}
+                        </button>
+                      )
                     ) : (
                       <button
                         onClick={handleRunMatches}

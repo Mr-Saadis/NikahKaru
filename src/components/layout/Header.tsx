@@ -20,6 +20,7 @@ interface HeaderProps {
   };
   idBadge?: string;
   isLive?: boolean;
+  variant?: 'light' | 'dark';
 }
 
 export default function Header({
@@ -31,6 +32,7 @@ export default function Header({
   secondaryAction,
   idBadge,
   isLive,
+  variant = 'light',
 }: HeaderProps) {
   const router = useRouter();
   const [isDraftsOpen, setIsDraftsOpen] = useState(false);
@@ -64,70 +66,37 @@ export default function Header({
 
     fetchDraftCount();
 
-    // Optionally set up a small interval or just rely on manual refresh
     return () => {
       mounted = false;
     };
-  }, [isDraftsOpen]); // Re-fetch when drafts dialog is closed/opened
+  }, [isDraftsOpen]);
+
+  const isDark = variant === 'dark';
+  const btnClass = isDark
+    ? "relative w-9 h-9 rounded-full bg-transparent border border-white/20 hover:bg-white/10 shadow-sm flex items-center justify-center text-white/80 transition-colors"
+    : "relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#064e3b] transition-colors";
+
+  const badgeBorder = isDark ? "border-[#2F3E51]" : "border-white";
 
   return (
-    <header className="bg-[#FAF8F5] sticky top-0 z-10">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-2 flex items-center justify-between">
-
-        {/* Left Section: Back Button Only */}
-        <div className="flex items-center gap-4">
-          {showBackButton && (
-            <button
-              onClick={() => router.back()}
-              className="w-8 h-8 rounded-xl bg-white hover:bg-[#F4ECE1] border border-[#E9E4DC] shadow-sm text-[#064e3b] flex items-center justify-center transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
+    <>
+      <div className="absolute top-9 right-12 flex items-center gap-3 z-[40]">
+        <button 
+          onClick={() => setIsDraftsOpen(true)}
+          title="Saved Drafts"
+          className={btnClass}
+        >
+          <FileEdit className="w-4 h-4" />
+          {draftCount > 0 && (
+            <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#C86A4A] border-2 ${badgeBorder} flex items-center justify-center text-[9px] font-bold text-white`}>
+              {draftCount}
+            </div>
           )}
+        </button>
 
-        </div>
-
-        {/* Right Section: Actions & Notifications */}
-        <div className="flex items-center gap-3">
-
-          {secondaryAction && (
-            <button
-              onClick={secondaryAction.onClick}
-              className="bg-white hover:bg-[#F4ECE1] text-[#24211D] border border-[#E9E4DC] font-bold text-[12.5px] px-4 py-2.5 rounded-full shadow-sm transition-colors"
-            >
-              {secondaryAction.label}
-            </button>
-          )}
-
-          {primaryAction && (
-            <button
-              onClick={primaryAction.onClick}
-              className="bg-[#064e3b] text-white hover:bg-[#0f4229] font-bold text-[12.5px] px-5 py-2.5 rounded-full shadow-sm hover:-translate-y-0.5 transition-transform"
-            >
-              {primaryAction.label}
-            </button>
-          )}
-
-          <button 
-            onClick={() => setIsDraftsOpen(true)}
-            title="Saved Drafts"
-            className="relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#064e3b] transition-colors ml-1"
-          >
-            <FileEdit className="w-4 h-4" />
-            {draftCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ba1a1a] border-2 border-white flex items-center justify-center text-[9px] font-bold text-white">
-                {draftCount}
-              </div>
-            )}
-          </button>
-
-          <button className="relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#4E473D] transition-colors">
-            <Bell className="w-4 h-4" />
-            <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#ba1a1a] ring-2 ring-white" />
-          </button>
-
-        </div>
-
+        <button className={btnClass}>
+          <Bell className="w-4 h-4" />
+        </button>
       </div>
 
       {isDraftsOpen && (
@@ -136,6 +105,6 @@ export default function Header({
           onClose={() => setIsDraftsOpen(false)} 
         />
       )}
-    </header>
+    </>
   );
 }

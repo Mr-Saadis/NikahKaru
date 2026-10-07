@@ -1,7 +1,7 @@
 'use client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Camera, User, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Camera, User, Loader2 } from 'lucide-react';
 import { useRef } from 'react';
 import CustomDatePicker from '@/components/ui/custom-date-picker';
 import { compressImage } from '@/lib/imageUtils';
@@ -20,6 +20,8 @@ type Step1Data = {
   mother_tongue_id: number | '';
   profile_picture?: string;
   profile_picture_file?: File;
+  children: { _tempId: string; gender: string; age: string; living_with_profile: string; additional_details: string }[];
+  previous_marriages: { _tempId: string; marriage_status: string; marriage_year: string; end_year: string; reason_for_end: string; children_count: string; children_live_with_profile: string }[];
 };
 
 interface Step1Props {
@@ -93,15 +95,15 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
       {/* Full Name & Avatar */}
       <div className="flex gap-4 items-end">
         <div className="flex-shrink-0">
-          <input 
-            type="file" 
-            accept="image/*" 
-            className="hidden" 
-            ref={fileInputRef} 
-            onChange={handleImageUpload} 
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleImageUpload}
           />
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploadingImage}
             className="group relative w-[52px] h-[52px] rounded-full bg-[#F7F3EA] border border-[#ECC066]/60 flex flex-col items-center justify-center text-[#725b24] overflow-hidden hover:border-[#ECC066] transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
@@ -122,7 +124,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
             )}
           </button>
         </div>
-        
+
         <div className="flex-1 space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Full Name <span className="text-red-500">*</span>
@@ -130,9 +132,11 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
           <input
             type="text"
             value={data.full_name}
-            onChange={(e) => set('full_name', e.target.value)}
+            onChange={(e) => {
+              if (/^[A-Za-z\s]*$/.test(e.target.value)) set('full_name', e.target.value);
+            }}
             placeholder="Enter full name"
-            className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+            className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
           />
         </div>
       </div>
@@ -142,30 +146,29 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
         <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
           Gender <span className="text-red-500">*</span>
         </label>
-        <div className="flex gap-3">
+        <div className="flex gap-8 lg:gap-12">
           {(['MALE', 'FEMALE'] as ProfileGender[]).map((g) => (
             <button
               key={g}
               type="button"
               onClick={() => set('gender', data.gender === g ? '' : g)}
-              className={`flex-1 py-3 rounded-xl text-[13px] font-semibold border transition-all flex items-center justify-center gap-2 ${
-                data.gender === g
-                  ? 'bg-[#064e3b] text-white border-[#064e3b] shadow-sm'
-                  : 'bg-white border-[#E9E4DC] text-[#4E473D] hover:border-[#064e3b]/30 hover:bg-[#F7FAF8]'
-              }`}
+              className={`flex-1 h-[52px] rounded-[20px] text-[14px] font-semibold border transition-all flex items-center justify-center gap-2 ${data.gender === g
+                  ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md'
+                  : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
+                }`}
             >
               {g === 'MALE' ? (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="10" cy="14" r="7"/>
-                  <line x1="15" y1="9" x2="21" y2="3"/>
-                  <line x1="16" y1="3" x2="21" y2="3"/>
-                  <line x1="21" y1="3" x2="21" y2="8"/>
+                  <circle cx="10" cy="14" r="7" />
+                  <line x1="15" y1="9" x2="21" y2="3" />
+                  <line x1="16" y1="3" x2="21" y2="3" />
+                  <line x1="21" y1="3" x2="21" y2="8" />
                 </svg>
               ) : (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="10" r="7"/>
-                  <line x1="12" y1="17" x2="12" y2="23"/>
-                  <line x1="9" y1="20" x2="15" y2="20"/>
+                  <circle cx="12" cy="10" r="7" />
+                  <line x1="12" y1="17" x2="12" y2="23" />
+                  <line x1="9" y1="20" x2="15" y2="20" />
                 </svg>
               )}
               {g === 'MALE' ? 'Male' : 'Female'}
@@ -175,7 +178,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
       </div>
 
       {/* Date of Birth & Age */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-8 lg:gap-12">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Date of Birth
@@ -197,7 +200,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
               readOnly
               value={data.date_of_birth ? `${calculateAge(data.date_of_birth)} years` : ''}
               placeholder="Auto-calculated"
-              className="w-full h-[46px] bg-[#FBF9F5] border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#888174] font-medium cursor-not-allowed outline-none"
+              className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C]/50 rounded-[20px] px-5 py-3.5 text-[14px] text-[#888174] font-medium cursor-not-allowed outline-none shadow-none"
             />
           </div>
         </div>
@@ -216,12 +219,13 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
             // Reset children count and living status if they switch to NEVER_MARRIED
             if (newStatus === 'NEVER_MARRIED') {
               newData.number_of_children = '';
-              newData.children_living_with = '';
+              newData.children = [];
+              newData.previous_marriages = [];
             }
             onChange(newData);
           }}
         >
-          <SelectTrigger className="w-full h-[46px] bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all shadow-none">
+          <SelectTrigger className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none">
             <SelectValue placeholder="Select marital status" />
           </SelectTrigger>
           <SelectContent>
@@ -232,57 +236,111 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
         </Select>
       </div>
 
-      {/* Children Row - Only show if not NEVER_MARRIED */}
       {data.marital_status && data.marital_status !== 'NEVER_MARRIED' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="space-y-2">
-            <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-              Number of Children
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={20}
-              value={data.number_of_children === undefined ? '' : data.number_of_children}
-              onChange={(e) => {
-                const count: number | '' = e.target.value === '' ? '' : Number(e.target.value);
-                const newData: Step1Data = { ...data, number_of_children: count };
-                if (count === 0 || count === '') {
-                  newData.children_living_with = '';
-                }
-                onChange(newData);
-              }}
-              placeholder="e.g. 2 (Leave empty if none)"
-              className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
-            />
+        <div className="space-y-4 pt-4 border-t border-[#EFE9DF] animate-in fade-in slide-in-from-top-2 duration-300">
+          <h4 className="text-[13px] font-bold text-[#1E1F22]">Other / Previous Marriages</h4>
+          {data.previous_marriages?.map((pm, index) => (
+            <div key={pm._tempId} className="p-4 bg-white border border-[#EFE9DF] rounded-xl space-y-3 relative group">
+              <button type="button" onClick={() => onChange({ ...data, previous_marriages: data.previous_marriages.filter((_, i) => i !== index) })}
+                className="absolute top-3 right-3 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Trash2 size={16} />
+              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <div className={pm.marriage_status === 'MARRIED' ? 'col-span-1' : ''}>
+                  <label className="block text-[10px] font-bold text-[#888174] uppercase mb-1">Status</label>
+                  <SearchableSelect
+                    value={pm.marriage_status}
+                    onChange={(val) => {
+                      const newArr = [...data.previous_marriages];
+                      newArr[index].marriage_status = val;
+                      onChange({ ...data, previous_marriages: newArr });
+                    }}
+                    options={[
+                      ...(data.gender === 'MALE' ? [{ value: 'MARRIED', label: 'Married / Existing Wife' }] : []),
+                      { value: 'DIVORCED', label: 'Divorced' },
+                      { value: 'WIDOWED', label: 'Widowed' },
+                      { value: 'SEPARATED', label: 'Separated' }
+                    ]}
+                    placeholder="Status"
+                    className="bg-gray-50 border-[#EFE9DF] h-[32px] px-2.5 text-[12px] rounded-lg"
+                  />
+                </div>
+                <div className={pm.marriage_status === 'MARRIED' ? 'col-span-1 grid grid-cols-1 gap-2' : 'grid grid-cols-2 gap-2'}>
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#888174] uppercase mb-1">Start Year <span className="normal-case font-medium text-[#A8A296]">(Optional)</span></label>
+                    <input type="text" value={pm.marriage_year} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ''); const arr = [...data.previous_marriages]; arr[index].marriage_year = v; onChange({ ...data, previous_marriages: arr }); }} placeholder="YYYY" className="w-full bg-gray-50 border border-[#EFE9DF] rounded-lg px-2.5 h-[32px] text-[12px]" />
+                  </div>
+                  {pm.marriage_status !== 'MARRIED' && (
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#888174] uppercase mb-1">End Year <span className="normal-case font-medium text-[#A8A296]">(Optional)</span></label>
+                      <input type="text" value={pm.end_year} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ''); const arr = [...data.previous_marriages]; arr[index].end_year = v; onChange({ ...data, previous_marriages: arr }); }} placeholder="YYYY" className="w-full bg-gray-50 border border-[#EFE9DF] rounded-lg px-2.5 h-[32px] text-[12px]" />
+                    </div>
+                  )}
+                </div>
+                {pm.marriage_status !== 'MARRIED' && (
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-bold text-[#888174] uppercase mb-1">Reason for End</label>
+                    <input type="text" value={pm.reason_for_end} onChange={e => { const arr = [...data.previous_marriages]; arr[index].reason_for_end = e.target.value; onChange({ ...data, previous_marriages: arr }); }} placeholder="Reason (Optional)" className="w-full bg-gray-50 border border-[#EFE9DF] rounded-lg px-2.5 h-[32px] text-[12px]" />
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          <button type="button" onClick={() => onChange({ ...data, previous_marriages: [...(data.previous_marriages || []), { _tempId: crypto.randomUUID(), marriage_status: '', marriage_year: '', end_year: '', reason_for_end: '', children_count: '0', children_live_with_profile: 'NO' }] })}
+            className="flex items-center gap-1.5 text-[12px] font-bold text-[#064e3b]">
+            <Plus size={14} /> Add Previous Marriage
+          </button>
+        </div>
+      )}
+
+      {data.marital_status && data.marital_status !== 'NEVER_MARRIED' && (
+        <div className="space-y-4 pt-4 border-t border-[#EFE9DF] animate-in fade-in slide-in-from-top-2 duration-300">
+          <div>
+            <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156] mb-2">Number of Children</label>
+            <input type="text" value={data.number_of_children === '' ? '' : data.number_of_children} onChange={(e) => {
+              const val = e.target.value.replace(/[^0-9]/g, '');
+              onChange({ ...data, number_of_children: val ? Number(val) : '' });
+            }} placeholder="0" className="w-[80px] bg-white border border-[#EFE9DF] rounded-xl px-3.5 py-2 text-[13px] focus:border-[#064e3b] focus:outline-none" />
           </div>
 
-          {/* Living With - Only show if number_of_children > 0 */}
-          {typeof data.number_of_children === 'number' && data.number_of_children > 0 && (
-            <div className="space-y-2 animate-in fade-in zoom-in duration-300">
-              <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-                Children Living With You?
-              </label>
-              <Select
-                value={data.children_living_with || ''}
-                onValueChange={(val) => set('children_living_with', val as any)}
-              >
-                <SelectTrigger className="w-full h-[46px] bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] text-[#24211D] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all shadow-none">
-                  <SelectValue placeholder="Select arrangement" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="YES">Yes</SelectItem>
-                  <SelectItem value="NO">No</SelectItem>
-                  <SelectItem value="SOMETIMES">Sometimes</SelectItem>
-                </SelectContent>
-              </Select>
+          {data.number_of_children !== '' && Number(data.number_of_children) > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-[13px] font-bold text-[#1E1F22]">Children Details</h4>
+              {data.children?.map((child, index) => (
+                <div key={child._tempId} className="flex gap-2 items-center">
+                  <SearchableSelect
+                    value={child.gender}
+                    onChange={v => { const arr = [...data.children]; arr[index].gender = v; onChange({ ...data, children: arr }); }}
+                    options={[{ value: 'MALE', label: 'Son' }, { value: 'FEMALE', label: 'Daughter' }]}
+                    placeholder="Gender"
+                    className="bg-white border-[#EFE9DF] h-[36px] px-3 w-[110px] text-[12px] rounded-lg"
+                  />
+                  <input type="text" value={child.age} onChange={e => { const arr = [...data.children]; arr[index].age = e.target.value.replace(/[^0-9]/g, ''); onChange({ ...data, children: arr }); }} placeholder="Age" className="w-[70px] bg-white border border-[#EFE9DF] rounded-lg h-[36px] px-3 text-[12px] text-center" />
+                  <SearchableSelect
+                    value={child.living_with_profile}
+                    onChange={v => { const arr = [...data.children]; arr[index].living_with_profile = v; onChange({ ...data, children: arr }); }}
+                    options={[{ value: 'YES', label: 'Lives with me' }, { value: 'NO', label: 'Does not live with me' }]}
+                    placeholder="Living With"
+                    className="bg-white border-[#EFE9DF] h-[36px] px-3 w-[160px] text-[12px] rounded-lg"
+                  />
+                  <button type="button" onClick={() => onChange({ ...data, children: data.children.filter((_, i) => i !== index) })}
+                    className="text-red-500 p-2 opacity-50 hover:opacity-100">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => onChange({ ...data, children: [...(data.children || []), { _tempId: crypto.randomUUID(), gender: '', age: '', living_with_profile: 'NO', additional_details: '' }] })}
+                className="flex items-center gap-1.5 text-[12px] font-bold text-[#064e3b]">
+                <Plus size={14} /> Add Child Record
+              </button>
             </div>
           )}
         </div>
       )}
 
+
       {/* Nationality */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-8 lg:gap-12">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Nationality

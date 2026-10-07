@@ -481,4 +481,58 @@ export class ProfileService {
 
     if (error) throw error;
   }
+
+  /**
+   * CHILDREN & PREVIOUS MARRIAGES
+   */
+  static async saveChildren(profileId: string, data: any[]): Promise<void> {
+    const supabase = createClient();
+    await supabase.from('children').delete().eq('profile_id', profileId);
+    if (data.length > 0) {
+      const { error } = await supabase.from('children').insert(
+        data.map(d => ({ ...d, profile_id: profileId }))
+      );
+      if (error) throw error;
+    }
+  }
+
+  static async savePreviousMarriages(profileId: string, data: any[]): Promise<void> {
+    const supabase = createClient();
+    await supabase.from('previous_marriages').delete().eq('profile_id', profileId);
+    if (data.length > 0) {
+      const { error } = await supabase.from('previous_marriages').insert(
+        data.map((d, index) => ({ ...d, profile_id: profileId, marriage_number: index + 1 }))
+      );
+      if (error) throw error;
+    }
+  }
+
+  static async deleteProfile(profileId: string): Promise<void> {
+    const supabase = createClient();
+    
+    // First, fetch the profile to see if it has a picture
+    const { data: profile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('profile_URL')
+      .eq('id', profileId)
+      .single();
+      
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+    
+    // If there's a picture, delete it from storage
+    if (profile?.profile_URL) {
+      await ProfileService.deleteProfilePicture(profile.profile_URL);
+    }
+    
+    // Delete the profile itself via API to bypass RLS restrictions
+    const response = await fetch(`/api/profiles/${profileId}`, {
+      method: 'DELETE',
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to delete profile');
+    }
+  }
+
 }

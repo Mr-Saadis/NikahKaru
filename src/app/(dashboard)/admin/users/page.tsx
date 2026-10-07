@@ -208,7 +208,7 @@ export default function AdminSettings() {
                       <SelectItem value="HIGH_LEVEL_ADMIN">High Level Admin</SelectItem>
                       <SelectItem value="MANAGER">Manager</SelectItem>
                       <SelectItem value="AGENT">Agent</SelectItem>
-                      <SelectItem value="DEVELOPER">Developer</SelectItem>
+                      <SelectItem value={"DEVELOPER" as any}>Developer</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -249,11 +249,11 @@ export default function AdminSettings() {
                   <tbody className="divide-y divide-[#F7F3EB] text-[13px] text-[#2A2925]">
                     {users.map((u) => {
                       const isSelf = u.User_ID === authUser?.id;
-                      const isTargetDeveloper = u.User_Role === 'DEVELOPER';
-                      const isCurrentDeveloper = authRole === 'DEVELOPER';
+                      const isTargetDeveloper = u.User_Role === ('DEVELOPER' as any);
+                      const isCurrentDeveloper = authRole === ('DEVELOPER' as any);
                       
                       const canDelete = !isSelf && (!isTargetDeveloper || isCurrentDeveloper);
-                      const canEdit = !isSelf && (u.User_Role !== 'DEVELOPER' || isCurrentDeveloper);
+                      const canEdit = !isSelf && (u.User_Role !== ('DEVELOPER' as any) || isCurrentDeveloper);
 
                       return (
                         <tr key={u.User_ID} className="hover:bg-[#FAF7F2] transition-colors group">
@@ -280,13 +280,13 @@ export default function AdminSettings() {
                                   <SelectItem value="HIGH_LEVEL_ADMIN">High Level Admin</SelectItem>
                                   <SelectItem value="MANAGER">Manager</SelectItem>
                                   <SelectItem value="AGENT">Agent</SelectItem>
-                                  {isCurrentDeveloper && <SelectItem value="DEVELOPER">Developer</SelectItem>}
+                                  {isCurrentDeveloper && <SelectItem value={"DEVELOPER" as any}>Developer</SelectItem>}
                                 </SelectContent>
                               </Select>
                             ) : (
                               <div className="flex flex-col gap-1 items-start">
                                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
-                                  ${(u.User_Role === 'HIGH_LEVEL_ADMIN' || u.User_Role === 'DEVELOPER') ? 'bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc]' : 
+                                  ${(u.User_Role === 'HIGH_LEVEL_ADMIN' || u.User_Role === ('DEVELOPER' as any)) ? 'bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc]' : 
                                     u.User_Role === 'MANAGER' ? 'bg-[#FDF0D8] text-[#8B6122] border border-[#F6E1BA]' : 
                                     'bg-[#F4EFE7] text-[#696256] border border-[#ECE4D8]'}`}>
                                   {u.User_Role.replace(/_/g, ' ')}

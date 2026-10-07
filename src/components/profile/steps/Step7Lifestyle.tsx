@@ -43,10 +43,10 @@ function ToggleGroup<T extends string>({
             key={opt.value}
             type="button"
             onClick={() => onChange(value === opt.value ? '' : opt.value)}
-            className={`px-4 py-2 rounded-full text-[12px] font-semibold border transition-all ${
+            className={`px-5 py-3 rounded-[20px] text-[13px] font-semibold border transition-all flex-1 text-center ${
               value === opt.value
-                ? 'bg-[#064e3b] text-white border-[#064e3b] shadow-sm'
-                : 'bg-white border-[#E9E4DC] text-[#4E473D] hover:border-[#064e3b]/30'
+                ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md'
+                : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
             }`}
           >
             {opt.label}
@@ -86,7 +86,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
         ]}
       />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-8 lg:gap-12">
         {/* Smoking */}
         <div>
           <ToggleGroup
@@ -132,7 +132,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
           value={data.other_lifestyle_information}
           onChange={(e) => set('other_lifestyle_information', e.target.value)}
           placeholder="Any other relevant lifestyle details..."
-          className="w-full bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all resize-none"
+          className="w-full min-h-[100px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none resize-y"
         />
       </div>
 
@@ -148,7 +148,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
         />
 
         {data.willing_to_relocate === 'YES' && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-4 lg:gap-6">
             <div className="space-y-1.5">
               <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Preferred Country</label>
               <SearchableSelect
@@ -156,7 +156,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
                 onChange={(val) => onChange({ ...data, preferred_country_id: val && val !== 'none' ? Number(val) : '', preferred_province_id: '', preferred_city_id: '' })}
                 options={[{ label: 'Any', value: 'none' }, ...countries.map(c => ({ label: c.name_en, value: String(c.id) }))]}
                 placeholder="Any"
-                className="bg-white border-[#EFE9DF] h-[42px] px-3 py-2.5 text-[12px] rounded-xl"
+                className=""
                 direction="up"
               />
             </div>
@@ -168,7 +168,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
                 options={[{ label: 'Any', value: 'none' }, ...prefProvinces.map(p => ({ label: p.name_en, value: String(p.id) }))]}
                 placeholder="Any"
                 disabled={!prefProvinces.length}
-                className="bg-white border-[#EFE9DF] h-[42px] px-3 py-2.5 text-[12px] rounded-xl"
+                className=""
                 direction="up"
               />
             </div>
@@ -180,7 +180,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
                 options={[{ label: 'Any', value: 'none' }, ...prefCities.map(c => ({ label: c.name_en, value: String(c.id) }))]}
                 placeholder="Any"
                 disabled={!prefCities.length}
-                className="bg-white border-[#EFE9DF] h-[42px] px-3 py-2.5 text-[12px] rounded-xl"
+                className=""
                 direction="up"
               />
             </div>

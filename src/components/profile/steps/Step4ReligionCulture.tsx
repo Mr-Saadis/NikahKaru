@@ -33,7 +33,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
         <p className="text-[12px] text-[#7D766C]">Religious and cultural background details.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-8 lg:gap-12">
         {/* Religion */}
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
@@ -44,7 +44,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
             onChange={(val) => onChange({ ...data, religion_id: val ? Number(val) : '', sect_id: '' })}
             options={religions.map(r => ({ label: r.name_en, value: String(r.id) }))}
             placeholder="Select religion"
-            className="bg-gray-50 border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl cursor-not-allowed opacity-70"
+            className=""
             disabled={true}
           />
         </div>
@@ -60,12 +60,12 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
             options={availableSects.map(s => ({ label: s.name_en, value: String(s.id) }))}
             placeholder={!data.religion_id ? 'Select Religion first' : availableSects.length === 0 ? 'No sects defined' : 'Select sect'}
             disabled={!data.religion_id || availableSects.length === 0}
-            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            className=""
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-8 lg:gap-12">
         {/* Caste */}
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
@@ -76,7 +76,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
             onChange={(val) => set('caste_id', val ? Number(val) : '')}
             options={castes.map(c => ({ label: c.name_en, value: String(c.id) }))}
             placeholder="Select caste (optional)"
-            className="bg-white border-[#EFE9DF] h-[46px] px-4 py-3 text-[13px] rounded-xl"
+            className=""
           />
         </div>
 
@@ -91,7 +91,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
               value={data.other_caste_text}
               onChange={(e) => set('other_caste_text', e.target.value)}
               placeholder="Enter caste name"
-              className="w-full h-[46px] bg-white border border-[#EFE9DF] rounded-xl px-4 py-3 text-[13px] placeholder:text-[#A8A296] focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all"
+              className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
             />
           </div>
         )}
