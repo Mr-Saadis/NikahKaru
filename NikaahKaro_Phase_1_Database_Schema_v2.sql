@@ -734,7 +734,8 @@ create table public.information_release_fields (
 
 create table public.notifications (
     id uuid primary key default gen_random_uuid(),
-    user_id uuid not null references public.users(id) on delete cascade,
+    user_id uuid references public.users(id) on delete cascade,
+    target_role varchar(50),
     type public.notification_type not null,
     title varchar(250) not null,
     message text,
@@ -1769,4 +1770,130 @@ CREATE INDEX IF NOT EXISTS idx_matches_active_female_pair
 ON public.matches(female_profile_id, male_profile_id)
 WHERE status IN ('IN_PROGRESS', 'REJECTED');
 
+-- ==============================================================================
+-- Function: submit_information_request
+-- Purpose: Safely creates an information request, logs the action, and notifies managers.
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.submit_information_request(
+    p_agent_id UUID,
+    p_source_profile_id UUID,
+    p_client_ip TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER -- Runs with privileges of the creator
+AS $$
+DECLARE
+    v_request_id UUID;
+    v_manager RECORD;
+    v_profile_name TEXT;
+    v_agent_name TEXT;
+BEGIN
+    -- 1. Insert into information_requests
+    INSERT INTO public.information_requests (
+        requested_by,
+        source_profile_id,
+        status,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        p_agent_id,
+        p_source_profile_id,
+        'PENDING',
+        NOW(),
+        NOW()
+    )
+    RETURNING id INTO v_request_id;
+
+    -- 2. Insert into audit_logs
+    INSERT INTO public.audit_logs (
+        actor_user_id,
+        action,
+        entity_type,
+        entity_id,
+        new_data,
+        metadata
+    )
+    VALUES (
+        p_agent_id,
+        'CREATE',
+        'information_request',
+        v_request_id,
+        jsonb_build_object(
+            'status', 'PENDING',
+            'source_profile_id', p_source_profile_id
+        ),
+        jsonb_build_object(
+            'client_ip', p_client_ip,
+            'role', 'AGENT'
+        )
+    );
+
+    -- Get Profile Name for the Notification
+    SELECT full_name INTO v_profile_name 
+    FROM public.personal_information 
+    WHERE profile_id = p_source_profile_id;
+    
+    IF v_profile_name IS NULL THEN
+        v_profile_name := 'a profile';
+    END IF;
+
+    -- Get Agent Name for the Notification
+    SELECT full_name INTO v_agent_name
+    FROM public.users
+    WHERE id = p_agent_id;
+
+    IF v_agent_name IS NULL THEN
+        v_agent_name := 'An agent';
+    END IF;
+
+    -- 3. Notify all Managers and Admins, AND the Agent who requested
+    INSERT INTO public.notifications (
+        user_id,
+        target_role,
+        type,
+        title,
+        message,
+        entity_type,
+        entity_id
+    )
+    VALUES 
+    (
+        NULL,
+        'MANAGER',
+        'REQUEST',
+        'New Match Analysis Request',
+        v_agent_name || ' has requested a match analysis for ' || v_profile_name || '.',
+        'information_request',
+        v_request_id
+    ),
+    (
+        NULL,
+        'HIGH_LEVEL_ADMIN',
+        'REQUEST',
+        'New Match Analysis Request',
+        v_agent_name || ' has requested a match analysis for ' || v_profile_name || '.',
+        'information_request',
+        v_request_id
+    ),
+    (
+        p_agent_id,
+        NULL,
+        'REQUEST',
+        'Request Submitted',
+        'You have requested the info of ' || v_profile_name || '.',
+        'information_request',
+        v_request_id
+    );
+
+    -- Return the newly created request ID
+    RETURN v_request_id;
+
+EXCEPTION WHEN OTHERS THEN
+    -- If any error occurs, the transaction will automatically rollback
+    RAISE EXCEPTION 'Failed to submit information request: %', SQLERRM;
+END;
+$$;
 

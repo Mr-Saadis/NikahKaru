@@ -47,9 +47,9 @@ export function scoreCriterion(
   matchMode: string,
   rawScoreFn: () => { score: number; explanation: string }
 ): ScoreBreakdownDetail | null {
-  if (!importance || importance === 'MANDATORY') {
+  if (!importance || importance === 'MANDATORY' || importance === 'DOESNT_MATTER' || importance === 'DOES_NOT_MATTER') {
     // MANDATORY → handled by hardFilters, not scored here
-    // null/empty → "Doesn't Matter" → completely excluded from scoring
+    // null/empty/DOESNT_MATTER → "Doesn't Matter" → completely excluded from scoring
     return null;
   }
 

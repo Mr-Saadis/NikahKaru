@@ -1,45 +1,19 @@
-import { getEligibleCandidates } from './exclusions';
 import { calculateTwoWayCompatibility } from './twoWayScoring';
 import type { MatchResult, MatchingOptions } from './types';
 import type { ProfileGender, AllPreferences } from '../types/database.types';
+import { transformFlatProfileToNested, transformFlatPrefsToAllPreferences } from './transforms';
 
-// Helper to fetch preferences using an injected Supabase client
+// Note: fetchPreferences is exported for backwards compatibility in preview/route.ts
+// but it is now optimized to use the new view.
 export async function fetchPreferences(supabase: any, profileId: string): Promise<AllPreferences | null> {
-  const { data: prefSet, error } = await supabase
-    .from('preference_sets')
-    .select('id')
+  const { data, error } = await supabase
+    .from('v_current_matching_preferences')
+    .select('*')
     .eq('profile_id', profileId)
-    .eq('is_current', true)
     .maybeSingle();
 
-  if (error || !prefSet) return null;
-  const setId = prefSet.id;
-
-  const [
-    basicReq, physicalReq, eduReq, profReq, relReq, locReq, famReq, lifeReq, relocReq
-  ] = await Promise.all([
-    supabase.from('basic_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-    supabase.from('physical_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-    supabase.from('education_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-    supabase.from('profession_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-    supabase.from('religion_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-    supabase.from('location_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-    supabase.from('family_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-    supabase.from('lifestyle_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-    supabase.from('relocation_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-  ]);
-
-  return {
-    basic: basicReq.data || null,
-    physical: physicalReq.data || null,
-    education: eduReq.data || null,
-    profession: profReq.data || null,
-    religion: relReq.data || null,
-    location: locReq.data || null,
-    family: famReq.data || null,
-    lifestyle: lifeReq.data || null,
-    relocation: relocReq.data || null,
-  };
+  if (error || !data) return null;
+  return transformFlatPrefsToAllPreferences(data);
 }
 
 export async function runMatching(
@@ -47,75 +21,93 @@ export async function runMatching(
   sourceProfileId: string,
   options: MatchingOptions
 ): Promise<MatchResult[]> {
-  // 1. Load source profile data
-  const { data: sourceData, error: sourceError } = await supabase
-    .from('profiles')
-    .select(`
-      id, gender, status,
-      personal_information (*),
-      physical_information (*),
-      education_records (*),
-      employment_records (*),
-      income_information (*),
-      religion_information (*),
-      profile_locations (*),
-      residency_information (*),
-      lifestyle_information (*),
-      relocation_information (*)
-    `)
-    .eq('id', sourceProfileId)
-    .single();
+  // 1. Get eligible candidates using the optimized RPC
+  const candidateLimit = options.limit || 500; // Reasonable default for bulk
+  const { data: flatCandidates, error: candidatesError } = await supabase
+    .rpc('get_matching_candidates', {
+      p_source_profile_id: sourceProfileId,
+      p_limit: candidateLimit
+    });
 
-  if (sourceError || !sourceData) {
-    throw new Error(`Failed to load source profile: ${sourceError?.message}`);
+  if (candidatesError) {
+    throw new Error(`Failed to fetch candidates via RPC: ${candidatesError.message}`);
   }
 
-  // 2. Load source preferences
-  const sourcePrefs = await fetchPreferences(supabase, sourceProfileId);
+  // 2. Load source profile data from the materialized view
+  const { data: flatSourceData, error: sourceError } = await supabase
+    .from('mv_matching_profiles')
+    .select('*')
+    .eq('profile_id', sourceProfileId)
+    .single();
+
+  if (sourceError || !flatSourceData) {
+    throw new Error(`Failed to load source profile from MV: ${sourceError?.message}`);
+  }
+
+  // 3. Bulk fetch preferences for source AND all candidates
+  const allProfileIds = [sourceProfileId, ...(flatCandidates || []).map((c: any) => c.profile_id)];
+
+  const { data: flatPrefsList, error: prefsError } = await supabase
+    .from('v_current_matching_preferences')
+    .select('*')
+    .in('profile_id', allProfileIds);
+
+  if (prefsError) {
+    throw new Error(`Failed to bulk load preferences: ${prefsError.message}`);
+  }
+
+  // Map preferences by profile_id
+  const prefsMap = new Map<string, AllPreferences>();
+  flatPrefsList?.forEach((row: any) => {
+    prefsMap.set(row.profile_id, transformFlatPrefsToAllPreferences(row));
+  });
+
+  const sourcePrefs = prefsMap.get(sourceProfileId);
   if (!sourcePrefs) {
     throw new Error('Source profile has no active preferences setup.');
   }
 
-  const oppositeGender: ProfileGender = sourceData.gender === 'MALE' ? 'FEMALE' : 'MALE';
+  const oppositeGender: ProfileGender = flatSourceData.gender === 'MALE' ? 'FEMALE' : 'MALE';
 
-  // 3. Get all eligible candidates (Exclusions applied)
-  const candidates = await getEligibleCandidates(supabase, sourceProfileId, oppositeGender);
+  // 4. Transform source data to nested shape for existing scoring logic
+  const sourceData = transformFlatProfileToNested(flatSourceData);
 
   const results: MatchResult[] = [];
 
-  // 4. Iterate over candidates
-  for (const candidate of candidates) {
-    // Load candidate preferences
-    const candidatePrefs = await fetchPreferences(supabase, candidate.id);
+  // 5. Iterate over candidates
+  for (const flatCandidate of (flatCandidates || [])) {
+    const candidatePrefs = prefsMap.get(flatCandidate.profile_id);
     if (!candidatePrefs) continue; // If they have no preferences, they can't be matched two-way properly.
 
-    // 5. Calculate Two-Way Compatibility (Includes Hard Filters & Soft Scoring)
-    const match = calculateTwoWayCompatibility(sourceData, sourcePrefs, candidate, candidatePrefs);
+    const candidateData = transformFlatProfileToNested(flatCandidate);
+
+    // 6. Calculate Two-Way Compatibility (Includes Hard Filters & Soft Scoring)
+    // Existing scoring logic handles the transformed nested data perfectly
+    const match = calculateTwoWayCompatibility(sourceData, sourcePrefs, candidateData, candidatePrefs);
 
     if (match.passed) {
       results.push({
-        candidateProfileId: candidate.id,
+        candidateProfileId: candidateData.id,
         sourceToCandidateScore: match.sourceToCandidateScore,
         candidateToSourceScore: match.candidateToSourceScore,
         finalScore: match.finalScore,
         breakdowns: match.breakdowns,
-        candidateData: candidate,
+        candidateData: candidateData,
         candidatePrefs: candidatePrefs,
       });
     }
   }
 
-  // 6. Rank candidates by final score descending
+  // 7. Rank candidates by final score descending
   results.sort((a, b) => b.finalScore - a.finalScore);
 
   // Assign ranks
   results.forEach((r, idx) => { r.rank = idx + 1; });
 
-  // 7. Apply limit if provided (e.g. for Manager official run) 
-  // If Agent preview, limit might be undefined meaning "return all"
+  // 8. Apply limit if provided (e.g. for Manager official run) 
   const finalResults = options.limit ? results.slice(0, options.limit) : results;
 
-  // 8. Persist if required (Manager Official Run)
+  // 9. Persist if required (Manager Official Run)
   if (options.persist) {
     // Create match_runs
     const { data: runData, error: runError } = await supabase
@@ -124,9 +116,9 @@ export async function runMatching(
         source_profile_id: sourceProfileId,
         preference_set_id: sourcePrefs.basic?.preference_set_id, // Reference to current set
         executed_by: options.executedBy,
-        algorithm_version: '1.0.0',
+        algorithm_version: '1.1.0', // Bumped version for refactor
         candidate_limit: options.limit || results.length,
-        candidates_considered: candidates.length,
+        candidates_considered: (flatCandidates || []).length,
         candidates_matched: results.length,
       })
       .select('id')
@@ -135,7 +127,6 @@ export async function runMatching(
     if (runError) throw new Error(`Failed to save match run: ${runError.message}`);
     const runId = runData.id;
 
-    // We'd ideally do this in a single transaction/RPC. For Next.js, parallel inserts are okay for now.
     const resultInserts = finalResults.map(r => ({
       match_run_id: runId,
       candidate_profile_id: r.candidateProfileId,
@@ -158,7 +149,7 @@ export async function runMatching(
       for (const ir of insertedResults) {
         const originalResult = finalResults.find(fr => fr.candidateProfileId === ir.candidate_profile_id);
         if (originalResult) {
-          // Source -> Candidate (MALE or FEMALE depending on source)
+          // Source -> Candidate
           originalResult.breakdowns.sourceToCandidate.forEach(b => {
             breakdownInserts.push({
               match_result_id: ir.id,
@@ -176,7 +167,7 @@ export async function runMatching(
             });
           });
 
-          // Candidate -> Source (opposite gender)
+          // Candidate -> Source
           originalResult.breakdowns.candidateToSource.forEach(b => {
             breakdownInserts.push({
               match_result_id: ir.id,
@@ -197,6 +188,7 @@ export async function runMatching(
       }
 
       if (breakdownInserts.length > 0) {
+        // Break into smaller chunks if there are thousands of rows (usually ~20-30 rows per result, so ~150 rows for top 5)
         await supabase.from('match_score_breakdowns').insert(breakdownInserts);
       }
     }

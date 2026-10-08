@@ -72,9 +72,7 @@ export default function Header({
   }, [isDraftsOpen]);
 
   const isDark = variant === 'dark';
-  const btnClass = isDark
-    ? "relative w-9 h-9 rounded-full bg-transparent border border-white/20 hover:bg-white/10 shadow-sm flex items-center justify-center text-white/80 transition-colors"
-    : "relative w-9 h-9 rounded-xl bg-white border border-[#E9E4DC] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#064e3b] transition-colors";
+  const btnClass = "relative w-11 h-11 rounded-full bg-white border border-[#EFE9DF] hover:bg-[#F4ECE1] shadow-sm flex items-center justify-center text-[#1F3B34] transition-colors";
 
   const badgeBorder = isDark ? "border-[#2F3E51]" : "border-white";
 

@@ -727,7 +727,8 @@ export interface InformationReleaseField {
 
 export interface Notification {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  target_role: string | null;
   type: NotificationType;
   title: string;
   message: string | null;

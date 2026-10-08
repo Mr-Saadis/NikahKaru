@@ -17,6 +17,9 @@ interface CustomDatePickerProps {
   value: string;          // YYYY-MM-DD or ''
   onChange: (val: string) => void;
   placeholder?: string;
+  className?: string;
+  iconClassName?: string;
+  popoverAlignment?: 'left' | 'right';
 }
 
 /** Parse flexible user input into a Date or null */
@@ -95,7 +98,7 @@ function getFirstDayOfMonth(year: number, month: number) {
 const MIN_YEAR = 1950;
 const MAX_YEAR = new Date().getFullYear();
 
-export default function CustomDatePicker({ value, onChange, placeholder = 'dd/mm/yyyy' }: CustomDatePickerProps) {
+export default function CustomDatePicker({ value, onChange, placeholder = 'dd/mm/yyyy', className, iconClassName, popoverAlignment = 'left' }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState(value ? formatDisplay(value) : '');
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -235,7 +238,7 @@ export default function CustomDatePicker({ value, onChange, placeholder = 'dd/mm
           onBlur={handleInputBlur}
           onKeyDown={handleInputKeyDown}
           placeholder={placeholder}
-          className={`w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] pl-5 pr-11 py-3.5 text-[14px] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none ${
+          className={className || `w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] pl-5 pr-11 py-3.5 text-[14px] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none ${
             !inputText ? 'text-[#94A3B8]' : 'text-[#2F3E51]'
           }`}
         />
@@ -254,13 +257,13 @@ export default function CustomDatePicker({ value, onChange, placeholder = 'dd/mm
           }}
           className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-[#888174] hover:text-[#064e3b] hover:bg-[#E5EFE9]/50 transition-all"
         >
-          <CalendarIcon className="h-4 w-4" />
+          <CalendarIcon className={iconClassName || "h-4 w-4"} />
         </button>
       </div>
 
       {/* Dropdown calendar */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 z-50 w-[300px] bg-white border border-[#EFE9DF] rounded-2xl shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08),0_2px_8px_-2px_rgba(0,0,0,0.04)] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+        <div className={`absolute top-full mt-2 z-50 w-[300px] bg-white border border-[#EFE9DF] rounded-2xl shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08),0_2px_8px_-2px_rgba(0,0,0,0.04)] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150 ${popoverAlignment === 'right' ? 'right-0' : 'left-0'}`}>
 
           {/* Header: nav arrows + month/year selectors */}
           <div className="flex items-center justify-between px-4 pt-4 pb-2">

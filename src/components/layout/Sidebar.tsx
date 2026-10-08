@@ -24,6 +24,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   PanelLeftOpen,
+  Bell,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -58,6 +59,7 @@ export const navItems = [
   { label: 'Releases', href: '/release-requests', icon: FileCheck, roles: ['MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'release-requests' },
   { label: 'Proposals', href: '/proposals', icon: Send, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'proposals' },
   { label: 'Feedback', href: '/feedback', icon: MessageSquareWarning, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'feedback' },
+  { label: 'Notifications', href: '/notifications', icon: Bell, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'notifications' },
 ];
 
 export const adminItems = [
