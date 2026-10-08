@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { RequestItem, ColumnDef } from './types';
-import { AVATAR_COLORS, COLUMNS } from './constants';
+import { AVATAR_COLORS } from './constants';
 import { BookmarkFilledIcon } from './icons';
 
 // ============================================================
@@ -19,10 +19,16 @@ interface RequestCardProps {
   onDragEnd: () => void;
   /** If true, show the original column label pill (for panel cards) */
   showColumnTag?: boolean;
+  /** Called when the card is clicked to open the details sheet */
+  onSelect?: (id: string) => void;
+  /** Whether this card is currently selected */
+  isSelected?: boolean;
 }
 
 function formatDate(iso: string): string {
-  const [y, m, d] = iso.split('-');
+  if (!iso) return '';
+  const datePart = iso.split('T')[0];
+  const [y, m, d] = datePart.split('-');
   return `${d}.${m}.${y.slice(2)}`;
 }
 
@@ -43,12 +49,18 @@ export default function RequestCard({
   onDragStart,
   onDragEnd,
   showColumnTag,
+  onSelect,
+  isSelected,
 }: RequestCardProps) {
   const avatarColor = AVATAR_COLORS[globalIndex % AVATAR_COLORS.length];
   const isTransparent = column.cardBg === 'transparent';
+  const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  const isReadColumn = ['first', 'second', 'requested', 'responded'].includes(column.key);
+  const effectiveBg = (isReadColumn && item.isRead) ? '#FFFFFF' : column.cardBg;
 
   // Contrast logic based on new colour schema
-  const isDarkBg = ['#2F3E51', '#1F3B34', '#C86A4A'].includes(column.cardBg);
+  const isDarkBg = ['#2F3E51', '#1F3B34', '#C86A4A'].includes(effectiveBg);
   const textColor = isDarkBg ? '#fff' : '#1F3B34'; // Pine Grove as dark default
   const mutedColor = isDarkBg ? 'rgba(255,255,255,0.7)' : 'rgba(31,59,52,0.65)';
   const dashFilled = isDarkBg ? '#fff' : '#1F3B34';
@@ -72,6 +84,33 @@ export default function RequestCard({
     onDragEnd();
   }, [onDragEnd]);
 
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!onSelect) return;
+      // If dragged more than 5px, don't count as click
+      if (dragStartPos.current) {
+        const dx = Math.abs(e.clientX - dragStartPos.current.x);
+        const dy = Math.abs(e.clientY - dragStartPos.current.y);
+        if (dx > 5 || dy > 5) return;
+      }
+      onSelect(item.id);
+    },
+    [onSelect, item.id],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' && onSelect) {
+        onSelect(item.id);
+      }
+    },
+    [onSelect, item.id],
+  );
+
   const handleBookmark = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
@@ -85,7 +124,7 @@ export default function RequestCard({
   const filled = column.filledDashes;
 
   // Find original column label for panel tag
-  const originalLabel = COLUMNS.find((c) => c.key === item.status)?.label ?? item.status;
+  const originalLabel = column.label;
 
   return (
     <div
@@ -93,19 +132,24 @@ export default function RequestCard({
       tabIndex={0}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onMouseDown={handleMouseDown}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
       className="request-card group"
       style={{
         minHeight: 182,
         padding: 16,
         borderRadius: 22,
-        background: column.cardBg,
+        background: effectiveBg,
         border: isTransparent ? `1.5px solid ${column.color}` : 'none',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: isDarkBg 
-          ? '0 1px 0 rgba(255,255,255,0.15) inset, 0 2px 6px rgba(0,0,0,0.08)'
-          : '0 1px 0 rgba(255,255,255,0.5) inset, 0 2px 6px rgba(0,0,0,0.04)',
-        cursor: 'grab',
+        boxShadow: isSelected
+          ? '0 0 0 2px #111, 0 14px 28px rgba(30,30,50,.14)'
+          : isDarkBg
+            ? '0 1px 0 rgba(255,255,255,0.15) inset, 0 2px 6px rgba(0,0,0,0.08)'
+            : '0 1px 0 rgba(255,255,255,0.5) inset, 0 2px 6px rgba(0,0,0,0.04)',
+        cursor: 'pointer',
         position: 'relative',
         transition: 'transform .2s ease, box-shadow .2s ease, opacity .2s ease',
         animationDelay: `${index * 0.05}s`,
@@ -234,8 +278,8 @@ export default function RequestCard({
             color: mutedColor,
           }}
         >
-          <span>{item.staff}</span>
-          <span>{formatDate(item.date)}</span>
+          <span className="truncate max-w-[130px] pr-2" title={item.staff}>{item.staff}</span>
+          <span className="shrink-0">{formatDate(item.date)}</span>
         </div>
 
         {/* Column tag (only shown in Respond Later panel) */}

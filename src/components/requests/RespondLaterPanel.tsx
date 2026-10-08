@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import type { RequestItem } from './types';
-import { COLUMNS } from './constants';
+import type { RequestItem, ColumnDef } from './types';
 import { BookmarkFilledIcon } from './icons';
 import RequestCard from './RequestCard';
 
@@ -16,6 +15,9 @@ interface RespondLaterPanelProps {
   onSendToLater: (id: string) => void;
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  columns: ColumnDef[];
 }
 
 export default function RespondLaterPanel({
@@ -24,6 +26,9 @@ export default function RespondLaterPanel({
   onSendToLater,
   onDragStart,
   onDragEnd,
+  selectedId,
+  onSelect,
+  columns,
 }: RespondLaterPanelProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -157,7 +162,7 @@ export default function RespondLaterPanel({
           </div>
         ) : (
           cards.map((card, i) => {
-            const col = COLUMNS.find((c) => c.key === card.status) ?? COLUMNS[0];
+            const col = columns.find((c) => c.key === card.status) ?? columns[0];
             return (
               <RequestCard
                 key={card.id}
@@ -169,6 +174,8 @@ export default function RespondLaterPanel({
                 onDragStart={handleCardDragStartFromPanel}
                 onDragEnd={onDragEnd}
                 showColumnTag
+                onSelect={onSelect}
+                isSelected={card.id === selectedId}
               />
             );
           })

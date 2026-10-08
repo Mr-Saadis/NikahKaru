@@ -56,6 +56,7 @@ export const navItems = [
   { label: 'Add Profile', href: '/add-profile', icon: UserPlus, roles: ['AGENT'], id: 'add-new' },
   { label: 'Matching', href: '/matching', icon: HeartHandshake, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'matching' },
   { label: 'Requests', href: '/requests', icon: ClipboardList, roles: ['MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'requests' },
+  { label: 'My Requests', href: '/agent-requests', icon: ClipboardList, roles: ['AGENT'], id: 'agent-requests' },
   { label: 'Releases', href: '/release-requests', icon: FileCheck, roles: ['MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'release-requests' },
   { label: 'Proposals', href: '/proposals', icon: Send, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'proposals' },
   { label: 'Feedback', href: '/feedback', icon: MessageSquareWarning, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'feedback' },

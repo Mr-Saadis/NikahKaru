@@ -17,6 +17,13 @@ export const COLUMNS: ColumnDef[] = [
   { label: 'Archive',               key: 'archive',   color: '#1F3B34', cardBg: '#A3B18A', filledDashes: 3 },
 ];
 
+export const AGENT_COLUMNS: ColumnDef[] = [
+  { label: 'Entries Logged',        key: 'logged',    color: '#1F3B34', cardBg: '#F2EDE1', filledDashes: 1 },
+  { label: 'Requested Profiles',    key: 'requested', color: '#F2EDE1', cardBg: '#C86A4A', filledDashes: 1 },
+  { label: 'Responded / Released',  key: 'responded', color: '#A3B18A', cardBg: '#2F3E51', filledDashes: 2 },
+  { label: 'Completed',             key: 'done',      color: '#A3B18A', cardBg: 'transparent', filledDashes: 3 },
+];
+
 // Avatar accent colours — cycle by card index
 export const AVATAR_COLORS = [
   '#F2EDE1', // Cannoli Cream

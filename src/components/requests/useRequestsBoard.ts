@@ -2,12 +2,16 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import type { RequestItem, FilterState, ExpandedFilter, RequestStatus } from './types';
-import { getRequests } from './mock-data';
-import { COLUMNS, STAFF_NAMES } from './constants';
+import type { RequestItem, FilterState, ExpandedFilter, RequestStatus, ColumnDef } from './types';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 
-export function useRequestsBoard() {
+interface UseRequestsBoardProps {
+  columns: ColumnDef[];
+  fetchRequests: (filters: FilterState) => Promise<RequestItem[]>;
+  fetchNames: () => Promise<string[]>;
+}
+
+export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequestsBoardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -19,6 +23,7 @@ export function useRequestsBoard() {
   const urlStaff = searchParams.get('staff') || '';
 
   const [allItems, setAllItems] = useState<RequestItem[]>([]);
+  const [realAgentNames, setRealAgentNames] = useState<string[]>([]);
   
   // Local state for immediate UI response
   const [filters, setFilters] = useState<FilterState>({
@@ -30,6 +35,16 @@ export function useRequestsBoard() {
 
   const [expandedFilter, setExpandedFilter] = useState<ExpandedFilter>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Load agent names for filter dropdown (Once)
+  useEffect(() => {
+    let mounted = true;
+    fetchNames().then((names) => {
+      if (mounted) setRealAgentNames(names);
+    }).catch(console.error);
+    return () => { mounted = false; };
+  }, [fetchNames]);
 
   // 1-second debounce for search input ONLY
   const debouncedSearch = useDebounce(filters.search, 1000);
@@ -59,40 +74,53 @@ export function useRequestsBoard() {
     }
   }, [debouncedSearch, filters.dateFrom, filters.dateTo, filters.staff, pathname, router, searchParams]);
 
-  // Load data once (Simulating Server Fetch)
+  // Load data via Server Action
   useEffect(() => {
     let mounted = true;
-    // In a real scenario, we would pass the URL params directly to getRequests
-    // to perform Server-Side Filtering and Pagination
-    getRequests().then((data) => {
-      if (mounted) setAllItems(data);
-    });
+    
+    const activeUrlFilters = {
+      search: urlSearch,
+      dateFrom: urlDateFrom,
+      dateTo: urlDateTo,
+      staff: urlStaff,
+    };
+
+    fetchRequests(activeUrlFilters).then((data) => {
+      if (mounted) {
+        // Apply locally stored read requests and respond later requests
+        try {
+          const storedRead = localStorage.getItem('agent_read_requests');
+          const storedLater = localStorage.getItem('respond_later_requests');
+          
+          const readIds = new Set(storedRead ? JSON.parse(storedRead) : []);
+          const laterIds = new Set(storedLater ? JSON.parse(storedLater) : []);
+          
+          data = data.map(item => ({
+            ...item,
+            isRead: readIds.has(item.id) ? true : item.isRead,
+            later: laterIds.has(item.id) ? true : item.later
+          }));
+        } catch (e) {
+          console.error('Failed to parse local storage states', e);
+        }
+        setAllItems(data);
+      }
+    }).catch(console.error);
+
     return () => { mounted = false; };
-  }, []);
+  }, [urlSearch, urlDateFrom, urlDateTo, urlStaff, fetchRequests]);
 
   // ── Filtering (Simulating Server-Side Logic locally) ──
+  // Since the Server Action already filters based on URL params,
+  // allItems is ALREADY filtered! But we can keep this for extra safety.
   const filteredItems = useMemo(() => {
-    return allItems.filter((item) => {
-      // Use URL search instead of local state to ensure it respects the 1s debounce
-      if (urlSearch) {
-        const q = urlSearch.toLowerCase();
-        const match =
-          item.name.toLowerCase().includes(q) ||
-          item.cnic.toLowerCase().includes(q) ||
-          item.phone.toLowerCase().includes(q);
-        if (!match) return false;
-      }
-      if (urlDateFrom && item.date < urlDateFrom) return false;
-      if (urlDateTo && item.date > urlDateTo) return false;
-      if (urlStaff && item.staff !== urlStaff) return false;
-      return true;
-    });
-  }, [allItems, urlSearch, urlDateFrom, urlDateTo, urlStaff]);
+    return allItems;
+  }, [allItems]);
 
   // ── Column data ───────────────────────────────────────────
   const columnCards = useMemo(() => {
-    const map = new Map<RequestStatus, RequestItem[]>();
-    for (const col of COLUMNS) {
+    const map = new Map<string, RequestItem[]>();
+    for (const col of columns) {
       map.set(col.key, []);
     }
     for (const item of filteredItems) {
@@ -101,7 +129,7 @@ export function useRequestsBoard() {
       }
     }
     return map;
-  }, [filteredItems]);
+  }, [filteredItems, columns]);
 
   const laterCards = useMemo(() => {
     return filteredItems.filter((i) => i.later);
@@ -126,15 +154,69 @@ export function useRequestsBoard() {
   }), [filters]);
 
   // ── Actions ───────────────────────────────────────────────
+  
+  const updateLaterStorage = (id: string, isLater: boolean) => {
+    try {
+      const stored = localStorage.getItem('respond_later_requests');
+      const laterIds = new Set<string>(stored ? JSON.parse(stored) : []);
+      if (isLater) {
+        laterIds.add(id);
+      } else {
+        laterIds.delete(id);
+      }
+      localStorage.setItem('respond_later_requests', JSON.stringify(Array.from(laterIds)));
+    } catch (e) {
+      console.error('Failed to save respond later state', e);
+    }
+  };
+
   const sendToLater = useCallback((id: string) => {
+    updateLaterStorage(id, true);
     setAllItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, later: true } : item))
     );
   }, []);
 
   const returnFromLater = useCallback((id: string) => {
+    updateLaterStorage(id, false);
     setAllItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, later: false } : item))
+    );
+  }, []);
+
+  // ── Sheet selection ───────────────────────────────────────
+  const openSheet = useCallback((id: string) => {
+    setSelectedId((prev) => (prev === id ? null : id));
+  }, []);
+
+  const closeSheet = useCallback(() => {
+    setSelectedId(null);
+  }, []);
+
+  const toggleLater = useCallback((id: string) => {
+    setAllItems((prev) => {
+      const item = prev.find(i => i.id === id);
+      if (item) updateLaterStorage(id, !item.later);
+      return prev.map((item) =>
+        item.id === id ? { ...item, later: !item.later } : item
+      );
+    });
+  }, []);
+
+  const markAsReadLocal = useCallback((id: string) => {
+    try {
+      const stored = localStorage.getItem('agent_read_requests');
+      const readIds = new Set(stored ? JSON.parse(stored) : []);
+      readIds.add(id);
+      localStorage.setItem('agent_read_requests', JSON.stringify(Array.from(readIds)));
+    } catch (e) {
+      console.error('Failed to save read requests', e);
+    }
+    
+    setAllItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, isRead: true } : item
+      )
     );
   }, []);
 
@@ -154,6 +236,12 @@ export function useRequestsBoard() {
   const closeFilter = useCallback(() => {
     setExpandedFilter(null);
   }, []);
+
+  // ── Selected item ──────────────────────────────────────────
+  const selectedItem = useMemo(() => {
+    if (!selectedId) return null;
+    return filteredItems.find((i) => i.id === selectedId) ?? null;
+  }, [selectedId, filteredItems]);
 
   return {
     // Data
@@ -177,7 +265,15 @@ export function useRequestsBoard() {
     sendToLater,
     returnFromLater,
 
+    // Sheet
+    selectedId,
+    selectedItem,
+    openSheet,
+    closeSheet,
+    toggleLater,
+    markAsReadLocal,
+
     // Staff list (for filter dropdown)
-    staffNames: STAFF_NAMES,
+    staffNames: realAgentNames,
   };
 }

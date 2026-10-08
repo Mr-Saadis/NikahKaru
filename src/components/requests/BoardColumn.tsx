@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { RequestItem, ColumnDef } from './types';
 import RequestCard from './RequestCard';
 import EmptyColumn from './EmptyColumn';
-import { useIntersectionObserver } from '@/lib/hooks/useIntersectionObserver';
 
 // ============================================================
 // BoardColumn — Single Kanban column with header + card list
@@ -18,6 +17,8 @@ interface BoardColumnProps {
   onSendToLater: (id: string) => void;
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
 }
 
 export default function BoardColumn({
@@ -27,23 +28,26 @@ export default function BoardColumn({
   onSendToLater,
   onDragStart,
   onDragEnd,
+  selectedId,
+  onSelect,
 }: BoardColumnProps) {
-  // Infinite scroll simulation state
-  const [visibleCount, setVisibleCount] = useState(10);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  const isIntersecting = useIntersectionObserver(loadMoreRef, { threshold: 0.1, rootMargin: '200px' });
+  // Pagination state
+  const [visibleCount, setVisibleCount] = useState(20);
 
   // Reset pagination if total cards change significantly (e.g. filters applied)
   useEffect(() => {
-    setVisibleCount(10);
+    setVisibleCount(20);
   }, [cards.length]);
 
-  // Load 10 more items when scrolled to the bottom
-  useEffect(() => {
-    if (isIntersecting && visibleCount < cards.length) {
-      setVisibleCount((prev) => prev + 10);
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    // If scrolled within 100px of the bottom, load 20 more
+    if (scrollHeight - scrollTop - clientHeight < 100) {
+      if (visibleCount < cards.length) {
+        setVisibleCount((prev) => prev + 20);
+      }
     }
-  }, [isIntersecting, cards.length, visibleCount]);
+  };
 
   const visibleCards = cards.slice(0, visibleCount);
 
@@ -56,6 +60,7 @@ export default function BoardColumn({
         flexDirection: 'column',
         gap: 12,
         scrollSnapAlign: 'start',
+        minHeight: 0,
       }}
     >
       {/* Top color line */}
@@ -94,13 +99,15 @@ export default function BoardColumn({
       {/* Card list */}
       <div
         className="requests-scroll-hidden"
+        onScroll={handleScroll}
         style={{
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
-          overflowY: 'auto',
+          overflowY: selectedId ? 'hidden' : 'auto',
           padding: '2px 2px 16px',
+          minHeight: 0,
         }}
       >
         {visibleCards.length === 0 ? (
@@ -116,13 +123,10 @@ export default function BoardColumn({
               onSendToLater={onSendToLater}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
+              onSelect={onSelect}
+              isSelected={card.id === selectedId}
             />
           ))
-        )}
-        
-        {/* Invisible element to trigger intersection observer for Infinite Scroll */}
-        {visibleCount < cards.length && (
-          <div ref={loadMoreRef} className="h-4 shrink-0" />
         )}
       </div>
     </div>

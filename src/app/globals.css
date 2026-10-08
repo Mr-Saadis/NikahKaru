@@ -347,3 +347,37 @@
   transform-origin: top center;
   animation: ding-dong 1.5s ease-in-out infinite;
 }
+
+/* ─────────────────────────────────────────────
+   Request Details Sheet — keyframes and helpers
+───────────────────────────────────────────── */
+@keyframes sheet-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes sheet-fillb {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+@keyframes sheet-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0.28); }
+  50%      { box-shadow: 0 0 0 9px rgba(0,0,0,0); }
+}
+@keyframes sheet-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sheet-hidden-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.sheet-hidden-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+@keyframes sheet-spin { to { transform: rotate(360deg); } }
