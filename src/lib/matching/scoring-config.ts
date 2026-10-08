@@ -23,8 +23,7 @@ export const IMPORTANCE_WEIGHTS: Record<PreferenceImportance, number> = {
   HIGH: 3.0,
   MEDIUM: 2.0,
   LOW: 1.0,
-  DOESNT_MATTER: 0, // Completely ignored — not scored, not weighted
-  DOES_NOT_MATTER: 0, // Legacy alias — same as DOESNT_MATTER
+  DOES_NOT_MATTER: 0,
 };
 
 // ═══════════════════════════════════════════════════════════════
