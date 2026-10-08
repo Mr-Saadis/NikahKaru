@@ -2,15 +2,7 @@
 // Request Board Types
 // ============================================================
 
-export type RequestStatus =
-  | 'new'
-  | 'first'
-  | 'second'
-  | 'responded'
-  | 'done'
-  | 'pause'
-  | 'archive'
-  | 'feedback';
+export type RequestStatus = string;
 
 export interface RequestItem {
   id: string;
@@ -23,6 +15,8 @@ export interface RequestItem {
   status: RequestStatus;
   /** Client-only flag — card is in Respond Later panel */
   later: boolean;
+  /** Whether the manager has read this request */
+  isRead?: boolean;
 }
 
 export interface ColumnDef {

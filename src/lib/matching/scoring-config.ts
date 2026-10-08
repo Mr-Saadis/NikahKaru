@@ -23,6 +23,7 @@ export const IMPORTANCE_WEIGHTS: Record<PreferenceImportance, number> = {
   HIGH: 3.0,
   MEDIUM: 2.0,
   LOW: 1.0,
+  DOES_NOT_MATTER: 0,
 };
 
 // ═══════════════════════════════════════════════════════════════

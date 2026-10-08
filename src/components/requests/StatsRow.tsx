@@ -8,13 +8,14 @@ interface StatsRowProps {
   total: number;
   later: number;
   staffInvolved: number;
+  hideStaffFilter?: boolean;
 }
 
-export default function StatsRow({ total, later, staffInvolved }: StatsRowProps) {
+export default function StatsRow({ total, later, staffInvolved, hideStaffFilter }: StatsRowProps) {
   const items = [
     { label: 'Total Entries', value: total },
     { label: 'Respond Later', value: later },
-    { label: 'Staff Involved', value: staffInvolved },
+    ...(hideStaffFilter ? [] : [{ label: 'Staff Involved', value: staffInvolved }]),
   ];
 
   return (

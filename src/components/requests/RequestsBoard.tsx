@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { COLUMNS } from './constants';
 import { useRequestsBoard } from './useRequestsBoard';
 import BoardHeader from './BoardHeader';
@@ -8,14 +8,28 @@ import FilterToolbar from './FilterToolbar';
 import StatsRow from './StatsRow';
 import BoardColumn from './BoardColumn';
 import RespondLaterPanel from './RespondLaterPanel';
+import RequestDetailsSheet from './RequestDetailsSheet';
+import Toast from './Toast';
+import type { ColumnDef, FilterState, RequestItem } from './types';
+import { useMatching } from './useMatching';
+import { MatchProfilePanel } from './MatchProfilePanel';
+import { cands } from './mock-matching';
 
 // ============================================================
 // RequestsBoard — State owner and layout orchestrator
 // ============================================================
 
+export interface RequestsBoardProps {
+  columns: ColumnDef[];
+  fetchRequests: (filters: FilterState) => Promise<RequestItem[]>;
+  fetchNames: () => Promise<string[]>;
+  hideStaffFilter?: boolean;
+  onMarkAsRead?: (id: string) => Promise<void>;
+}
 
-export default function RequestsBoard() {
+export default function RequestsBoard({ columns, fetchRequests, fetchNames, hideStaffFilter, onMarkAsRead }: RequestsBoardProps) {
   const {
+    filteredItems,
     columnCards,
     laterCards,
     stats,
@@ -30,10 +44,38 @@ export default function RequestsBoard() {
     setDraggedId,
     sendToLater,
     returnFromLater,
+    selectedId,
+    selectedItem,
+    openSheet,
+    closeSheet,
+    toggleLater,
     staffNames,
-  } = useRequestsBoard();
+    markAsReadLocal,
+  } = useRequestsBoard({ columns, fetchRequests, fetchNames });
 
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const leftColRef = useRef<HTMLDivElement>(null);
+
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [sheetHeight, setSheetHeight] = useState(0);
+
+  const matching = useMatching();
+
+  const handleSelectCard = useCallback((id: string) => {
+    openSheet(id);
+    
+    // Find card to check its status and isRead
+    const card = filteredItems.find((c) => c.id === id) || laterCards.find((c) => c.id === id);
+    if (!card) return;
+
+    // Check if it's the manager's or agent's incoming request and it's unread
+    if (['first', 'second', 'requested', 'responded'].includes(card.status) && !card.isRead) {
+      markAsReadLocal(id);
+      if (onMarkAsRead) {
+        onMarkAsRead(id).catch(console.error);
+      }
+    }
+  }, [openSheet, filteredItems, laterCards, markAsReadLocal, onMarkAsRead]);
 
   const handleDragStart = useCallback(
     (id: string) => {
@@ -69,14 +111,16 @@ export default function RequestsBoard() {
   // Calculate global offset for avatar color cycling
   let globalOffset = 0;
   const offsets: number[] = [];
-  for (const col of COLUMNS) {
+  for (const col of columns) {
     offsets.push(globalOffset);
     globalOffset += (columnCards.get(col.key)?.length ?? 0);
   }
 
+  const isSheetOpen = !!selectedId;
+
   return (
     <div
-      className="flex h-full font-sans"
+      className="flex h-full font-sans relative"
       style={{
         fontSize: 13,
         color: '#111',
@@ -86,9 +130,11 @@ export default function RequestsBoard() {
     >
       {/* Left content area */}
       <div
+        ref={leftColRef}
         className="flex-1 flex flex-col min-w-0"
         style={{
           padding: '22px 18px 0 26px',
+          position: 'relative',
         }}
       >
         {/* Header */}
@@ -109,11 +155,13 @@ export default function RequestsBoard() {
             onCloseFilter={closeFilter}
             onReset={resetFilters}
             scrollerRef={scrollerRef}
+            hideStaffFilter={hideStaffFilter}
           />
           <StatsRow
             total={stats.total}
             later={stats.later}
             staffInvolved={stats.staffInvolved}
+            hideStaffFilter={hideStaffFilter}
           />
         </div>
 
@@ -127,14 +175,15 @@ export default function RequestsBoard() {
             flex: 1,
             display: 'flex',
             gap: 14,
-            overflowX: 'auto',
+            overflowX: isSheetOpen ? 'hidden' : 'auto',
             overflowY: 'hidden',
-            paddingBottom: 18,
-            scrollSnapType: 'x proximity',
+            // When open, add bottom padding so columns extend under sheet
+            paddingBottom: isSheetOpen ? Math.max(0, sheetHeight - 44) : 18,
+            scrollSnapType: isSheetOpen ? 'none' : 'x proximity',
             minHeight: 0,
           }}
         >
-          {COLUMNS.map((col, ci) => {
+          {columns.map((col, ci) => {
             const cards = columnCards.get(col.key) ?? [];
             return (
               <BoardColumn
@@ -145,10 +194,29 @@ export default function RequestsBoard() {
                 onSendToLater={sendToLater}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
+                selectedId={selectedId}
+                onSelect={handleSelectCard}
               />
             );
           })}
         </div>
+
+        {/* ── Request Details Sheet ── */}
+        <RequestDetailsSheet
+          item={selectedItem}
+          allItems={filteredItems}
+          isOpen={isSheetOpen}
+          columns={columns}
+          onClose={closeSheet}
+          onToggleLater={toggleLater}
+          containerRef={leftColRef}
+          onToast={setToastMsg}
+          onHeightChange={setSheetHeight}
+          matching={matching}
+        />
+
+        {/* ── Toast ── */}
+        <Toast message={toastMsg} onDone={() => setToastMsg(null)} />
       </div>
 
       {/* Right panel */}
@@ -158,6 +226,38 @@ export default function RequestsBoard() {
         onSendToLater={sendToLater}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        selectedId={selectedId}
+        onSelect={handleSelectCard}
+        columns={columns}
+      />
+
+      <MatchProfilePanel
+        openProfile={matching.openProfile}
+        item={selectedItem}
+        matchProfile={
+          matching.openProfile && selectedItem
+            ? cands(selectedItem, matching.sentExtra[selectedItem.id] || {})[0].find(
+                (m) => m.seed === matching.openProfile?.seed
+              ) || null
+            : null
+        }
+        chosenKeys={
+          selectedItem && matching.openProfile
+            ? matching.chosen[selectedItem.id]?.get(matching.openProfile.seed) || new Set()
+            : new Set()
+        }
+        onClose={() => matching.setOpenProfile(null)}
+        toggleSelection={() => {
+          if (!selectedItem || !matching.openProfile) return;
+          const m = cands(selectedItem, matching.sentExtra[selectedItem.id] || {})[0].find(
+            (x) => x.seed === matching.openProfile?.seed
+          );
+          if (m) matching.toggleSelection(selectedItem.id, m, []); // keysOf not strictly needed for just toggling state wrapper if handled via updateSelectionKeys
+        }}
+        updateSelectionKeys={(keys) => {
+          if (!selectedItem || !matching.openProfile) return;
+          matching.updateSelectionKeys(selectedItem.id, matching.openProfile.seed, keys);
+        }}
       />
     </div>
   );

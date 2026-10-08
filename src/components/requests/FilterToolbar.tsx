@@ -35,6 +35,7 @@ interface FilterToolbarProps {
   onCloseFilter: () => void;
   onReset: () => void;
   scrollerRef: React.RefObject<HTMLDivElement | null>;
+  hideStaffFilter?: boolean;
 }
 
 /** Active-filter indicator using Terracotta Clay */
@@ -66,6 +67,7 @@ export default function FilterToolbar({
   onCloseFilter,
   onReset,
   scrollerRef,
+  hideStaffFilter,
 }: FilterToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -269,11 +271,10 @@ export default function FilterToolbar({
                       onUpdateFilter('dateFrom', '');
                     }
                   }}
-                  initialFocus
                   showOutsideDays={false}
                   captionLayout="dropdown"
-                  fromYear={1900}
-                  toYear={2100}
+                  startMonth={new Date(2020, 0)}
+                  endMonth={new Date(2035, 11)}
                 />
               </PopoverContent>
             </Popover>
@@ -307,11 +308,10 @@ export default function FilterToolbar({
                       onUpdateFilter('dateTo', '');
                     }
                   }}
-                  initialFocus
                   showOutsideDays={false}
                   captionLayout="dropdown"
-                  fromYear={1900}
-                  toYear={2100}
+                  startMonth={new Date(2020, 0)}
+                  endMonth={new Date(2035, 11)}
                 />
               </PopoverContent>
             </Popover>
@@ -320,50 +320,53 @@ export default function FilterToolbar({
       </div>
 
       {/* ── STAFF ─────────────────────────────────── */}
-      <div
-        style={{
-          ...pillBase,
-          width: expandedFilter === 'staff' ? 180 : 40,
-          boxShadow:
-            expandedFilter === 'staff'
-              ? '0 0 0 2px #1F3B34, 0 1px 2px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.04)'
-              : pillBase.boxShadow,
-        }}
-      >
-        <button
-          type="button"
-          aria-label="Filter by staff"
-          aria-expanded={expandedFilter === 'staff'}
-          style={iconBtnBase}
-          onClick={() => onToggleFilter('staff')}
+      {!hideStaffFilter && (
+        <div
+          style={{
+            ...pillBase,
+            width: expandedFilter === 'staff' ? 180 : 40,
+            boxShadow:
+              expandedFilter === 'staff'
+                ? '0 0 0 2px #1F3B34, 0 1px 2px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.04)'
+                : pillBase.boxShadow,
+          }}
         >
-          <UsersIcon size={18} />
-          {activeFilters.staff && <ActiveDot />}
-        </button>
-        {expandedFilter === 'staff' && (
-          <div className="flex-1 pr-3 w-full">
-            <Select
-              value={filters.staff === '' ? 'all' : filters.staff}
-              onValueChange={(val) => onUpdateFilter('staff', val === 'all' ? '' : val)}
-            >
-              <SelectTrigger 
-                className="w-full flex items-center justify-between border-none shadow-none focus:ring-0 focus:ring-offset-0 bg-transparent p-0 h-auto"
-                style={{ ...inputBase, minHeight: 'unset' }}
+          <button
+            type="button"
+            aria-label="Filter by staff"
+            aria-expanded={expandedFilter === 'staff'}
+            style={iconBtnBase}
+            onClick={() => onToggleFilter('staff')}
+          >
+            <UsersIcon size={18} />
+            {activeFilters.staff && <ActiveDot />}
+          </button>
+          {expandedFilter === 'staff' && (
+            <div className="flex-1 pr-3 w-full">
+              <Select
+                value={filters.staff === '' ? 'all' : filters.staff}
+                onValueChange={(val) => onUpdateFilter('staff', val === 'all' || !val ? '' : val)}
               >
-                <SelectValue placeholder="All staff" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border-[#E9E4DC]">
-                <SelectItem value="all">All staff</SelectItem>
-                {staffNames.map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </div>
+                <SelectTrigger 
+                  className="w-full flex items-center justify-between border-none shadow-none focus:ring-0 focus:ring-offset-0 bg-transparent p-0 h-auto"
+                  style={{ ...inputBase, minHeight: 'unset' }}
+                >
+                  <SelectValue placeholder="All staff" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#E9E4DC]">
+                  <SelectItem value="all">All staff</SelectItem>
+                  {staffNames.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      )}
+
 
       {/* ── RESET ─────────────────────────────────── */}
       <button

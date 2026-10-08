@@ -2,6 +2,8 @@
 import { Suspense } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import RequestsBoard from '@/components/requests/RequestsBoard';
+import { COLUMNS } from '@/components/requests/constants';
+import { fetchBoardRequests, fetchAgentNames, markRequestAsRead } from '@/lib/actions/requests';
 
 // ============================================================
 // /requests — Manager Request Operations board
@@ -41,7 +43,12 @@ export default function RequestsPage() {
       }}
     >
       <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading board...</div>}>
-        <RequestsBoard />
+        <RequestsBoard 
+          columns={COLUMNS}
+          fetchRequests={fetchBoardRequests}
+          fetchNames={fetchAgentNames}
+          onMarkAsRead={markRequestAsRead}
+        />
       </Suspense>
     </div>
   );
