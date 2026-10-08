@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, ArrowLeft, FileEdit } from 'lucide-react';
+import { ArrowLeft, FileEdit } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import DraftsDialog from './DraftsDialog';
+import NotificationDropdown from '@/components/NotificationDropdown';
 
 interface HeaderProps {
   title: string;
@@ -92,9 +93,7 @@ export default function Header({
           )}
         </button>
 
-        <button className={btnClass}>
-          <Bell className="w-4 h-4" />
-        </button>
+        <NotificationDropdown btnClass={btnClass} />
       </div>
 
       {isDraftsOpen && (
