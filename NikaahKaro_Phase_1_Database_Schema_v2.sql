@@ -1160,11 +1160,20 @@ with check(
 );
 
 create policy notifications_select_own on public.notifications
-for select to authenticated using(user_id=auth.uid());
+for select to authenticated using(
+    user_id=auth.uid() 
+    or (target_role is not null and public.has_role(target_role::varchar))
+);
 
 create policy notifications_update_own on public.notifications
 for update to authenticated
-using(user_id=auth.uid()) with check(user_id=auth.uid());
+using(
+    user_id=auth.uid() 
+    or (target_role is not null and public.has_role(target_role::varchar))
+) with check(
+    user_id=auth.uid() 
+    or (target_role is not null and public.has_role(target_role::varchar))
+);
 
 create policy audit_logs_admin_select on public.audit_logs
 for select to authenticated using(public.has_role('HIGH_LEVEL_ADMIN'));

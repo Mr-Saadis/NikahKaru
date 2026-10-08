@@ -160,57 +160,57 @@ export default function NotificationDropdown({ btnClass }: { btnClass: string })
       </button>
 
       {isOpen && (
-        <div className="fixed sm:absolute top-16 sm:top-full left-2 right-2 sm:left-auto sm:right-0 mt-0 sm:mt-2 w-auto sm:w-96 max-w-[95vw] bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+        <div className="fixed sm:absolute top-16 sm:top-full left-2 right-2 sm:left-auto sm:right-0 mt-0 sm:mt-2 w-auto sm:w-96 max-w-[95vw] bg-white border border-[var(--border-main)] rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
           
-          <div className="px-4 py-3 border-b border-gray-100 bg-[#F1F1F2]/30 flex justify-between items-center">
-            <p className="text-xs text-[#1E2D61] uppercase tracking-wider font-semibold">
+          <div className="px-4 py-3 border-b border-[var(--border-soft)] bg-[var(--bg-card-neutral)] flex justify-between items-center">
+            <p className="text-xs text-[var(--brand-primary)] uppercase tracking-wider font-semibold">
               Notifications
             </p>
-            <span className="text-[10px] text-gray-400 font-medium bg-gray-100 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] text-[var(--text-muted)] font-medium bg-[var(--bg-sidebar)] px-2 py-0.5 rounded-full">
               {notifications.length} New
             </span>
           </div>
 
-          <div className="max-h-[70vh] sm:max-h-[320px] overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 hover:[&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full">
+          <div className="max-h-[70vh] sm:max-h-[320px] overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[var(--border-main)] hover:[&::-webkit-scrollbar-thumb]:bg-[var(--border-soft)] [&::-webkit-scrollbar-thumb]:rounded-full">
             {notifications.length === 0 ? (
               <div className="py-8 text-center flex flex-col items-center justify-center">
-                <Bell size={24} className="text-gray-300 mb-2" />
-                <p className="text-xs text-gray-400 font-medium">No new notifications</p>
+                <Bell size={24} className="text-[var(--border-soft)] mb-2" />
+                <p className="text-xs text-[var(--text-muted)] font-medium">No new notifications</p>
               </div>
             ) : (
               Object.entries(groupedUnread).map(([date, notifs]) => (
                 <div key={date}>
-                  <div className="flex items-center gap-2 px-4 py-1.5 bg-gray-50/80 sticky top-0 z-10">
-                    <div className="flex-1 h-[1px] bg-gray-200"></div>
-                    <span className="text-[9px] text-gray-400 font-medium uppercase tracking-widest shrink-0">
+                  <div className="flex items-center gap-2 px-4 py-1.5 bg-[var(--bg-card-neutral)] sticky top-0 z-10">
+                    <div className="flex-1 h-[1px] bg-[var(--border-soft)]"></div>
+                    <span className="text-[9px] text-[var(--text-muted)] font-medium uppercase tracking-widest shrink-0">
                       {date}
                     </span>
-                    <div className="flex-1 h-[1px] bg-gray-200"></div>
+                    <div className="flex-1 h-[1px] bg-[var(--border-soft)]"></div>
                   </div>
 
                   {notifs.map((notif) => (
                     <div
                       key={notif.id}
                       onClick={() => handleItemClick(notif)}
-                      className="px-3 sm:px-4 py-3 border-b border-gray-50 transition-colors flex items-start gap-2 sm:gap-3 cursor-pointer hover:bg-gray-50"
+                      className="px-3 sm:px-4 py-3 border-b border-[var(--border-soft)] transition-colors flex items-start gap-2 sm:gap-3 cursor-pointer hover:bg-[var(--bg-sidebar)]"
                     >
                       <div className={`mt-0.5 p-1.5 rounded-md shrink-0 ${
-                        notif.type === 'REQUEST' ? 'bg-[#1E2D61]/10 text-[#1E2D61]' :
-                        notif.type === 'SYSTEM' ? 'bg-amber-50 text-amber-600' :
-                        'bg-[#B48D51]/10 text-[#B48D51]'
+                        notif.type === 'REQUEST' ? 'bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]' :
+                        notif.type === 'SYSTEM' ? 'bg-[var(--accent-gold-bg)] text-[var(--accent-gold)]' :
+                        'bg-[var(--accent-gold)]/10 text-[var(--accent-gold)]'
                       }`}>
                         <FileText size={14} />
                       </div>
 
                       {/* Text */}
                       <div className="flex-1 flex flex-col min-w-0">
-                        <h4 className="text-[13px] font-semibold text-[#1E2D61] truncate pr-2">
+                        <h4 className="text-[13px] font-semibold text-[var(--text-page-title)] truncate pr-2">
                           {notif.title}
                         </h4>
-                        <p className="text-[11px] text-gray-500 line-clamp-2 mt-0.5 leading-snug">
+                        <p className="text-[11px] text-[var(--text-body)] line-clamp-2 mt-0.5 leading-snug">
                           {notif.message}
                         </p>
-                        <span className="text-[9px] text-gray-400 mt-1.5 font-medium">
+                        <span className="text-[9px] text-[var(--text-subtle)] mt-1.5 font-medium">
                           {formatTimeOnly(notif.created_at)}
                         </span>
                       </div>
@@ -221,10 +221,10 @@ export default function NotificationDropdown({ btnClass }: { btnClass: string })
             )}
           </div>
 
-          <div className="px-4 py-2 border-t border-gray-100 bg-[#F1F1F2]/30">
+          <div className="px-4 py-2 border-t border-[var(--border-soft)] bg-[var(--bg-card-neutral)]">
             <button
               onClick={() => { setIsOpen(false); router.push('/notifications'); }}
-              className="w-full text-center text-xs text-[#B48D51] font-semibold hover:text-[#9a7844] transition-colors py-1"
+              className="w-full text-center text-xs text-[var(--accent-gold)] font-semibold hover:text-[var(--accent-gold-dark)] transition-colors py-1"
             >
               View All History
             </button>

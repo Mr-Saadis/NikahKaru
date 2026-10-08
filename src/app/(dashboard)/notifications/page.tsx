@@ -496,7 +496,7 @@ export default function NotificationsPage() {
                     </div>
 
                     {/* Target Profile Card */}
-                    <div className="bg-white border border-[#EFE9DF] rounded-2xl p-6 shadow-sm">
+                    <div className=" border border-[#EFE9DF] rounded-2xl p-6 shadow-sm">
                       <h4 className="text-[10px] font-bold text-[#C86A4A] uppercase tracking-wider mb-4">TARGET PROFILE DETAIL</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                         <div className="flex flex-col gap-1">
@@ -521,7 +521,7 @@ export default function NotificationsPage() {
                     </div>
 
                     {/* Agent Profile Card */}
-                    <div className="bg-white border border-[#EFE9DF] rounded-2xl p-6 shadow-sm">
+                    <div className="border border-[#EFE9DF] rounded-2xl p-6 shadow-sm">
                       <h4 className="text-[10px] font-bold text-[#C86A4A] uppercase tracking-wider mb-4">AGENT DETAIL</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                         <div className="flex flex-col gap-1">
