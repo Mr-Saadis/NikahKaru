@@ -27,6 +27,7 @@ SELECT
     pi.marital_status,
     pi.number_of_children,
     pi.cnic,
+    pi.phone,
 
     pi.nationality_country_id,
     nationality.name_en AS nationality_country_name_en,
