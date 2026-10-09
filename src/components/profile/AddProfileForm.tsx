@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { ProfileService } from '@/lib/services/profile-service';
 import { PreferenceService } from '@/lib/services/preference-service';
+import { createClient } from '@/lib/supabase/client';
 import { useAutoSave } from '@/lib/hooks/useAutoSave';
 import ProfileSidebar from './ProfileSidebar';
 import Step1BasicInfo, { type Step1Data } from './steps/Step1BasicInfo';
@@ -1152,6 +1153,17 @@ export default function AddProfileForm() {
       }
       const allMandatoryCompleted = missingMandatorySteps.length === 0;
       await ProfileService.updateProfileStatus(pid, allMandatoryCompleted ? 'ACTIVE' : 'DRAFT');
+
+      // Refresh the materialized view for matching if it became active
+      if (allMandatoryCompleted) {
+        try {
+          const supabase = createClient();
+          const { error: rpcError } = await supabase.rpc('refresh_mv_matching_profiles');
+          if (rpcError) console.error('Failed to refresh MV:', rpcError);
+        } catch (e) {
+          console.error('Error refreshing MV:', e);
+        }
+      }
 
       // Clear local storage drafts (both profile-specific and 'new' keys)
       localStorage.removeItem(getLocalStorageKey(pid));

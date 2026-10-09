@@ -38,10 +38,10 @@ export async function runMatching(
     .from('mv_matching_profiles')
     .select('*')
     .eq('profile_id', sourceProfileId)
-    .single();
+    .maybeSingle();
 
   if (sourceError || !flatSourceData) {
-    throw new Error(`Failed to load source profile from MV: ${sourceError?.message}`);
+    throw new Error(`Profile data is not available for matching yet. Please ensure the profile is fully saved.`);
   }
 
   // 3. Bulk fetch preferences for source AND all candidates
