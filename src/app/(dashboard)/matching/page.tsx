@@ -66,6 +66,11 @@ export default function MatchingPage() {
   const handleRunMatch = async (mode: 'PREVIEW' | 'OFFICIAL') => {
     if (!selectedProfile) return;
     
+    if (selectedProfile.status !== 'ACTIVE') {
+      setError("Matching can only be run on ACTIVE profiles. Please ensure the profile is fully approved and active first.");
+      return;
+    }
+
     setIsMatching(true);
     setError(null);
     setResults(null);

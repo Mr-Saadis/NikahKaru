@@ -430,6 +430,11 @@ export default function ProfilesListPage() {
     e.stopPropagation();
     if (!selectedId || !selectedProfile) return;
     
+    if (selectedProfile.status !== 'ACTIVE') {
+      alert("Matching can only be run on ACTIVE profiles. Please ensure the profile is active first.");
+      return;
+    }
+    
     const currentId = selectedId;
     const profileName = selectedProfile?.personal_information?.full_name || 'Profile';
     setRunningMatchesMap(prev => ({ ...prev, [currentId]: true }));

@@ -56,7 +56,7 @@ function RangeRow({ label, minVal, maxVal, onMin, onMax, suffix = '' }: {
   onMin: (v: number | '') => void; onMax: (v: number | '') => void;
   suffix?: string;
 }) {
-  const inputClass = "w-28 h-[40px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-3 py-1.5 text-[12px] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none";
+  const inputClass = "w-28 h-[32px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-3 py-1.5 text-[12px] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none";
   return (
     <div className="flex items-center justify-between gap-2 py-2">
       <span className="text-[12px] font-medium text-[#4E473D] flex-1">{label}</span>
@@ -91,7 +91,7 @@ function HeightRangeRow({ label, minCm, maxCm, onMin, onMax }: {
   label: React.ReactNode; minCm: number | ''; maxCm: number | '';
   onMin: (v: number | '') => void; onMax: (v: number | '') => void;
 }) {
-  const inputClass = "w-[60px] h-[40px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-2 py-1.5 text-[12px] text-center focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none";
+  const inputClass = "w-[60px] h-[32px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-2 py-1.5 text-[12px] text-center focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none";
 
   const parseCm = (cm: number | '') => {
     if (!cm) return { ft: '', in: '' };
@@ -285,7 +285,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 }}
                 options={[{ label: 'Any', value: 'none' }, ...['NEVER_MARRIED', 'DIVORCED', 'WIDOWED', 'SEPARATED'].map(s => ({ label: s.replace(/_/g, ' '), value: s }))]}
                 placeholder="Any"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -333,7 +333,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_complexion', val)}
                 options={['Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark Brown', 'Dark'].map(c => ({ label: c, value: c }))}
                 placeholder="Select Complexion"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -391,7 +391,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_education_level_id', val && val !== 'none' ? Number(val) : '')}
                 options={[{ label: 'Any', value: 'none' }, ...educationLevels.map(e => ({ label: e.name_en, value: String(e.id) }))]}
                 placeholder="Any"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -406,7 +406,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_field_of_study', val)}
                 options={['Computer Science', 'Engineering', 'Medicine', 'Business/Commerce', 'Arts/Humanities', 'Science', 'Law', 'Other'].map(f => ({ label: f, value: f }))}
                 placeholder="Select Field of Study"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -425,7 +425,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_occupation_id', val && val !== 'none' ? Number(val) : '')}
                 options={[{ label: 'Any', value: 'none' }, ...occupations.map(o => ({ label: o.name_en, value: String(o.id) }))]}
                 placeholder="Any"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -441,7 +441,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_employment_type', val === 'none' ? '' : val)}
                 options={[{ label: 'Any', value: 'none' }, ...['GOVERNMENT', 'PRIVATE', 'BUSINESS', 'SELF_EMPLOYED', 'FREELANCER'].map(s => ({ label: s.replace(/_/g, ' '), value: s }))]}
                 placeholder="Any"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -481,7 +481,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                     onChange={(val) => set('pref_sect_id', val && val !== 'none' ? Number(val) : '')}
                     options={[{ label: 'Any', value: 'none' }, ...availableSects.map(s => ({ label: s.name_en, value: String(s.id) }))]}
                     placeholder="Any"
-                    className=""
+                    className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
                   />
                 </div>
               </div>
@@ -498,7 +498,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_caste_id', val && val !== 'none' ? Number(val) : '')}
                 options={[{ label: 'Any', value: 'none' }, ...castes.map(c => ({ label: c.name_en, value: String(c.id) }))]}
                 placeholder="Any"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -513,7 +513,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_religious_practice', val as ReligiousPracticeLevel)}
                 options={[{ label: 'Any', value: 'none' }, ...['HIGHLY_PRACTICING', 'PRACTICING', 'MODERATE', 'OTHER'].map(v => ({ label: v.replace(/_/g, ' '), value: v }))]}
                 placeholder="Any"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -532,7 +532,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_location_country_id', val && val !== 'none' ? Number(val) : '')}
                 options={[{ label: 'Any', value: 'none' }, ...countries.map(c => ({ label: c.name_en, value: String(c.id) }))]}
                 placeholder="Any"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -548,7 +548,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_location_province_id', val && val !== 'none' ? Number(val) : '')}
                 options={[{ label: 'Any', value: 'none' }, ...locProvinces.map(c => ({ label: c.name_en, value: String(c.id) }))]}
                 placeholder="Any"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -564,7 +564,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_location_city_id', val && val !== 'none' ? Number(val) : '')}
                 options={[{ label: 'Any', value: 'none' }, ...locCities.map(c => ({ label: c.name_en, value: String(c.id) }))]}
                 placeholder="Any"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -594,7 +594,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                   onChange={(val) => set('pref_relocate_country_id', val && val !== 'none' ? Number(val) : '')}
                   options={[{ label: 'Any', value: 'none' }, ...countries.map(c => ({ label: c.name_en, value: String(c.id) }))]}
                   placeholder="Any"
-                  className=""
+                  className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
                 />
               </div>
             </div>
@@ -607,7 +607,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                   onChange={(val) => set('pref_relocate_province_id', val && val !== 'none' ? Number(val) : '')}
                   options={[{ label: 'Any', value: 'none' }, ...relProvinces.map(c => ({ label: c.name_en, value: String(c.id) }))]}
                   placeholder="Any"
-                  className=""
+                  className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
                 />
               </div>
             </div>
@@ -620,7 +620,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                   onChange={(val) => set('pref_relocate_city_id', val && val !== 'none' ? Number(val) : '')}
                   options={[{ label: 'Any', value: 'none' }, ...relCities.map(c => ({ label: c.name_en, value: String(c.id) }))]}
                   placeholder="Any"
-                  className=""
+                  className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
                 />
               </div>
             </div>
@@ -653,7 +653,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_living_with', val === 'none' ? '' : val as LivingWith)}
                 options={[{ label: 'Any', value: 'none' }, ...['PARENTS', 'FATHER', 'MOTHER', 'SIBLINGS', 'ALONE', 'OTHER'].map(s => ({ label: s.replace(/_/g, ' '), value: s }))]}
                 placeholder="Any"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
@@ -669,7 +669,7 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
                 onChange={(val) => set('pref_parents_status', val)}
                 options={['Both Alive', 'Father Deceased', 'Mother Deceased', 'Both Deceased'].map(s => ({ label: s, value: s }))}
                 placeholder="Select Parents Status"
-                className=""
+                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />
             </div>
           </div>
