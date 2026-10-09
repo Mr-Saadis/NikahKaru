@@ -74,10 +74,10 @@ export default function RespondLaterPanel({
         padding: '18px 14px 14px',
         borderRadius: 28,
         background: isDragOver
-          ? '#F2EDE1' // Cannoli Cream when drag over
-          : 'linear-gradient(180deg, #fff, #fbfaf6)',
-        boxShadow: `0 10px 30px rgba(30,30,50,0.08), inset 0 0 0 1px rgba(255,255,255,0.8)`,
-        outline: isDragOver ? '2px dashed #1F3B34' : 'none', // Pine Grove dashed outline
+          ? 'rgba(31, 59, 52, 0.05)'
+          : 'transparent',
+        boxShadow: 'none',
+        outline: isDragOver ? '2px dashed #1F3B34' : 'none',
         transition: 'background .2s, outline .2s',
         overflow: 'hidden',
       }}

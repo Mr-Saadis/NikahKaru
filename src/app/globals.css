@@ -317,7 +317,6 @@
 /* Card hover lift */
 .request-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 14px 28px rgba(30,30,50,0.12) !important;
 }
 
 /* Card drag state */

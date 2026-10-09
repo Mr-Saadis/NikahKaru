@@ -5,7 +5,7 @@
 export type RequestStatus = string;
 
 export interface RequestItem {
-  id: string;
+  id: string; // board_id
   name: string;
   cnic: string;
   phone: string;
@@ -17,6 +17,9 @@ export interface RequestItem {
   later: boolean;
   /** Whether the manager has read this request */
   isRead?: boolean;
+  
+  // Full Profile Core Payload
+  profileData?: any;
 }
 
 export interface ColumnDef {

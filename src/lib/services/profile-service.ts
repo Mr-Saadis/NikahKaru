@@ -357,116 +357,46 @@ export class ProfileService {
    * READ: Get full profile
    */
   static async getProfileById(profileId: string) {
-    const supabase = createClient();
-    
-    // We can fetch everything in one query using joins
-    const { data, error } = await supabase
-      .from('profiles')
-      .select(`
-        *,
-        personal_information (*),
-        physical_information (*),
-        education_records (*),
-        employment_records (*),
-        income_information (*),
-        religion_information (*),
-        profile_locations (*),
-        residency_information (*),
-        parents (*),
-        siblings (*),
-        children (*),
-        previous_marriages (*),
-        family_information (*),
-        lifestyle_information (*),
-        relocation_information (*)
-      `)
-      .eq('id', profileId)
-      .single();
-
-    if (error) throw error;
-    return data;
+    const res = await fetch(`/api/profiles/${profileId}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch profile');
+    }
+    return res.json();
   }
 
   /**
    * READ: Get list of profiles
    */
   static async getProfilesList(filters: ProfileFilters): Promise<{ data: ProfileListItem[], count: number }> {
-    const supabase = createClient();
-    
-    const page = filters.page || 1;
-    const limit = filters.limit || 10;
-    const offset = (page - 1) * limit;
+    const params = new URLSearchParams();
+    if (filters.page) params.set('page', filters.page.toString());
+    if (filters.limit) params.set('limit', filters.limit.toString());
+    if (filters.status) params.set('status', filters.status);
+    if (filters.gender) params.set('gender', filters.gender);
+    if (filters.search) params.set('search', filters.search);
+    if (filters.cityId) params.set('cityId', filters.cityId.toString());
+    if (filters.minAge) params.set('minAge', filters.minAge.toString());
+    if (filters.maxAge) params.set('maxAge', filters.maxAge.toString());
 
-    let query = supabase
-      .from('profiles')
-      .select(`
-        id, gender, status, profile_URL, created_at, updated_at, current_agent_id,
-        personal_information ( full_name, date_of_birth, marital_status ),
-        profile_locations ( current_city_id )
-      `, { count: 'exact' });
-
-    if (filters.status) {
-      query = query.eq('status', filters.status);
-    } else {
-      query = query.neq('status', 'DRAFT');
+    const res = await fetch(`/api/profiles?${params.toString()}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch profiles');
     }
-    if (filters.gender) {
-      query = query.eq('gender', filters.gender);
-    }
-    
-    // Note: Advanced filtering like age range and nested field search (name, city)
-    // usually requires an RPC or a database view in Supabase.
-    // For now, we'll do basic matching for MVP. We can filter name by joining if possible 
-    // but PostgREST supports it via nested filtering:
-    if (filters.search) {
-      query = query.textSearch('personal_information.full_name', filters.search);
-    }
-    if (filters.cityId) {
-      query = query.eq('profile_locations.current_city_id', filters.cityId);
-    }
-
-    query = query.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
-
-    const { data, error, count } = await query;
-    
-    if (error) throw error;
-    
-    // Filter age in JS if provided, since we don't have DB function right now
-    let results = data as unknown as ProfileListItem[];
-    
-    if (filters.minAge || filters.maxAge) {
-      results = results.filter(p => {
-        if (!p.personal_information?.date_of_birth) return false;
-        const dob = new Date(p.personal_information.date_of_birth);
-        const age = Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-        if (filters.minAge && age < filters.minAge) return false;
-        if (filters.maxAge && age > filters.maxAge) return false;
-        return true;
-      });
-    }
-
-    return { data: results, count: count || results.length };
+    return res.json();
   }
 
   /**
    * READ: Get profile counts by status (head-only queries, very lightweight)
    */
   static async getProfileStats(): Promise<{ total: number; active: number; draft: number; paused: number; archived: number }> {
-    const supabase = createClient();
-    const [total, active, draft, paused, archived] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE'),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'DRAFT'),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'PAUSED'),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'ARCHIVED'),
-    ]);
-    return {
-      total: total.count || 0,
-      active: active.count || 0,
-      draft: draft.count || 0,
-      paused: paused.count || 0,
-      archived: archived.count || 0,
-    };
+    const res = await fetch('/api/profiles/stats');
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch profile stats');
+    }
+    return res.json();
   }
 
   /**
@@ -480,6 +410,18 @@ export class ProfileService {
       .eq('id', profileId);
 
     if (error) throw error;
+  }
+
+  /**
+   * READ: Get profile matches (ledger and results) from DB views
+   */
+  static async getProfileMatches(profileId: string): Promise<{ ledger: any[], results: any[] }> {
+    const res = await fetch(`/api/profiles/${profileId}/matches`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch profile matches');
+    }
+    return res.json();
   }
 
   /**

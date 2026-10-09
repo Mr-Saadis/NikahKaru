@@ -48,7 +48,7 @@ const SIDEBAR_STEPS = STEPS.map((s) => ({
 }));
 
 // ── Default form state ─────────────────────────────────────────
-const defaultStep1 = (): Step1Data => ({ gender: '', full_name: '', date_of_birth: '', marital_status: 'NEVER_MARRIED', number_of_children: '', children_living_with: '', nationality_country_id: '', mother_tongue_id: '', profile_picture: '', children: [], previous_marriages: [] });
+const defaultStep1 = (): Step1Data => ({ gender: '', full_name: '', cnic: '', phone: '', date_of_birth: '', marital_status: 'NEVER_MARRIED', number_of_children: '', children_living_with: '', nationality_country_id: '', mother_tongue_id: '', profile_picture: '', children: [], previous_marriages: [] });
 const defaultStep2 = (): Step2Data => ({ height_cm: '', weight_kg: '', complexion: '', has_disability: false, disability_details: '' });
 const defaultStep3 = (): Step3Data => ({ education_records: [], employment_records: [], monthly_income_min: '', monthly_income_max: '' });
 const defaultStep4 = (): Step4Data => ({ religion_id: 1, sect_id: '', caste_id: '', other_caste_text: '' });
@@ -125,6 +125,8 @@ export default function AddProfileForm() {
                 gender: profile.gender || '',
                 profile_picture: profile.profile_URL || undefined,
                 full_name: pi.full_name || '',
+                cnic: pi.cnic || '',
+                phone: pi.phone || '',
                 date_of_birth: pi.date_of_birth ? pi.date_of_birth.split('T')[0] : '',
                 marital_status: pi.marital_status || 'NEVER_MARRIED',
                 number_of_children: pi.number_of_children?.toString() || '',
@@ -386,6 +388,8 @@ export default function AddProfileForm() {
       if (dirtyKeys.includes('step1')) {
         tasks.push(ProfileService.savePersonalInfo(pid, {
           full_name: data.step1.full_name,
+          cnic: data.step1.cnic || null,
+          phone: data.step1.phone || null,
           date_of_birth: data.step1.date_of_birth || null,
           marital_status: data.step1.marital_status || 'NEVER_MARRIED',
           nationality_country_id: data.step1.nationality_country_id ? Number(data.step1.nationality_country_id) : null,
@@ -707,6 +711,8 @@ export default function AddProfileForm() {
           // Save personal_information table data alongside draft creation
           await ProfileService.savePersonalInfo(newPid, {
             full_name: step1.full_name,
+            cnic: step1.cnic || null,
+            phone: step1.phone || null,
             date_of_birth: step1.date_of_birth || null,
             marital_status: step1.marital_status || 'NEVER_MARRIED',
             nationality_country_id: step1.nationality_country_id ? Number(step1.nationality_country_id) : null,

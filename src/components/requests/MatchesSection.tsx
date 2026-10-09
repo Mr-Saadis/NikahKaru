@@ -1,44 +1,30 @@
 import React, { useMemo } from 'react';
-import { MatchProfile } from './mock-matching';
+import type { MatchResult } from '@/lib/matching/types';
 import { CheckBox } from './CheckBox';
 import { MatchRing } from './MatchRing';
 import { CheckIcon, SendIcon, ChevronRightIcon } from './icons';
 import type { RequestItem } from './types';
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
+  const parts = (name || '').trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
+  return (name || '').slice(0, 2).toUpperCase();
 }
-
-const fakeHistory = (seed: number, count: number) => {
-  const h = [];
-  const names = ["Ali Raza", "Usman Javed", "Ahmed Butt", "Faisal Tariq", "Saad Khalid", "Kamran Aslam", "Omer Farooq", "Bilal Khan"];
-  for (let i = 0; i < count; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - (seed % 30 + i * 15 + 1));
-    h.push({
-      name: names[(seed + i * 3) % names.length],
-      date: d.toISOString()
-    });
-  }
-  return h;
-};
 
 const AVC = ["#f3b9a4","#b9d9c0","#f4d58b","#b9c8ee","#e3b6dc"];
 
 interface MatchesSectionProps {
   item: RequestItem;
-  matches: MatchProfile[];
-  sent: MatchProfile[];
+  matches: MatchResult[];
+  sent: MatchResult[];
   page: number;
   setPage: (id: string, page: number) => void;
-  chosen: Map<number, Set<string>> | undefined;
-  openProfile: { seed: number; requestId: string } | null;
-  setOpenProfile: (p: { seed: number; requestId: string } | null) => void;
-  toggleSelection: (reqId: string, m: MatchProfile, keys: string[]) => void;
+  chosen: Map<string, Set<string>> | undefined;
+  openProfile: { candidateId: string; requestId: string } | null;
+  setOpenProfile: (p: { candidateId: string; requestId: string } | null) => void;
+  toggleSelection: (reqId: string, candidateId: string, keys: string[]) => void;
   sendSelected: (item: RequestItem) => void;
-  keysOf: (m: MatchProfile) => string[];
+  keysOf?: any; // Mock keys no longer needed
 }
 
 export function MatchesSection({
@@ -52,7 +38,6 @@ export function MatchesSection({
   setOpenProfile,
   toggleSelection,
   sendSelected,
-  keysOf,
 }: MatchesSectionProps) {
   const a = page * 5;
   const pageMatches = useMemo(() => matches.slice(a, a + 5), [matches, a]);
@@ -68,7 +53,7 @@ export function MatchesSection({
 
   const activeMatch = useMemo(() => {
     if (!openProfile || openProfile.requestId !== item.id) return null;
-    return matches.find(m => m.seed === openProfile.seed) || null;
+    return matches.find(m => m.candidateProfileId === openProfile.candidateId) || null;
   }, [openProfile, matches, item.id]);
 
   return (
@@ -96,20 +81,28 @@ export function MatchesSection({
         </div>
 
         {pageMatches.map((m, i) => {
-          const isChosen = chosen?.has(m.seed) || false;
-          const isOpen = openProfile?.requestId === item.id && openProfile.seed === m.seed;
+          const isChosen = chosen?.has(m.candidateProfileId) || false;
+          const isOpen = openProfile?.requestId === item.id && openProfile.candidateId === m.candidateProfileId;
+          const isSent = sent.some(s => s.candidateProfileId === m.candidateProfileId);
+
+          const p = (m as any).fullProfile || m.candidateData;
+          const cName = p?.full_name || p?.personal_information?.full_name || 'Unknown';
+          const dob = p?.date_of_birth || p?.personal_information?.date_of_birth;
+          const cAge = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / 31557600000) : 'N/A';
+          const cCity = p?.current_city_name_en || p?.location?.current_city?.name_en || 'Unknown City';
+          const cJob = p?.job_title || p?.education_profession?.job_title || 'Unknown Job';
 
           return (
             <div
-              key={m.seed}
+              key={m.candidateProfileId}
               tabIndex={0}
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
-                setOpenProfile({ seed: m.seed, requestId: item.id });
+                setOpenProfile({ candidateId: m.candidateProfileId, requestId: item.id });
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !(e.target as HTMLElement).closest('[role="checkbox"]')) {
-                  setOpenProfile({ seed: m.seed, requestId: item.id });
+                  setOpenProfile({ candidateId: m.candidateProfileId, requestId: item.id });
                 }
               }}
               className={`flex items-center gap-3 w-full border border-[#eeede6] bg-white rounded-[20px] p-[10px_14px_10px_10px] mb-[10px] text-left cursor-pointer animate-[rise_.5s_cubic-bezier(.22,1,.36,1)_both] transition-all duration-[220ms] last:mb-0
@@ -120,19 +113,19 @@ export function MatchesSection({
               style={{ animationDelay: `${i * 0.06}s` }}
             >
               <CheckBox
-                checked={isChosen || !!m.sent}
-                disabled={!!m.sent}
+                checked={isChosen || isSent}
+                disabled={isSent}
                 className="-mr-[2px]"
-                aria-label={`Select ${m.name}`}
+                aria-label={`Select ${cName}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleSelection(item.id, m, keysOf(m));
-                  if (!chosen?.has(m.seed)) {
+                  toggleSelection(item.id, m.candidateProfileId, ['All']); // Sending 'All' for simplicity
+                  if (!chosen?.has(m.candidateProfileId)) {
                     // Became selected
-                    setOpenProfile({ seed: m.seed, requestId: item.id });
+                    setOpenProfile({ candidateId: m.candidateProfileId, requestId: item.id });
                   } else {
                     // Became unselected
-                    if (openProfile?.seed === m.seed) {
+                    if (openProfile?.candidateId === m.candidateProfileId) {
                       setOpenProfile(null);
                     }
                   }
@@ -141,15 +134,15 @@ export function MatchesSection({
               
               <div
                 className="w-[44px] h-[44px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[13px] shrink-0"
-                style={{ background: AVC[m.seed % 5] }}
+                style={{ background: AVC[m.candidateProfileId.charCodeAt(0) % 5] }}
               >
-                {getInitials(m.name)}
+                {getInitials(cName)}
               </div>
 
               <div className="flex-1 min-w-0">
                 <b className="block text-[14.5px] font-[600] tracking-[-0.2px]">
-                  {m.name}
-                  {m.sent && (
+                  {cName}
+                  {isSent && (
                     <span className="inline-flex items-center gap-1 ml-2 align-[1px] bg-[#e3f4e8] text-[#2d7a4b] rounded-full px-[8px] py-[2px] text-[10px] font-[700]">
                       <CheckIcon size={10} strokeWidth={3} />
                       Sent
@@ -157,12 +150,12 @@ export function MatchesSection({
                   )}
                 </b>
                 <small className="block mt-[2px] text-[#8d8c86] text-[11px] font-[500]">
-                  {m.age} yrs · {m.city} · {m.job}
+                  {cAge} yrs · {cCity} · {cJob}
                 </small>
               </div>
 
               <div className="flex flex-col items-center">
-                <MatchRing pct={m.pct} />
+                <MatchRing pct={Math.round(m.finalScore)} />
                 <small className="text-[#8d8c86] text-[9.5px] -mt-[2px]">match</small>
               </div>
 
@@ -200,9 +193,11 @@ export function MatchesSection({
       <div className="bg-white border border-[#eeede6] shadow-[0_6px_18px_rgba(30,30,50,.05)] rounded-[24px] p-[18px_20px] flex flex-col">
         {!activeMatch ? (
           <>
-            <h4 className="flex items-baseline gap-2 m-0 text-[14px] font-[700] tracking-[-0.2px] mb-3">
-              Sharing History
-            </h4>
+            <div className="flex items-center gap-2 mb-3">
+              <h4 className="flex items-baseline gap-2 m-0 text-[14px] font-[700] tracking-[-0.2px]">
+                Sent history
+              </h4>
+            </div>
             <div className="text-[#8d8c86] text-center text-[12px] pt-[48px] m-auto">
               Select a match to see who they were sent to before.
             </div>
@@ -210,47 +205,37 @@ export function MatchesSection({
         ) : (
           <>
             <h4 className="flex items-baseline gap-2 m-0 text-[14px] font-[700] tracking-[-0.2px] mb-3">
-              Sent history for <small className="text-[#8d8c86] text-[11px] font-[500] truncate max-w-[120px]">{activeMatch.name}</small>
+              Sent history for <small className="text-[#8d8c86] text-[11px] font-[500] truncate max-w-[120px]">{activeMatch.candidateData?.personal_information?.full_name || 'Candidate'}</small>
             </h4>
             
             {(() => {
-              const count = activeMatch.seed % 4;
-              if (count === 0 && !activeMatch.sent) {
+              const isSentCurrent = sent.some(s => s.candidateProfileId === activeMatch.candidateProfileId);
+              
+              if (!isSentCurrent) {
                 return (
                   <div className="text-[#8d8c86] text-center text-[12px] pt-[48px] m-auto">
-                    This profile has never been sent to anyone.
+                    This profile has no past sent history.
                   </div>
                 );
               }
               
-              const h = fakeHistory(activeMatch.seed, count);
-              if (activeMatch.sent) {
-                h.unshift({ name: item.name + " (Current Request)", date: activeMatch.sent });
-              }
-
               return (
                 <div className="flex flex-col min-h-0 overflow-y-auto pr-1">
-                  {h.map((entry, idx) => {
-                    const isCurrent = entry.name.includes("(Current Request)");
-                    const cleanName = entry.name.replace(" (Current Request)", "");
-                    return (
-                      <div key={idx} className="flex items-center gap-[10px] w-[calc(100%+16px)] border-0 bg-transparent text-left rounded-[14px] p-[8px] -mx-[8px] border-t border-transparent [&+&]:border-t-[#eeede6]">
-                        <div
-                          className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[11px] shrink-0"
-                          style={{ background: AVC[(activeMatch.seed + idx) % 5] }}
-                        >
-                          {getInitials(cleanName)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <b className="block text-[13.5px] font-[600]">{cleanName}</b>
-                          {isCurrent && <small className="block text-[#2d7a4b] text-[10px] font-[700]">Current Request</small>}
-                        </div>
-                        <em className="ml-auto not-italic text-[11px] text-[#8d8c86]">
-                          {formatDate(entry.date)}
-                        </em>
-                      </div>
-                    );
-                  })}
+                  <div className="flex items-center gap-[10px] w-[calc(100%+16px)] border-0 bg-transparent text-left rounded-[14px] p-[8px] -mx-[8px] border-t border-transparent">
+                    <div
+                      className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[11px] shrink-0"
+                      style={{ background: AVC[activeMatch.candidateProfileId.charCodeAt(0) % 5] }}
+                    >
+                      {getInitials(item.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <b className="block text-[13.5px] font-[600]">{item.name}</b>
+                      <small className="block text-[#2d7a4b] text-[10px] font-[700]">Current Request</small>
+                    </div>
+                    <em className="ml-auto not-italic text-[11px] text-[#8d8c86]">
+                      Just now
+                    </em>
+                  </div>
                 </div>
               );
             })()}

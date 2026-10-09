@@ -13,7 +13,6 @@ import Toast from './Toast';
 import type { ColumnDef, FilterState, RequestItem } from './types';
 import { useMatching } from './useMatching';
 import { MatchProfilePanel } from './MatchProfilePanel';
-import { cands } from './mock-matching';
 
 // ============================================================
 // RequestsBoard — State owner and layout orchestrator
@@ -133,7 +132,7 @@ export default function RequestsBoard({ columns, fetchRequests, fetchNames, hide
         ref={leftColRef}
         className="flex-1 flex flex-col min-w-0"
         style={{
-          padding: '22px 18px 0 26px',
+          padding: '22px 10px 0 26px',
           position: 'relative',
         }}
       >
@@ -219,6 +218,9 @@ export default function RequestsBoard({ columns, fetchRequests, fetchNames, hide
         <Toast message={toastMsg} onDone={() => setToastMsg(null)} />
       </div>
 
+      {/* Vertical Separator */}
+      <div className="hidden min-[900px]:block w-[2px] bg-[#EFE9DF] mt-[135px] mb-8 mr-[10px]" />
+
       {/* Right panel */}
       <RespondLaterPanel
         cards={laterCards}
@@ -236,27 +238,32 @@ export default function RequestsBoard({ columns, fetchRequests, fetchNames, hide
         item={selectedItem}
         matchProfile={
           matching.openProfile && selectedItem
-            ? cands(selectedItem, matching.sentExtra[selectedItem.id] || {})[0].find(
-                (m) => m.seed === matching.openProfile?.seed
+            ? matching.realMatches[selectedItem.id]?.find(
+                (m) => m.candidateProfileId === matching.openProfile?.candidateId
               ) || null
             : null
         }
         chosenKeys={
           selectedItem && matching.openProfile
-            ? matching.chosen[selectedItem.id]?.get(matching.openProfile.seed) || new Set()
+            ? matching.chosen[selectedItem.id]?.get(matching.openProfile.candidateId) || new Set()
             : new Set()
+        }
+        isSent={
+          !!(selectedItem && matching.openProfile && matching.sentExtra[selectedItem.id]?.[matching.openProfile.candidateId])
+        }
+        sentDate={
+          (selectedItem && matching.openProfile)
+            ? matching.sentExtra[selectedItem.id]?.[matching.openProfile.candidateId]
+            : undefined
         }
         onClose={() => matching.setOpenProfile(null)}
         toggleSelection={() => {
           if (!selectedItem || !matching.openProfile) return;
-          const m = cands(selectedItem, matching.sentExtra[selectedItem.id] || {})[0].find(
-            (x) => x.seed === matching.openProfile?.seed
-          );
-          if (m) matching.toggleSelection(selectedItem.id, m, []); // keysOf not strictly needed for just toggling state wrapper if handled via updateSelectionKeys
+          matching.toggleSelection(selectedItem.id, matching.openProfile.candidateId, ['All']);
         }}
         updateSelectionKeys={(keys) => {
           if (!selectedItem || !matching.openProfile) return;
-          matching.updateSelectionKeys(selectedItem.id, matching.openProfile.seed, keys);
+          matching.updateSelectionKeys(selectedItem.id, matching.openProfile.candidateId, keys);
         }}
       />
     </div>

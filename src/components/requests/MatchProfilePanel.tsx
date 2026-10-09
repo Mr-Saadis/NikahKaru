@@ -1,26 +1,29 @@
 import React, { useEffect, useRef } from 'react';
 import { XIcon, CheckIcon } from './icons';
-import { MatchProfile, person, prof, keysOf } from './mock-matching';
 import { CheckBox } from './CheckBox';
 import { MatchRing } from './MatchRing';
 import type { RequestItem } from './types';
+import type { MatchResult } from '@/lib/matching/types';
+import { getMatchProfileGroups } from './utils';
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
+  const parts = (name || '').trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
+  return (name || '').slice(0, 2).toUpperCase();
 }
 
 const AVC = ["#f3b9a4","#b9d9c0","#f4d58b","#b9c8ee","#e3b6dc"];
 
 interface MatchProfilePanelProps {
-  openProfile: { seed: number; requestId: string } | null;
+  openProfile: { candidateId: string; requestId: string } | null;
   item: RequestItem | null;
-  matchProfile: MatchProfile | null;
+  matchProfile: MatchResult | null;
   chosenKeys: Set<string>;
   onClose: () => void;
   toggleSelection: () => void;
   updateSelectionKeys: (keys: Set<string>) => void;
+  isSent: boolean;
+  sentDate?: string;
 }
 
 export function MatchProfilePanel({
@@ -31,20 +34,21 @@ export function MatchProfilePanel({
   onClose,
   toggleSelection,
   updateSelectionKeys,
+  isSent,
+  sentDate
 }: MatchProfilePanelProps) {
   const isOpen = !!openProfile && openProfile.requestId === item?.id && !!matchProfile;
-  const isSent = !!matchProfile?.sent;
   const isSelected = chosenKeys.size > 0;
   
-  const groups = matchProfile ? prof(person(item!), matchProfile.seed) : [];
-  const totalKeys = matchProfile ? keysOf(matchProfile).length : 0;
+  const groups = matchProfile ? getMatchProfileGroups(matchProfile) : [];
+  const totalKeys = groups.flatMap((g, i) => g[1].map((_, j) => `${i}:${j}`)).length;
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const prevSeed = useRef<number | null>(null);
+  const prevId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && matchProfile.seed !== prevSeed.current) {
-      prevSeed.current = matchProfile.seed;
+    if (isOpen && matchProfile?.candidateProfileId !== prevId.current) {
+      prevId.current = matchProfile?.candidateProfileId || null;
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
     }
   }, [isOpen, matchProfile]);
@@ -55,6 +59,13 @@ export function MatchProfilePanel({
     const [y, m, d] = datePart.split('-');
     return `${d}.${m}.${y.slice(2)}`;
   };
+
+  const p = (matchProfile as any)?.fullProfile || matchProfile?.candidateData;
+  const cName = p?.full_name || p?.personal_information?.full_name || 'Candidate';
+  const dob = p?.date_of_birth || p?.personal_information?.date_of_birth;
+  const cAge = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / 31557600000) : 'N/A';
+  const cCity = p?.current_city_name_en || p?.location?.current_city?.name_en || 'Unknown';
+  const cJob = p?.job_title || p?.education_profession?.job_title || 'Unknown';
 
   return (
     <div
@@ -79,17 +90,17 @@ export function MatchProfilePanel({
           <div className="text-center p-[10px_8px_16px] rounded-[22px] bg-gradient-to-b from-[#f3f2ec] to-white mb-3">
             <div
               className="w-[72px] h-[72px] mx-auto mb-[10px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[22px] shadow-[0_0_0_4px_#fff,_0_10px_22px_rgba(0,0,0,.12)]"
-              style={{ background: AVC[matchProfile.seed % 5] }}
+              style={{ background: AVC[matchProfile.candidateProfileId.charCodeAt(0) % 5] }}
             >
-              {getInitials(matchProfile.name)}
+              {getInitials(cName)}
             </div>
-            <h3 className="m-0 text-[19px] font-[700] tracking-[-0.5px]">{matchProfile.name}</h3>
+            <h3 className="m-0 text-[19px] font-[700] tracking-[-0.5px]">{cName}</h3>
             <div className="text-[#8d8c86] text-[11.5px] mt-[3px]">
-              {matchProfile.age} yrs · {matchProfile.city} · {matchProfile.job}
+              {cAge} yrs · {cCity} · {cJob}
             </div>
             
             <div className="flex items-center justify-center gap-[10px] mt-[12px] text-left">
-              <MatchRing pct={matchProfile.pct} />
+              <MatchRing pct={Math.round(matchProfile.finalScore)} />
               <div>
                 <b className="block text-[14px]">Match</b>
                 <small className="text-[#8d8c86] text-[11px]">with {item.name}</small>
@@ -100,7 +111,7 @@ export function MatchProfilePanel({
           {isSent ? (
             <div className="flex gap-[8px] m-[2px_4px_8px] p-[10px_12px] rounded-[14px] bg-[#e3f4e8] text-[#2d7a4b] text-[12px] font-[600]">
               <CheckIcon size={14} strokeWidth={3} />
-              Already sent to {item.name} on {formatDate(matchProfile.sent!)}
+              Already sent to {item.name} on {sentDate ? formatDate(sentDate) : 'previously'}
             </div>
           ) : (
             <div className="flex gap-[10px] flex-wrap p-[6px_4px_10px]">
@@ -120,7 +131,8 @@ export function MatchProfilePanel({
                       if (chosenKeys.size === totalKeys) {
                         updateSelectionKeys(new Set());
                       } else {
-                        updateSelectionKeys(new Set(keysOf(matchProfile)));
+                        const allKeys = groups.flatMap((g, i) => g[1].map((_, j) => `${i}:${j}`));
+                        updateSelectionKeys(new Set(allKeys));
                       }
                     }}
                     className="border-0 bg-transparent font-inherit text-[11.5px] font-[600] text-[#111] underline cursor-pointer p-0 ml-2"

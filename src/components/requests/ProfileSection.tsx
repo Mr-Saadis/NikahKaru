@@ -1,16 +1,13 @@
 import React from 'react';
 import type { RequestItem } from './types';
-import { person, prof, ProfileGroup } from './mock-matching';
+import { getProfileGroups, ProfileGroup } from './utils';
 
 interface ProfileSectionProps {
   item: RequestItem;
 }
 
 export function ProfileSection({ item }: ProfileSectionProps) {
-  // Numeric ID
-  const id = parseInt(item.id.replace(/\D/g, ''), 10) || 0;
-  
-  const PR: ProfileGroup[] = prof(person(item), id);
+  const PR: ProfileGroup[] = getProfileGroups(item);
 
   return (
     <div className="flex flex-col min-w-0">

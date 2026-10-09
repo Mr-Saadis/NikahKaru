@@ -74,7 +74,7 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
     }
   }, [debouncedSearch, filters.dateFrom, filters.dateTo, filters.staff, pathname, router, searchParams]);
 
-  // Load data via Server Action
+  // Load data via API (Option B style - single fetch)
   useEffect(() => {
     let mounted = true;
     
@@ -85,30 +85,66 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
       staff: urlStaff,
     };
 
-    fetchRequests(activeUrlFilters).then((data) => {
-      if (mounted) {
-        // Apply locally stored read requests and respond later requests
-        try {
-          const storedRead = localStorage.getItem('agent_read_requests');
-          const storedLater = localStorage.getItem('respond_later_requests');
-          
-          const readIds = new Set(storedRead ? JSON.parse(storedRead) : []);
-          const laterIds = new Set(storedLater ? JSON.parse(storedLater) : []);
-          
-          data = data.map(item => ({
-            ...item,
-            isRead: readIds.has(item.id) ? true : item.isRead,
-            later: laterIds.has(item.id) ? true : item.later
+    fetch('/api/requests')
+      .then(res => res.json())
+      .then((data: any[]) => {
+        if (mounted) {
+          // Process raw view data into RequestItem array
+          let processedData: RequestItem[] = (data || []).map(item => ({
+            id: item.board_id,
+            name: item.full_name || 'Unknown',
+            cnic: item.cnic || '00000-0000000-0',
+            phone: item.primary_phone || 'N/A', // Adjust according to schema or keep N/A
+            staff: item.current_agent_name || item.created_by_name || 'System',
+            date: item.request_date,
+            status: item.request_status,
+            later: item.later,
+            isRead: item.is_read,
+            profileData: item // Attach full row for details sheet
           }));
-        } catch (e) {
-          console.error('Failed to parse local storage states', e);
+
+          // Apply local filtering
+          if (activeUrlFilters.search) {
+            const q = activeUrlFilters.search.toLowerCase();
+            processedData = processedData.filter(item => 
+              item.name.toLowerCase().includes(q) || 
+              item.cnic.toLowerCase().includes(q)
+            );
+          }
+          if (activeUrlFilters.dateFrom) {
+            processedData = processedData.filter(item => item.date >= activeUrlFilters.dateFrom!);
+          }
+          if (activeUrlFilters.dateTo) {
+            processedData = processedData.filter(item => item.date <= activeUrlFilters.dateTo!);
+          }
+          if (activeUrlFilters.staff) {
+            processedData = processedData.filter(item => item.staff === activeUrlFilters.staff);
+          }
+
+          // Apply locally stored read requests and respond later requests
+          try {
+            const storedRead = localStorage.getItem('agent_read_requests');
+            const storedLater = localStorage.getItem('respond_later_requests');
+            
+            const readIds = new Set(storedRead ? JSON.parse(storedRead) : []);
+            const laterIds = new Set(storedLater ? JSON.parse(storedLater) : []);
+            
+            processedData = processedData.map(item => ({
+              ...item,
+              isRead: readIds.has(item.id) ? true : item.isRead,
+              later: laterIds.has(item.id) ? true : item.later
+            }));
+          } catch (e) {
+            console.error('Failed to parse local storage states', e);
+          }
+
+          setAllItems(processedData);
         }
-        setAllItems(data);
-      }
-    }).catch(console.error);
+      })
+      .catch(console.error);
 
     return () => { mounted = false; };
-  }, [urlSearch, urlDateFrom, urlDateTo, urlStaff, fetchRequests]);
+  }, [urlSearch, urlDateFrom, urlDateTo, urlStaff]);
 
   // ── Filtering (Simulating Server-Side Logic locally) ──
   // Since the Server Action already filters based on URL params,
