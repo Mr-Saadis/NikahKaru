@@ -12,6 +12,8 @@ import type { PersonalInformation, ProfileGender, MaritalStatus } from '@/lib/ty
 type Step1Data = {
   gender: ProfileGender | '';
   full_name: string;
+  cnic: string;
+  phone: string;
   date_of_birth: string;
   marital_status: MaritalStatus | '';
   number_of_children?: number | '';
@@ -136,6 +138,34 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
               if (/^[A-Za-z\s]*$/.test(e.target.value)) set('full_name', e.target.value);
             }}
             placeholder="Enter full name"
+            className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
+          />
+        </div>
+      </div>
+
+      {/* CNIC & Phone */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
+            CNIC Number
+          </label>
+          <input
+            type="text"
+            value={data.cnic || ''}
+            onChange={(e) => set('cnic', e.target.value)}
+            placeholder="00000-0000000-0"
+            className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
+            Phone Number
+          </label>
+          <input
+            type="tel"
+            value={data.phone || ''}
+            onChange={(e) => set('phone', e.target.value)}
+            placeholder="+92 300 0000000"
             className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
           />
         </div>

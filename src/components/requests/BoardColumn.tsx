@@ -106,7 +106,7 @@ export default function BoardColumn({
           flexDirection: 'column',
           gap: 12,
           overflowY: selectedId ? 'hidden' : 'auto',
-          padding: '2px 2px 16px',
+          padding: '2px 2px 48px', // Increased bottom padding to prevent hover shadow clipping
           minHeight: 0,
         }}
       >

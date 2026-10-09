@@ -3,13 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { RequestItem, ColumnDef } from './types';
 import { useBottomSheet } from './useBottomSheet';
-import {
-  XIcon, PhoneIcon, CopyIcon, UserIcon, HashIcon, CalendarIcon, SparkIcon, BookmarkFilledIcon
-} from './icons';
+import { XIcon, PhoneIcon, CopyIcon, UserIcon, HashIcon, CalendarIcon, SparkIcon, BookmarkFilledIcon } from './icons';
 import { MatchesSection } from './MatchesSection';
 import { ProfileNav } from './ProfileNav';
 import { ProfileSection } from './ProfileSection';
-import { cands, keysOf } from './mock-matching';
 import { useScrollSpy } from './useScrollSpy';
 import { useNavigationLock } from '@/lib/stores/navigation-lock-store';
 
@@ -73,7 +70,6 @@ export default function RequestDetailsSheet({
 
   const [notesMap, setNotesMap] = useState<Record<string, string>>({});
   const [stickyVisible, setStickyVisible] = useState(false);
-  const [matchingLoading, setMatchingLoading] = useState(false);
   const prevIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -84,7 +80,6 @@ export default function RequestDetailsSheet({
     if (item && item.id !== prevIdRef.current) {
       prevIdRef.current = item.id;
       setStickyVisible(false);
-      setMatchingLoading(false);
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
     }
   }, [item, scrollRef]);
@@ -108,9 +103,10 @@ export default function RequestDetailsSheet({
   const removeLock = useNavigationLock((s) => s.removeLock);
   
   const isMatchesOn = item ? matching.matchesOn[item.id] : false;
+  const isMatchingLoading = item ? matching.matchingLoading[item.id] : false;
 
   useEffect(() => {
-    if (item && matchingLoading) {
+    if (item && isMatchingLoading) {
       addLock(`req-match-${item.id}`, `Finding matches for ${item.name}`);
     } else if (item) {
       removeLock(`req-match-${item.id}`);
@@ -118,7 +114,7 @@ export default function RequestDetailsSheet({
     return () => {
       if (item) removeLock(`req-match-${item.id}`);
     };
-  }, [item?.id, matchingLoading, addLock, removeLock, item?.name]);
+  }, [item?.id, isMatchingLoading, addLock, removeLock, item?.name]);
 
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
@@ -154,35 +150,25 @@ export default function RequestDetailsSheet({
 
   const handleMatchNow = useCallback(() => {
     if (!item) return;
-    const isCurrentlyOn = matching.matchesOn[item.id];
-    if (isCurrentlyOn) {
-      matching.toggleMatches(item.id);
-      return;
+    matching.toggleMatches(item);
+    
+    // Scroll logic if turned on
+    if (!matching.matchesOn[item.id]) {
+      setTimeout(() => {
+        if (matchesRef.current && scrollRef.current) {
+          scrollRef.current.scrollTo({
+            top: matchesRef.current.getBoundingClientRect().top - scrollRef.current.getBoundingClientRect().top + scrollRef.current.scrollTop - 74,
+            behavior: 'smooth'
+          });
+        }
+      }, 500);
     }
-
-    setMatchingLoading(true);
-    setTimeout(() => {
-      if (prevIdRef.current !== item.id) return;
-      matching.toggleMatches(item.id);
-      setMatchingLoading(false);
-      
-      if (matchesRef.current && scrollRef.current) {
-        scrollRef.current.scrollTo({
-          top: matchesRef.current.getBoundingClientRect().top - scrollRef.current.getBoundingClientRect().top + scrollRef.current.scrollTop - 74,
-          behavior: 'smooth'
-        });
-      }
-    }, 750);
   }, [item, matching, scrollRef]);
 
   const handleRematch = useCallback(() => {
     if (!item) return;
-    setMatchingLoading(true);
-    setTimeout(() => {
-      if (prevIdRef.current !== item.id) return;
-      setMatchingLoading(false);
-      onToast('Matches refreshed');
-    }, 750);
+    // Real rematch logic could reset state, but for now just toast
+    onToast('Matches refreshed (from cache)');
   }, [item, onToast]);
 
   const activeSectionIndex = useScrollSpy(scrollRef, 'section[data-sec]', [item?.id, matching.matchesOn[item?.id || '']]);
@@ -209,7 +195,8 @@ export default function RequestDetailsSheet({
   
   const page = matching.matchPage[item.id] || 0;
   const reqChosen = matching.chosen[item.id];
-  const [M, S] = cands(item, matching.sentExtra[item.id] || {});
+  const M = matching.realMatches[item.id] || [];
+  const S = M.filter((m: any) => matching.sentExtra[item.id]?.[m.candidateProfileId]);
 
   return (
     <div
@@ -381,8 +368,8 @@ export default function RequestDetailsSheet({
                 ['cal', 'Request Date', formatDate(item.date)],
               ].map((t) => (
                 <div key={t[0]} className="flex flex-col">
-                  <small className="block text-[10.5px] text-[#8d8c86]">{t[1]}</small>
-                  <b className="block text-[13.5px] font-[600] mt-[1px] text-[#111]">{t[2]}</b>
+                  <small className={`block text-[10.5px] ${['#2F3E51', '#1F3B34', '#C86A4A'].includes(heroBase) ? 'text-white/70' : 'text-[#8d8c86]'}`}>{t[1]}</small>
+                  <b className={`block text-[13.5px] font-[600] mt-[1px] ${['#2F3E51', '#1F3B34', '#C86A4A'].includes(heroBase) ? 'text-white' : 'text-[#111]'}`}>{t[2]}</b>
                 </div>
               ))}
               
@@ -401,8 +388,8 @@ export default function RequestDetailsSheet({
                   onClick={handleMatchNow}
                   className="inline-flex items-center gap-[9px] h-[48px] px-[26px] border-0 rounded-full bg-[#111] text-white font-inherit text-[14px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(0,0,0,.25)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_14px_30px_rgba(0,0,0,.32)]"
                 >
-                  <SparkIcon size={17} className={`text-[#eddd02] ${matchingLoading ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
-                  <span>{isMatchesOn ? 'Hide Matches' : matchingLoading ? 'Finding matches…' : 'Match Now'}</span>
+                  <SparkIcon size={17} className={`text-[#eddd02] ${isMatchingLoading ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
+                  <span>{isMatchesOn ? 'Hide Matches' : isMatchingLoading ? 'Finding matches…' : 'Match Now'}</span>
                 </button>
               </div>
             </div>
@@ -420,8 +407,7 @@ export default function RequestDetailsSheet({
                 openProfile={matching.openProfile}
                 setOpenProfile={matching.setOpenProfile}
                 toggleSelection={matching.toggleSelection}
-                sendSelected={(c) => matching.sendSelected(c, onToast, (seed: number, reqId: string) => matching.setOpenProfile({ seed, requestId: reqId }), () => matching.setOpenProfile(null))}
-                keysOf={keysOf}
+                sendSelected={(c) => matching.sendSelected(c, onToast, (candidateId: string, reqId: string) => matching.setOpenProfile({ candidateId, requestId: reqId }), () => matching.setOpenProfile(null))}
               />
             )}
           </div>

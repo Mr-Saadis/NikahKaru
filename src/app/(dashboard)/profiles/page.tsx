@@ -42,7 +42,9 @@ import {
 import { ProfileService, type ProfileFilters } from '@/lib/services/profile-service';
 import type { ProfileListItem, ProfileStatus, FullProfile } from '@/lib/types/database.types';
 import Link from 'next/link';
+import NotificationDropdown from '@/components/NotificationDropdown';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { runMatching } from '@/lib/matching/engine';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -185,38 +187,42 @@ function StatDeck({ stats }: { stats: { total: number; active: number; draft: nu
   );
 }
 
-/** Section card wrapper for the detail workspace (V5 Premium Styling) */
+/** Section card wrapper — Premium V6 */
 function DetailSection({
   title,
   icon,
   children,
+  accent = '#1F3B34',
   className = '',
 }: {
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
+  accent?: string;
   className?: string;
 }) {
   return (
-    <section className={`bg-white rounded-[24px] p-6 flex flex-col gap-5 border border-black/[0.04] shadow-sm ${className}`}>
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-[12px] bg-[#E3DDCB]/40 flex items-center justify-center text-[#1F3B34]">
+    <section className={`relative bg-white rounded-[28px] p-6 flex flex-col gap-4 border border-black/[0.05] shadow-[0_2px_16px_rgba(0,0,0,0.04)] overflow-hidden group ${className}`}>
+      {/* Subtle gradient accent top-left */}
+      <div className="absolute top-0 left-0 w-40 h-28 opacity-[0.04] pointer-events-none rounded-tl-[28px]" style={{ background: `radial-gradient(ellipse at 0% 0%, ${accent}, transparent 70%)` }} />
+      <div className="flex items-center gap-3 relative z-10">
+        <div className="w-9 h-9 rounded-[14px] flex items-center justify-center shadow-sm" style={{ background: `${accent}15`, color: accent }}>
           {icon}
         </div>
-        <h3 className="text-[16px] font-bold text-[#1F3B34]">{title}</h3>
+        <h3 className="text-[14px] font-extrabold tracking-tight" style={{ color: accent }}>{title}</h3>
       </div>
-      <div className="flex-1">{children}</div>
+      <div className="flex-1 relative z-10">{children}</div>
     </section>
   );
 }
 
-/** Key–value row */
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+/** Key–value pill row — V6 */
+function InfoRow({ label, value, highlight = false }: { label: string; value: React.ReactNode; highlight?: boolean }) {
   return (
-    <div className="flex justify-between items-baseline py-[5px]">
-      <span className="text-[12px] text-[#8B8479] shrink-0">{label}</span>
-      <span className="text-[12px] font-semibold text-[#1E1F22] text-right ml-3 truncate max-w-[60%]">
-        {value || '-'}
+    <div className={`flex justify-between items-center py-[7px] px-3 rounded-[12px] transition-colors ${highlight ? 'bg-[#F4EFE7]' : 'hover:bg-[#FAFAF8]'}`}>
+      <span className="text-[11.5px] font-semibold text-[#9B9590] shrink-0 uppercase tracking-wide">{label}</span>
+      <span className="text-[12.5px] font-bold text-[#1E1F22] text-right ml-3 truncate max-w-[60%]">
+        {value || <span className="text-[#C5BEB2] font-normal">—</span>}
       </span>
     </div>
   );
@@ -273,6 +279,7 @@ export default function ProfilesListPage() {
     getCasteById,
     getMotherTongueById,
   } = useReferenceData();
+  const { user } = useAuth();
 
   // ── State ─────────────────────────────────────────────────────
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);
@@ -328,7 +335,6 @@ export default function ProfilesListPage() {
     const checkExistingRequest = async () => {
       try {
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
         const { data, error } = await supabase
@@ -464,7 +470,6 @@ export default function ProfilesListPage() {
     try {
       const supabase = createClient();
       
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('You must be logged in to request a match analysis.');
       }
@@ -499,6 +504,10 @@ export default function ProfilesListPage() {
     setLoading(true);
     try {
       const res = await ProfileService.getProfilesList(filters);
+      // Cache the full profiles instantly from the list API
+      res.data.forEach((p: any) => {
+        fullProfileCache.current[p.id] = p as FullProfile;
+      });
       setProfiles(res.data);
       setTotalCount(res.count);
       if (res.data.length > 0 && !selectedId) {
@@ -525,22 +534,51 @@ export default function ProfilesListPage() {
       return;
     }
 
+    let cancelled = false;
+
+    // Helper to fetch matches
+    const fetchMatches = async (id: string) => {
+      if (realMatchResultsMap[id]) return; // already fetched
+      try {
+        const matches = await ProfileService.getProfileMatches(id);
+        if (matches.results && matches.results.length > 0 && !cancelled) {
+          const formattedResults = matches.results.map((res: any) => ({
+            candidateId: res.candidate_profile_id,
+            score: Math.round(res.final_score),
+            _realResult: {
+              ...res,
+              candidateProfileId: res.candidate_profile_id,
+              finalScore: res.final_score,
+              breakdowns: {
+                sourceToCandidate: res.score_breakdowns?.filter((b: any) => b.direction === 'SOURCE_TO_CANDIDATE') || [],
+                candidateToSource: res.score_breakdowns?.filter((b: any) => b.direction === 'CANDIDATE_TO_SOURCE') || []
+              }
+            }
+          }));
+          setRealMatchResultsMap(prev => ({ ...prev, [id]: formattedResults }));
+        }
+      } catch (e) {
+        console.error('Failed to fetch DB matches', e);
+      }
+    };
+
     // If already cached, use instantly — no loading state
     if (fullProfileCache.current[selectedId]) {
       setSelectedProfile(fullProfileCache.current[selectedId]);
       setActiveTab('overview');
+      fetchMatches(selectedId); // Fetch matches in background
       return;
     }
 
-    let cancelled = false;
     setDetailLoading(true);
     ProfileService.getProfileById(selectedId)
-      .then((data) => {
+      .then(async (data) => {
         if (!cancelled) {
           const profile = data as FullProfile;
           fullProfileCache.current[selectedId] = profile; // cache it
           setSelectedProfile(profile);
           setActiveTab('overview');
+          await fetchMatches(selectedId);
         }
       })
       .catch((err) => {
@@ -550,53 +588,12 @@ export default function ProfilesListPage() {
       .finally(() => {
         if (!cancelled) setDetailLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
-  }, [selectedId]);
+  }, [selectedId, realMatchResultsMap]);
 
-  // ── Background prefetch all profiles on current page ──────────
-  useEffect(() => {
-    if (profiles.length === 0) return;
-
-    const uncachedIds = profiles
-      .map(p => p.id)
-      .filter(id => !fullProfileCache.current[id]);
-
-    if (uncachedIds.length === 0) return;
-
-    // Prefetch in small batches to avoid overwhelming the server
-    const batchSize = 5;
-    let currentBatch = 0;
-
-    const fetchBatch = async () => {
-      const batch = uncachedIds.slice(currentBatch * batchSize, (currentBatch + 1) * batchSize);
-      if (batch.length === 0) return;
-
-      try {
-        const results = await Promise.all(
-          batch.map(id => ProfileService.getProfileById(id).catch(() => null))
-        );
-        results.forEach(data => {
-          if (data) {
-            fullProfileCache.current[data.id] = data as FullProfile;
-          }
-        });
-      } catch (e) {
-        console.error('Background prefetch error:', e);
-      }
-
-      currentBatch++;
-      if (currentBatch * batchSize < uncachedIds.length) {
-        // Small delay between batches
-        setTimeout(fetchBatch, 300);
-      }
-    };
-
-    // Start prefetch after a short delay (don't block initial render)
-    const timer = setTimeout(fetchBatch, 500);
-    return () => clearTimeout(timer);
-  }, [profiles]);
 
   // ── Handlers ──────────────────────────────────────────────────
   const handleSearch = (e: React.FormEvent) => {
@@ -1124,31 +1121,89 @@ export default function ProfilesListPage() {
 
   const renderPersonalTab = () => {
     if (!sp) return null;
+    const pi = sp.personal_information;
+    const phys = sp.physical_information;
+    const rel = sp.religion_information;
+    const age = computeAge(pi?.date_of_birth);
     return (
-      <div className="grid grid-cols-2 gap-4">
-        <DetailSection title="Personal Information" icon={<User2 className="w-4 h-4" />}>
-          <div className="divide-y divide-[#F5F0E8]">
-            <InfoRow label="Full Name" value={sp.personal_information?.full_name} />
-            <InfoRow label="Date of Birth" value={sp.personal_information?.date_of_birth ? new Date(sp.personal_information.date_of_birth).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'} />
-            <InfoRow label="Age" value={computeAge(sp.personal_information?.date_of_birth) !== '-' ? `${computeAge(sp.personal_information?.date_of_birth)} years` : '-'} />
-            <InfoRow label="Gender" value={formatEnum(sp.gender)} />
-            <InfoRow label="Marital Status" value={formatEnum(sp.personal_information?.marital_status)} />
-            <InfoRow label="Children" value={sp.personal_information?.number_of_children ?? '-'} />
-            <InfoRow label="Nationality" value={sp.personal_information?.nationality_country_id ? getCountryById(sp.personal_information.nationality_country_id)?.name_en : '-'} />
-            <InfoRow label="Mother Tongue" value={sp.personal_information?.mother_tongue_id ? getMotherTongueById(sp.personal_information.mother_tongue_id)?.name_en : '-'} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        {/* Personal Information */}
+        <DetailSection title="Personal Information" accent="#1F3B34" icon={<User2 className="w-4 h-4" />}>
+          <div className="space-y-0.5">
+            <InfoRow label="Full Name" value={pi?.full_name} highlight />
+            <InfoRow label="Date of Birth" value={pi?.date_of_birth ? new Date(pi.date_of_birth).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : undefined} />
+            <InfoRow label="Age" value={age !== '-' ? <span className="inline-flex items-center gap-1.5"><span className="font-black text-[#1F3B34]">{age}</span><span className="text-[#7C756B] font-normal">years old</span></span> : undefined} />
+            <InfoRow label="Gender" value={
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E5EFE9] text-[#1F3B34] border border-[#d1e3dc]">{formatEnum(sp.gender)}</span>
+            } highlight />
+            <InfoRow label="Marital Status" value={pi?.marital_status ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F4EFE7] text-[#696256] border border-[#E9E2D4]">{formatEnum(pi.marital_status)}</span>
+            ) : undefined} />
+            <InfoRow label="Children" value={pi?.number_of_children !== null && pi?.number_of_children !== undefined ? String(pi.number_of_children) : undefined} />
+            <InfoRow label="Nationality" value={pi?.nationality_country_id ? getCountryById(pi.nationality_country_id)?.name_en : undefined} highlight />
+            <InfoRow label="Mother Tongue" value={pi?.mother_tongue_id ? getMotherTongueById(pi.mother_tongue_id)?.name_en : undefined} />
           </div>
         </DetailSection>
-        <DetailSection title="Physical Attributes" icon={<Ruler className="w-4 h-4" />}>
-          <div className="divide-y divide-[#F5F0E8]">
-            <InfoRow label="Height" value={sp.physical_information?.height_cm ? `${sp.physical_information.height_cm} cm` : '-'} />
-            <InfoRow label="Weight" value={sp.physical_information?.weight_kg ? `${sp.physical_information.weight_kg} kg` : '-'} />
-            <InfoRow label="Complexion" value={sp.physical_information?.complexion || '-'} />
-            <InfoRow label="Disability" value={sp.physical_information?.has_disability ? 'Yes' : 'No'} />
-            {sp.physical_information?.has_disability && sp.physical_information?.disability_details && (
-              <InfoRow label="Disability Details" value={sp.physical_information.disability_details} />
-            )}
-          </div>
+
+        {/* Physical Attributes — warm neutral palette */}
+        <DetailSection title="Physical Attributes" accent="#1F3B34" icon={<Ruler className="w-4 h-4" />}>
+          {phys ? (
+            <>
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {phys.height_cm && (
+                  <div className="bg-[#F4EFE7] rounded-[16px] p-3 flex flex-col items-center border border-[#E9E2D4]">
+                    <span className="text-[20px] font-black text-[#1F3B34] leading-none">{phys.height_cm}</span>
+                    <span className="text-[9px] font-bold text-[#7C756B] uppercase tracking-wider mt-0.5">cm</span>
+                  </div>
+                )}
+                {phys.weight_kg && (
+                  <div className="bg-[#F4EFE7] rounded-[16px] p-3 flex flex-col items-center border border-[#E9E2D4]">
+                    <span className="text-[20px] font-black text-[#1F3B34] leading-none">{phys.weight_kg}</span>
+                    <span className="text-[9px] font-bold text-[#7C756B] uppercase tracking-wider mt-0.5">kg</span>
+                  </div>
+                )}
+                {phys.complexion && (
+                  <div className="bg-[#F4EFE7] rounded-[16px] p-3 flex flex-col items-center border border-[#E9E2D4]">
+                    <span className="text-[12px] font-black text-[#1F3B34] leading-none text-center">{formatEnum(phys.complexion)}</span>
+                    <span className="text-[9px] font-bold text-[#7C756B] uppercase tracking-wider mt-0.5">Look</span>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-0.5">
+                <InfoRow label="Disability" value={<span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${phys.has_disability ? 'bg-[#FEE2E2] text-[#991B1B]' : 'bg-[#E5EFE9] text-[#1F3B34]'}`}>{phys.has_disability ? 'Yes' : 'No'}</span>} />
+                {phys.has_disability && phys.disability_details && <InfoRow label="Details" value={phys.disability_details} />}
+              </div>
+            </>
+          ) : (
+            <p className="text-[12px] text-[#A49C8F] italic">No physical information recorded.</p>
+          )}
         </DetailSection>
+
+        {/* Religion & Culture — amber/gold (brand color) */}
+        {rel && (
+          <DetailSection title="Religion & Culture" accent="#C86A4A" icon={<BookOpen className="w-4 h-4" />} className="col-span-1 lg:col-span-2">
+            <div className="flex flex-wrap gap-3">
+              {rel.religion_id && (
+                <div className="flex items-center gap-2 bg-[#FDF0D8] border border-[#F6E1BA] rounded-[14px] px-4 py-2">
+                  <span className="text-[10px] font-bold text-[#8B6122] uppercase tracking-wider">Religion</span>
+                  <span className="text-[13px] font-extrabold text-[#4E2D05]">{getReligionById(rel.religion_id)?.name_en || '—'}</span>
+                </div>
+              )}
+              {rel.sect_id && (
+                <div className="flex items-center gap-2 bg-[#FDF0D8] border border-[#F6E1BA] rounded-[14px] px-4 py-2">
+                  <span className="text-[10px] font-bold text-[#8B6122] uppercase tracking-wider">Sect</span>
+                  <span className="text-[13px] font-extrabold text-[#4E2D05]">{getSectById(rel.sect_id)?.name_en || '—'}</span>
+                </div>
+              )}
+              {(rel.caste_id || rel.other_caste_text) && (
+                <div className="flex items-center gap-2 bg-[#FDF0D8] border border-[#F6E1BA] rounded-[14px] px-4 py-2">
+                  <span className="text-[10px] font-bold text-[#8B6122] uppercase tracking-wider">Caste</span>
+                  <span className="text-[13px] font-extrabold text-[#4E2D05]">{rel.caste_id ? getCasteById(rel.caste_id)?.name_en : rel.other_caste_text}</span>
+                </div>
+              )}
+            </div>
+          </DetailSection>
+        )}
       </div>
     );
   };
@@ -1156,37 +1211,61 @@ export default function ProfilesListPage() {
   const renderEducationTab = () => {
     if (!sp) return null;
     return (
-      <div className="grid grid-cols-2 gap-4">
-        <DetailSection title="Education Records" icon={<GraduationCap className="w-4 h-4" />}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        {/* Education — forest green accent */}
+        <DetailSection title="Education Records" accent="#1F3B34" icon={<GraduationCap className="w-4 h-4" />}>
           {sp.education_records?.length ? (
-            <div className="space-y-2">
-              {sp.education_records.map((edu) => (
-                <div key={edu.id} className="bg-[#FAFAF8] rounded-xl px-3.5 py-2.5 border border-[#F0EBE3]">
-                  <div className="text-[12px] font-bold text-[#1E1F22]">{edu.qualification || edu.field_of_study || 'Record'}</div>
-                  <div className="text-[11px] text-[#8B8479] mt-0.5">{[edu.institution_name, edu.field_of_study, edu.start_year && edu.end_year ? `${edu.start_year}–${edu.end_year}` : null].filter(Boolean).join(' · ')}</div>
-                  {edu.details && <div className="text-[11px] text-[#6D6558] mt-1">{edu.details}</div>}
+            <div className="space-y-3">
+              {sp.education_records.map((edu, i) => (
+                <div key={edu.id} className="relative bg-[#F4EFE7] rounded-[18px] p-4 border border-[#E9E2D4] hover:border-[#dcd5c2] transition-colors">
+                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-[#1F3B34]/10 flex items-center justify-center">
+                    <span className="text-[10px] font-black text-[#1F3B34]">#{i + 1}</span>
+                  </div>
+                  <div className="text-[13px] font-extrabold text-[#1F3B34] leading-tight pr-8">{edu.qualification || 'Qualification'}</div>
+                  {edu.field_of_study && <div className="text-[11.5px] font-semibold text-[#4E473D] mt-0.5">{edu.field_of_study}</div>}
+                  <div className="text-[11px] text-[#696256] mt-1.5 flex flex-wrap gap-1.5">
+                    {edu.institution_name && <span className="bg-white border border-[#E9E2D4] rounded-full px-2 py-0.5 font-medium">{edu.institution_name}</span>}
+                    {(edu.start_year || edu.end_year) && <span className="bg-white border border-[#E9E2D4] rounded-full px-2 py-0.5 font-medium">{edu.start_year || '?'}–{edu.end_year || 'Present'}</span>}
+                  </div>
+                  {edu.details && <p className="text-[11px] text-[#717972] mt-2 leading-relaxed">{edu.details}</p>}
                 </div>
               ))}
             </div>
-          ) : <p className="text-[11px] text-[#A8A296]">No education records.</p>}
+          ) : <p className="text-[12px] text-[#A49C8F] italic">No education records added.</p>}
         </DetailSection>
-        <div className="flex flex-col gap-4">
-          <DetailSection title="Employment Records" icon={<Briefcase className="w-4 h-4" />}>
+
+        {/* Employment — amber accent */}
+        <div className="flex flex-col gap-5">
+          <DetailSection title="Employment Records" accent="#C86A4A" icon={<Briefcase className="w-4 h-4" />}>
             {sp.employment_records?.length ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {sp.employment_records.map((emp) => (
-                  <div key={emp.id} className="bg-[#FAFAF8] rounded-xl px-3.5 py-2.5 border border-[#F0EBE3]">
-                    <div className="text-[12px] font-bold text-[#1E1F22]">{emp.job_title || 'Employment'} {emp.is_current && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#E5EFE9] text-[#064e3b] ml-1">Current</span>}</div>
-                    <div className="text-[11px] text-[#8B8479] mt-0.5">{[emp.organization_name, formatEnum(emp.employment_type)].filter(Boolean).join(' · ')}</div>
+                  <div key={emp.id} className="bg-[#FDF0D8] rounded-[18px] p-4 border border-[#F6E1BA] hover:border-[#e8ca97] transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-[13px] font-extrabold text-[#4E2D05] leading-tight">{emp.job_title || 'Position'}</div>
+                      {emp.is_current && <span className="shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full bg-[#1F3B34] text-white shadow-sm">CURRENT</span>}
+                    </div>
+                    <div className="text-[11.5px] font-semibold text-[#8B6122] mt-0.5">{emp.organization_name}</div>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {emp.employment_type && <span className="text-[10px] bg-white border border-[#F6E1BA] rounded-full px-2 py-0.5 font-medium text-[#696256]">{formatEnum(emp.employment_type)}</span>}
+                    </div>
                   </div>
                 ))}
               </div>
-            ) : <p className="text-[11px] text-[#A8A296]">No employment records.</p>}
+            ) : <p className="text-[12px] text-[#A49C8F] italic">No employment records added.</p>}
           </DetailSection>
+
+          {/* Income — forest green */}
           {sp.income_information && (
-            <DetailSection title="Income Information" icon={<Briefcase className="w-4 h-4" />}>
-              <div className="divide-y divide-[#F5F0E8]">
-                <InfoRow label="Monthly Income" value={sp.income_information.monthly_income_min || sp.income_information.monthly_income_max ? `${sp.income_information.currency_code || 'PKR'} ${sp.income_information.monthly_income_min?.toLocaleString() || '?'} – ${sp.income_information.monthly_income_max?.toLocaleString() || '?'}` : '-'} />
+            <DetailSection title="Income" accent="#1F3B34" icon={<TrendingUp className="w-4 h-4" />}>
+              <div className="bg-[#E5EFE9] rounded-[18px] p-4 border border-[#d1e3dc]">
+                <div className="text-[10px] font-bold text-[#1F3B34] uppercase tracking-widest mb-1">Monthly Income Range</div>
+                <div className="text-[22px] font-black text-[#1F3B34] leading-none">
+                  {sp.income_information.currency_code || 'PKR'} {sp.income_information.monthly_income_min?.toLocaleString() || '?'}
+                  <span className="text-[14px] font-normal text-[#1F3B34]/40 mx-1">—</span>
+                  {sp.income_information.monthly_income_max?.toLocaleString() || '?'}
+                </div>
+                {sp.income_information.income_period && <div className="text-[11px] text-[#4E473D] mt-1 font-medium">{formatEnum(sp.income_information.income_period)}</div>}
               </div>
             </DetailSection>
           )}
@@ -1198,36 +1277,53 @@ export default function ProfilesListPage() {
   const renderFamilyTab = () => {
     if (!sp) return null;
     return (
-      <div className="grid grid-cols-2 gap-4">
-        <DetailSection title="Parents" icon={<Users className="w-4 h-4" />}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        {/* Parents — warm neutral */}
+        <DetailSection title="Parents" accent="#1F3B34" icon={<Users className="w-4 h-4" />}>
           {sp.parents?.length ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {sp.parents.map((p) => (
-                <div key={p.id} className="bg-[#FAFAF8] rounded-xl px-3.5 py-2.5 border border-[#F0EBE3]">
-                  <div className="text-[12px] font-bold text-[#1E1F22]">{formatEnum(p.parent_type)} — {p.full_name || 'N/A'}</div>
-                  <div className="text-[11px] text-[#8B8479] mt-0.5">{[formatEnum(p.status), p.profession, p.education, p.age ? `${p.age} yrs` : null].filter(Boolean).join(' · ')}</div>
+                <div key={p.id} className="bg-[#F4EFE7] rounded-[18px] p-4 border border-[#E9E2D4] hover:border-[#dcd5c2] transition-colors">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-[#1F3B34] text-white uppercase tracking-wider">{formatEnum(p.parent_type)}</span>
+                    <span className="text-[13px] font-extrabold text-[#1F3B34]">{p.full_name || 'N/A'}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {p.status && <span className="text-[10px] bg-white border border-[#E9E2D4] rounded-full px-2 py-0.5 font-medium text-[#696256]">{formatEnum(p.status)}</span>}
+                    {p.profession && <span className="text-[10px] bg-white border border-[#E9E2D4] rounded-full px-2 py-0.5 font-medium text-[#696256]">{p.profession}</span>}
+                    {p.education && <span className="text-[10px] bg-white border border-[#E9E2D4] rounded-full px-2 py-0.5 font-medium text-[#696256]">{p.education}</span>}
+                    {p.age && <span className="text-[10px] bg-white border border-[#E9E2D4] rounded-full px-2 py-0.5 font-medium text-[#696256]">{p.age} yrs</span>}
+                  </div>
                 </div>
               ))}
             </div>
-          ) : <p className="text-[11px] text-[#A8A296]">No parent records.</p>}
+          ) : <p className="text-[12px] text-[#A49C8F] italic">No parent records added.</p>}
         </DetailSection>
-        <div className="flex flex-col gap-4">
-          <DetailSection title="Siblings" icon={<Users className="w-4 h-4" />}>
+
+        <div className="flex flex-col gap-5">
+          {/* Siblings — amber */}
+          <DetailSection title="Siblings" accent="#C86A4A" icon={<Users className="w-4 h-4" />}>
             {sp.siblings?.length ? (
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 {sp.siblings.map((s) => (
-                  <div key={s.id} className="bg-[#FAFAF8] rounded-xl px-3 py-2 border border-[#F0EBE3] text-[11.5px]">
-                    <span className="font-semibold text-[#1E1F22]">{s.full_name || formatEnum(s.gender)}</span>
-                    <span className="text-[#8B8479] ml-1.5">{[s.age ? `${s.age}y` : null, formatEnum(s.marital_status), s.profession].filter(Boolean).join(' · ')}</span>
+                  <div key={s.id} className="bg-[#FDF0D8] rounded-[16px] p-3 border border-[#F6E1BA] hover:border-[#e8ca97] transition-colors">
+                    <div className="text-[12px] font-extrabold text-[#4E2D05] truncate">{s.full_name || formatEnum(s.gender)}</div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {s.age && <span className="text-[9px] bg-white border border-[#F6E1BA] rounded-full px-1.5 py-0.5 font-bold text-[#8B6122]">{s.age}y</span>}
+                      {s.marital_status && <span className="text-[9px] bg-white border border-[#F6E1BA] rounded-full px-1.5 py-0.5 font-bold text-[#8B6122]">{formatEnum(s.marital_status)}</span>}
+                    </div>
+                    {s.profession && <div className="text-[10px] text-[#8B6122] mt-1 font-medium truncate">{s.profession}</div>}
                   </div>
                 ))}
               </div>
-            ) : <p className="text-[11px] text-[#A8A296]">No sibling records.</p>}
+            ) : <p className="text-[12px] text-[#A49C8F] italic">No sibling records added.</p>}
           </DetailSection>
+
+          {/* Family Details */}
           {sp.family_information && (
-            <DetailSection title="Family Details" icon={<Home className="w-4 h-4" />}>
-              <div className="divide-y divide-[#F5F0E8]">
-                {sp.family_information.family_profession_business && <InfoRow label="Family Business" value={sp.family_information.family_profession_business} />}
+            <DetailSection title="Family Details" accent="#1F3B34" icon={<Home className="w-4 h-4" />}>
+              <div className="space-y-0.5">
+                {sp.family_information.family_profession_business && <InfoRow label="Business" value={sp.family_information.family_profession_business} highlight />}
                 {sp.family_information.social_background && <InfoRow label="Social Background" value={sp.family_information.social_background} />}
                 {sp.family_information.family_values && <InfoRow label="Values" value={sp.family_information.family_values} />}
                 {sp.family_information.family_introduction && <InfoRow label="Introduction" value={sp.family_information.family_introduction} />}
@@ -1242,23 +1338,77 @@ export default function ProfilesListPage() {
 
   const renderLifestyleTab = () => {
     if (!sp) return null;
+    const lf = sp.lifestyle_information;
+    const rel = sp.religion_information;
+    
+    const lifestylePills: {label: string; value: string | null | undefined}[] = [
+      { label: 'Religious Practice', value: formatEnum(lf?.religious_practice) },
+      ...(sp.gender === 'MALE' ? [{ label: 'Beard', value: formatEnum(lf?.beard) }] : []),
+      ...(sp.gender === 'FEMALE' ? [{ label: 'Hijab', value: formatEnum(lf?.hijab) }] : []),
+      { label: 'Smoking', value: formatEnum(lf?.smoking) },
+    ].filter(p => p.value && p.value !== '-');
+
+    const pillColor = (label: string, val: string) => {
+      if (val === 'No' || val === 'Never') return 'bg-[#E5EFE9] text-[#1F3B34] border-[#d1e3dc]';
+      if (val === 'Yes' || val === 'Sometimes' || val === 'Often') return 'bg-[#FDF0D8] text-[#8B6122] border-[#F6E1BA]';
+      if (label === 'Smoking' && val !== 'Non Smoker') return 'bg-[#FEE2E2] text-[#991B1B] border-[#FCA5A5]/60';
+      return 'bg-[#F4EFE7] text-[#696256] border-[#E9E2D4]';
+    };
+
     return (
-      <div className="grid grid-cols-2 gap-4">
-        <DetailSection title="Lifestyle" icon={<Sparkles className="w-4 h-4" />}>
-          <div className="divide-y divide-[#F5F0E8]">
-            <InfoRow label="Religious Practice" value={formatEnum(sp.lifestyle_information?.religious_practice)} />
-            {sp.gender === 'MALE' && <InfoRow label="Beard" value={formatEnum(sp.lifestyle_information?.beard)} />}
-            {sp.gender === 'FEMALE' && <InfoRow label="Hijab" value={formatEnum(sp.lifestyle_information?.hijab)} />}
-            <InfoRow label="Smoking" value={formatEnum(sp.lifestyle_information?.smoking)} />
-            {sp.lifestyle_information?.other_lifestyle_information && <InfoRow label="Other" value={sp.lifestyle_information.other_lifestyle_information} />}
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        {/* Lifestyle — neutral warm palette */}
+        <DetailSection title="Lifestyle & Habits" accent="#1F3B34" icon={<Sparkles className="w-4 h-4" />}>
+          {lf ? (
+            <>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {lifestylePills.map(p => (
+                  <div key={p.label} className="flex flex-col items-center gap-0.5">
+                    <span className={`text-[11px] font-bold px-3 py-1.5 rounded-full border ${pillColor(p.label, p.value!)}`}>{p.value}</span>
+                    <span className="text-[9px] font-semibold text-[#888174] uppercase tracking-wide">{p.label}</span>
+                  </div>
+                ))}
+              </div>
+              {lf.other_lifestyle_information && (
+                <div className="bg-[#F4EFE7] rounded-[16px] p-3 border border-[#E9E2D4]">
+                  <div className="text-[10px] font-bold text-[#4E473D] uppercase tracking-wider mb-1">Other Notes</div>
+                  <p className="text-[12px] text-[#717972] leading-relaxed">{lf.other_lifestyle_information}</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-[12px] text-[#A49C8F] italic">No lifestyle information recorded.</p>
+          )}
         </DetailSection>
-        <DetailSection title="Religion & Culture" icon={<BookOpen className="w-4 h-4" />}>
-          <div className="divide-y divide-[#F5F0E8]">
-            <InfoRow label="Religion" value={sp.religion_information?.religion_id ? getReligionById(sp.religion_information.religion_id)?.name_en : '-'} />
-            <InfoRow label="Sect" value={sp.religion_information?.sect_id ? getSectById(sp.religion_information.sect_id)?.name_en : '-'} />
-            <InfoRow label="Caste" value={sp.religion_information?.caste_id ? getCasteById(sp.religion_information.caste_id)?.name_en : sp.religion_information?.other_caste_text || '-'} />
-          </div>
+
+        {/* Religion — amber (brand) */}
+        <DetailSection title="Religion & Culture" accent="#C86A4A" icon={<BookOpen className="w-4 h-4" />}>
+          {rel ? (
+            <div className="space-y-3">
+              {rel.religion_id && (
+                <div className="bg-[#FDF0D8] rounded-[16px] p-4 border border-[#F6E1BA]">
+                  <div className="text-[10px] font-bold text-[#8B6122] uppercase tracking-widest mb-1">Religion</div>
+                  <div className="text-[18px] font-black text-[#4E2D05]">{getReligionById(rel.religion_id)?.name_en}</div>
+                </div>
+              )}
+              <div className="flex gap-3">
+                {rel.sect_id && (
+                  <div className="flex-1 bg-[#FDF0D8] rounded-[14px] p-3 border border-[#F6E1BA]">
+                    <div className="text-[9px] font-bold text-[#8B6122] uppercase tracking-widest mb-0.5">Sect</div>
+                    <div className="text-[13px] font-extrabold text-[#4E2D05]">{getSectById(rel.sect_id)?.name_en}</div>
+                  </div>
+                )}
+                {(rel.caste_id || rel.other_caste_text) && (
+                  <div className="flex-1 bg-[#FDF0D8] rounded-[14px] p-3 border border-[#F6E1BA]">
+                    <div className="text-[9px] font-bold text-[#8B6122] uppercase tracking-widest mb-0.5">Caste</div>
+                    <div className="text-[13px] font-extrabold text-[#4E2D05]">{rel.caste_id ? getCasteById(rel.caste_id)?.name_en : rel.other_caste_text}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-[12px] text-[#A49C8F] italic">No religion information recorded.</p>
+          )}
         </DetailSection>
       </div>
     );
@@ -1266,31 +1416,59 @@ export default function ProfilesListPage() {
 
   const renderLocationTab = () => {
     if (!sp) return null;
+    const loc = sp.profile_locations;
+    const res = sp.residency_information;
+    const currentCity = loc?.current_city_id ? getCityById(loc.current_city_id)?.name_en : loc?.current_location_text;
+    const currentProv = loc?.current_province_id ? getProvinceById(loc.current_province_id)?.name_en : null;
+    const currentCountry = loc?.current_country_id ? getCountryById(loc.current_country_id)?.name_en : null;
+    const permCity = loc?.permanent_city_id ? getCityById(loc.permanent_city_id)?.name_en : null;
+    const permCountry = loc?.permanent_country_id ? getCountryById(loc.permanent_country_id)?.name_en : null;
+
     return (
-      <div className="grid grid-cols-2 gap-4">
-        <DetailSection title="Location" icon={<MapPin className="w-4 h-4" />}>
-          <div className="divide-y divide-[#F5F0E8]">
-            <InfoRow label="Current City" value={sp.profile_locations?.current_city_id ? getCityById(sp.profile_locations.current_city_id)?.name_en : sp.profile_locations?.current_location_text || '-'} />
-            <InfoRow label="Current Province" value={sp.profile_locations?.current_province_id ? getProvinceById(sp.profile_locations.current_province_id)?.name_en : '-'} />
-            <InfoRow label="Current Country" value={sp.profile_locations?.current_country_id ? getCountryById(sp.profile_locations.current_country_id)?.name_en : '-'} />
-            <InfoRow label="Permanent Location" value={sp.profile_locations?.permanent_location_text || '-'} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        {/* Location — forest green on warm neutral */}
+        <DetailSection title="Current Location" accent="#1F3B34" icon={<MapPin className="w-4 h-4" />}>
+          <div className="relative bg-[#E5EFE9] rounded-[20px] p-5 border border-[#d1e3dc] overflow-hidden mb-3">
+            <div className="absolute -right-4 -bottom-4 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(#1F3B34 1.5px, transparent 1.5px)', backgroundSize: '12px 12px', width: '100px', height: '100px' }} />
+            <div className="text-[26px] font-black text-[#1F3B34] leading-none">{currentCity || '—'}</div>
+            {currentProv && <div className="text-[13px] font-semibold text-[#4E473D] mt-0.5">{currentProv}</div>}
+            {currentCountry && (
+              <div className="mt-2 inline-flex items-center gap-1.5 bg-white border border-[#d1e3dc] rounded-full px-3 py-1">
+                <Globe className="w-3 h-3 text-[#1F3B34]" />
+                <span className="text-[11px] font-bold text-[#1F3B34]">{currentCountry}</span>
+              </div>
+            )}
           </div>
-        </DetailSection>
-        <div className="flex flex-col gap-4">
-          <DetailSection title="Residency" icon={<Home className="w-4 h-4" />}>
-            <div className="divide-y divide-[#F5F0E8]">
-              <InfoRow label="House Status" value={formatEnum(sp.residency_information?.house_status)} />
-              <InfoRow label="Property Type" value={formatEnum(sp.residency_information?.property_type)} />
-              <InfoRow label="Family Setup" value={formatEnum(sp.residency_information?.family_setup)} />
-              <InfoRow label="Living With" value={formatEnum(sp.residency_information?.living_with)} />
+          {(permCity || permCountry || loc?.permanent_location_text) && (
+            <div className="bg-[#F4EFE7] rounded-[14px] p-3 border border-[#E9E2D4]">
+              <div className="text-[9px] font-bold text-[#4E473D] uppercase tracking-widest mb-1">Permanent Address</div>
+              <div className="text-[12px] font-semibold text-[#1F3B34]">{[permCity, permCountry, loc?.permanent_location_text].filter(Boolean).join(', ') || '—'}</div>
             </div>
+          )}
+        </DetailSection>
+
+        {/* Residency */}
+        <div className="flex flex-col gap-5">
+          <DetailSection title="Residency Details" accent="#1F3B34" icon={<Home className="w-4 h-4" />}>
+            {res ? (
+              <div className="space-y-0.5">
+                <InfoRow label="House Status" value={res.house_status ? <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E5EFE9] text-[#1F3B34] border border-[#d1e3dc]">{formatEnum(res.house_status)}</span> : undefined} highlight />
+                <InfoRow label="Property Type" value={formatEnum(res.property_type)} />
+                <InfoRow label="Family Setup" value={res.family_setup ? <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F4EFE7] text-[#696256] border border-[#E9E2D4]">{formatEnum(res.family_setup)}</span> : undefined} />
+                <InfoRow label="Living With" value={formatEnum(res.living_with)} />
+                {res.living_with_other_details && <InfoRow label="Details" value={res.living_with_other_details} />}
+              </div>
+            ) : (
+              <p className="text-[12px] text-[#A49C8F] italic">No residency information recorded.</p>
+            )}
           </DetailSection>
-          {sp.relocation_information && (
-            <DetailSection title="Relocation" icon={<Globe className="w-4 h-4" />}>
-              <div className="divide-y divide-[#F5F0E8]">
-                <InfoRow label="Willing to Relocate" value={formatEnum(sp.relocation_information.willing_to_relocate)} />
-                {sp.relocation_information.preferred_country_id && <InfoRow label="Preferred Country" value={getCountryById(sp.relocation_information.preferred_country_id)?.name_en || '-'} />}
-                {sp.relocation_information.relocation_details && <InfoRow label="Details" value={sp.relocation_information.relocation_details} />}
+
+          {(sp as any).relocation_information && (
+            <DetailSection title="Relocation" accent="#1F3B34" icon={<Globe className="w-4 h-4" />}>
+              <div className="space-y-0.5">
+                <InfoRow label="Willing to Relocate" value={(sp as any).relocation_information.willing_to_relocate ? <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E5EFE9] text-[#1F3B34] border border-[#d1e3dc]">{formatEnum((sp as any).relocation_information.willing_to_relocate)}</span> : undefined} highlight />
+                {(sp as any).relocation_information.preferred_country_id && <InfoRow label="Preferred Country" value={getCountryById((sp as any).relocation_information.preferred_country_id)?.name_en} />}
+                {(sp as any).relocation_information.relocation_details && <InfoRow label="Notes" value={(sp as any).relocation_information.relocation_details} />}
               </div>
             </DetailSection>
           )}
@@ -1540,11 +1718,13 @@ export default function ProfilesListPage() {
                     </p>
                     <p className="text-[13px] text-[#717972] mt-0.5">Verified matrimonial dossier, managed securely on the platform.</p>
                   </div>
-                  <div className="ml-auto flex items-center gap-2 self-start md:self-auto">
+                  <div className="ml-auto flex items-center gap-3 self-start md:self-auto">
                     <div className="scale-105 origin-right">
                       <StatusBadge status={selectedProfile.status} size="md" />
                     </div>
-                    <span className="px-[12px] py-[6px] rounded-[20px] text-[11px] font-semibold bg-[#A3B18A] text-[#1F3B34] shadow-sm border border-[#91a076]/30">Matrimonial</span>
+                    <NotificationDropdown 
+                      btnClass="relative w-10 h-10 rounded-full bg-transparent border border-black/10 hover:bg-black/5 flex items-center justify-center text-[#1F3B34] transition-colors"
+                    />
                   </div>
                 </header>
 

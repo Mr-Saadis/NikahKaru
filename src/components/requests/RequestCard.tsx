@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { RequestItem, ColumnDef } from './types';
 import { AVATAR_COLORS } from './constants';
 import { BookmarkFilledIcon } from './icons';
@@ -55,9 +55,9 @@ export default function RequestCard({
   const avatarColor = AVATAR_COLORS[globalIndex % AVATAR_COLORS.length];
   const isTransparent = column.cardBg === 'transparent';
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
-  const isReadColumn = ['first', 'second', 'requested', 'responded'].includes(column.key);
-  const effectiveBg = (isReadColumn && item.isRead) ? '#FFFFFF' : column.cardBg;
+  const effectiveBg = column.cardBg;
 
   // Contrast logic based on new colour schema
   const isDarkBg = ['#2F3E51', '#1F3B34', '#C86A4A'].includes(effectiveBg);
@@ -135,6 +135,8 @@ export default function RequestCard({
       onMouseDown={handleMouseDown}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className="request-card group"
       style={{
         minHeight: 182,
@@ -146,9 +148,11 @@ export default function RequestCard({
         flexDirection: 'column',
         boxShadow: isSelected
           ? '0 0 0 2px #111, 0 14px 28px rgba(30,30,50,.14)'
-          : isDarkBg
-            ? '0 1px 0 rgba(255,255,255,0.15) inset, 0 2px 6px rgba(0,0,0,0.08)'
-            : '0 1px 0 rgba(255,255,255,0.5) inset, 0 2px 6px rgba(0,0,0,0.04)',
+          : isHovered
+            ? '0 14px 28px rgba(30,30,50,0.12)'
+            : isDarkBg
+              ? '0 1px 0 rgba(255,255,255,0.15) inset, 0 2px 6px rgba(0,0,0,0.08)'
+              : '0 1px 0 rgba(255,255,255,0.5) inset, 0 2px 6px rgba(0,0,0,0.04)',
         cursor: 'pointer',
         position: 'relative',
         transition: 'transform .2s ease, box-shadow .2s ease, opacity .2s ease',

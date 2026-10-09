@@ -5,7 +5,7 @@ import { Bell, Check, X, FileText, Download, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { notificationService } from "@/lib/services/notification-service";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { createBrowserClient } from "@supabase/ssr";
+import { useNotificationStore } from "@/lib/stores/notification-store";
 import type { Notification } from "@/lib/types/database.types";
 
 const formatTimeOnly = (dateStr: string) => {
@@ -38,80 +38,27 @@ const isYesterday = (d: Date) => {
     d.getFullYear() === yesterday.getFullYear();
 };
 
-export default function NotificationDropdown({ btnClass }: { btnClass: string }) {
+export default function NotificationDropdown({ 
+  btnClass, 
+  iconClass = "w-4 h-4",
+  iconSize
+}: { 
+  btnClass: string;
+  iconClass?: string;
+  iconSize?: number;
+}) {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   
   const { user, role } = useAuthStore();
+  const { notifications, initialize, markAsReadOptimistic } = useNotificationStore();
 
-  const fetchUnreadNotifications = async () => {
-    if (!user?.id || !role) return;
-    try {
-      const data = await notificationService.getMyNotifications(user.id, role, { 
-        status: 'unread', 
-        limit: 15 
-      });
-      setNotifications(data || []);
-    } catch (error) {
-      console.error("Failed to fetch notifications:", error);
+  useEffect(() => {
+    if (user?.id && role) {
+      initialize(user.id, role);
     }
-  };
-
-  useEffect(() => {
-    fetchUnreadNotifications();
-  }, [user?.id, role]);
-
-  useEffect(() => {
-    if (!user?.id && !role) return;
-
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    const channel = supabase
-      .channel('dropdown-notifications-realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications' },
-        (payload) => {
-          const newNotif = payload.new as Notification;
-          if (newNotif.user_id === user?.id || newNotif.target_role === role) {
-            setNotifications(prev => [newNotif, ...(prev || [])].slice(0, 15));
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'notifications' },
-        (payload) => {
-          const updatedNotif = payload.new as Notification;
-          if (updatedNotif.user_id === user?.id || updatedNotif.target_role === role) {
-             if (updatedNotif.is_read) {
-               // Remove from unread dropdown list
-               setNotifications(prev => (prev || []).filter(n => n.id !== updatedNotif.id));
-             } else {
-               // Update existing or add to list if marked unread (rare)
-               setNotifications(prev => {
-                 const current = prev || [];
-                 const exists = current.find(n => n.id === updatedNotif.id);
-                 if (exists) {
-                   return current.map(n => n.id === updatedNotif.id ? updatedNotif : n);
-                 }
-                 return [updatedNotif, ...current].slice(0, 15);
-               });
-             }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, role]);
+  }, [user?.id, role, initialize]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -126,7 +73,7 @@ export default function NotificationDropdown({ btnClass }: { btnClass: string })
   const handleItemClick = async (notif: Notification) => {
     setIsOpen(false);
     // Optimistically remove from dropdown
-    setNotifications((prev) => (prev || []).filter((n) => n.id !== notif.id));
+    markAsReadOptimistic(notif.id);
     
     try {
       await notificationService.markAsRead(notif.id);
@@ -153,7 +100,7 @@ export default function NotificationDropdown({ btnClass }: { btnClass: string })
         onClick={() => setIsOpen(!isOpen)}
         className={btnClass}
       >
-        <Bell className="w-4 h-4" />
+        <Bell className={iconClass} size={iconSize} />
         {hasUnread && (
           <span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border border-white animate-pulse"></span>
         )}

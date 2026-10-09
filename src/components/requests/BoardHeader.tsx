@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell } from 'lucide-react';
+import NotificationDropdown from '@/components/NotificationDropdown';
 
 // ============================================================
 // BoardHeader — Logo mark, title, and nav pill
@@ -15,9 +15,6 @@ export default function BoardHeader() {
       <div className="flex items-center gap-[14px]">
 
         <div>
-          <div style={{ fontSize: 11.5, color: '#A3B18A', fontWeight: 500 }}>
-            Manager Console
-          </div>
           <div
             style={{
               fontSize: 26,
@@ -34,12 +31,11 @@ export default function BoardHeader() {
 
       {/* Right: Notifications */}
       <div className="hidden min-[900px]:block pr-2">
-        <button
-          type="button"
-          className="group flex items-center justify-center cursor-pointer text-[#1F3B34] hover:opacity-70 transition-opacity bg-transparent border-none"
-        >
-          <Bell size={24} className="animate-ding-dong-hover" />
-        </button>
+        <NotificationDropdown
+          btnClass="group flex items-center justify-center cursor-pointer text-[#1F3B34] hover:opacity-70 transition-opacity bg-transparent border-none relative"
+          iconClass="animate-ding-dong-hover"
+          iconSize={24}
+        />
       </div>
     </div>
   );
