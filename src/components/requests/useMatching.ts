@@ -16,19 +16,19 @@ export function useMatching() {
   const [realMatches, setRealMatches] = useState<Record<string, MatchResult[]>>({});
   const [matchingLoading, setMatchingLoading] = useState<Record<string, boolean>>({});
 
-  const toggleMatches = useCallback(async (item: RequestItem) => {
+  const toggleMatches = useCallback(async (item: RequestItem, forceRematch = false) => {
     const requestId = item.id;
     setMatchesOn((prev) => {
       const isCurrentlyOn = prev[requestId];
-      if (isCurrentlyOn) {
+      if (isCurrentlyOn && !forceRematch) {
         setOpenProfile((curr) => (curr?.requestId === requestId ? null : curr));
         return { ...prev, [requestId]: false };
       }
       return { ...prev, [requestId]: true };
     });
 
-    // If we already have matches, no need to fetch again immediately
-    if (realMatches[requestId] || matchesOn[requestId]) return;
+    // If we already have non-empty matches, no need to fetch again immediately unless forceRematch
+    if (!forceRematch && realMatches[requestId] && realMatches[requestId].length > 0) return;
 
     // Fetch real matches
     setMatchingLoading(prev => ({ ...prev, [requestId]: true }));
@@ -39,32 +39,60 @@ export function useMatching() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       );
       
-      const sourceProfileId = item.profileData?.profile_id;
+      let sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id;
+      if (!sourceProfileId && item.id) {
+        // Fallback: Check if item.id is a request_id or profile_id
+        const { data: req } = await supabase
+          .from('information_requests')
+          .select('source_profile_id')
+          .eq('id', item.id)
+          .maybeSingle();
+        sourceProfileId = req?.source_profile_id || item.id;
+      }
       if (!sourceProfileId) throw new Error("No source profile ID found for this request");
 
-      // 1. Fetch real matches from vw_profile_match_results
-      const { data: viewResults, error: resultsError } = await supabase
-        .from('vw_profile_match_results')
-        .select('*')
-        .eq('source_profile_id', sourceProfileId)
-        .order('final_score', { ascending: false });
-
-      if (resultsError) console.error('Error fetching match results from view:', resultsError);
-
+      // 1. Fetch real matches from vw_profile_match_results or calculate dynamically
       let results: MatchResult[] = [];
-      if (viewResults && viewResults.length > 0) {
-        results = viewResults.map((r: any) => ({
-          candidateProfileId: r.candidate_profile_id,
-          sourceToCandidateScore: r.source_to_candidate_score,
-          candidateToSourceScore: r.candidate_to_source_score,
-          finalScore: r.final_score,
-          rank: r.rank,
-          breakdowns: {
-            sourceToCandidate: r.score_breakdowns?.filter((b: any) => b.direction === r.source_gender) || [],
-            candidateToSource: r.score_breakdowns?.filter((b: any) => b.direction !== r.source_gender) || [],
-          }
-        }));
 
+      if (!forceRematch) {
+        const { data: viewResults, error: resultsError } = await supabase
+          .from('vw_profile_match_results')
+          .select('*')
+          .eq('source_profile_id', sourceProfileId)
+          .order('final_score', { ascending: false });
+
+        if (resultsError) console.error('Error fetching match results from view:', resultsError);
+
+        if (viewResults && viewResults.length > 0) {
+          results = viewResults.map((r: any) => ({
+            candidateProfileId: r.candidate_profile_id,
+            sourceToCandidateScore: r.source_to_candidate_score,
+            candidateToSourceScore: r.candidate_to_source_score,
+            finalScore: r.final_score,
+            rank: r.rank,
+            breakdowns: {
+              sourceToCandidate: r.score_breakdowns?.filter((b: any) => b.direction === r.source_gender) || [],
+              candidateToSource: r.score_breakdowns?.filter((b: any) => b.direction !== r.source_gender) || [],
+            }
+          }));
+        }
+      }
+
+      // If no persisted matches exist yet or forced rematch, run deterministic matching engine
+      if (results.length === 0) {
+        try {
+          results = await runMatching(supabase, sourceProfileId, {
+            limit: 50,
+            persist: false,
+            executedBy: 'frontend-preview',
+            requestId: item.id
+          });
+        } catch (engineErr) {
+          console.error('Error running matching engine:', engineErr);
+        }
+      }
+
+      if (results && results.length > 0) {
         const ids = results.map(r => r.candidateProfileId);
         const { data: fullProfiles } = await supabase
           .from('vw_profile_core')
