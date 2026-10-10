@@ -6,7 +6,8 @@ import {
   fetchColumnRequests as apiFetchColumnRequests,
   fetchAgentNames as apiFetchAgentNames, 
   markRequestAsRead as apiMarkRequestAsRead,
-  fetchRequestReleaseHistory as apiFetchRequestReleaseHistory
+  fetchRequestReleaseHistory as apiFetchRequestReleaseHistory,
+  fetchProfileCompleteReleaseHistory as apiFetchProfileCompleteReleaseHistory
 } from '@/api/requests';
 
 export async function fetchBoardRequests(filters: FilterState): Promise<RequestItem[]> {
@@ -32,4 +33,8 @@ export async function markRequestAsRead(requestId: string): Promise<void> {
 
 export async function fetchRequestReleaseHistory(requestId: string): Promise<any[]> {
   return apiFetchRequestReleaseHistory(requestId);
+}
+
+export async function fetchProfileCompleteReleaseHistory(profileId: string): Promise<any[]> {
+  return apiFetchProfileCompleteReleaseHistory(profileId);
 }

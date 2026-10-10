@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import type { MatchResult } from '@/lib/matching/types';
 import { CheckBox } from './CheckBox';
 import { MatchRing } from './MatchRing';
 import { CheckIcon, SendIcon, ChevronRightIcon } from './icons';
 import type { RequestItem } from './types';
+import { fetchProfileCompleteReleaseHistory } from '@/lib/actions/requests';
 
 function getInitials(name: string): string {
   const parts = (name || '').trim().split(/\s+/);
@@ -41,6 +42,32 @@ export function MatchesSection({
   sendSelected,
   releaseHistory = [],
 }: MatchesSectionProps) {
+  const [completeHistory, setCompleteHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const activeMatch = useMemo(() => {
+    if (!openProfile || openProfile.requestId !== item.id) return null;
+    return matches.find(m => m.candidateProfileId === openProfile.candidateId) || null;
+  }, [openProfile, matches, item.id]);
+
+  useEffect(() => {
+    if (activeMatch) {
+      setLoadingHistory(true);
+      fetchProfileCompleteReleaseHistory(activeMatch.candidateProfileId)
+        .then(res => {
+          setCompleteHistory(res || []);
+          setLoadingHistory(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setCompleteHistory([]);
+          setLoadingHistory(false);
+        });
+    } else {
+      setCompleteHistory([]);
+    }
+  }, [activeMatch?.candidateProfileId]);
+
   const a = page * 5;
   const pageMatches = useMemo(() => matches.slice(a, a + 5), [matches, a]);
   const rem = Math.min(5, matches.length - a - 5);
@@ -62,10 +89,7 @@ export function MatchesSection({
     return `${d}.${m}.${y.slice(2)}`;
   };
 
-  const activeMatch = useMemo(() => {
-    if (!openProfile || openProfile.requestId !== item.id) return null;
-    return matches.find(m => m.candidateProfileId === openProfile.candidateId) || null;
-  }, [openProfile, matches, item.id]);
+
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[1.55fr_1fr] gap-4 mt-4 animate-[rise_.6s_cubic-bezier(.22,1,.36,1)_both]">
@@ -224,7 +248,11 @@ export function MatchesSection({
               const releaseData = releaseHistory.find(r => r.candidate_profile_id === activeMatch.candidateProfileId);
               const isSentCurrent = sent.some(s => s.candidateProfileId === activeMatch.candidateProfileId) || !!releaseData;
               
-              if (!isSentCurrent) {
+              if (loadingHistory) {
+                return <div className="text-[#8d8c86] text-center text-[12px] pt-[48px] m-auto">Loading history...</div>;
+              }
+              
+              if (completeHistory.length === 0 && !isSentCurrent) {
                 return (
                   <div className="text-[#8d8c86] text-center text-[12px] pt-[48px] m-auto">
                     This profile has no past sent history.
@@ -234,21 +262,22 @@ export function MatchesSection({
               
               return (
                 <div className="flex flex-col min-h-0 overflow-y-auto pr-1">
-                  <div className="flex items-center gap-[10px] w-[calc(100%+16px)] border-0 bg-transparent text-left rounded-[14px] p-[8px] -mx-[8px] border-t border-transparent">
-                    <div
-                      className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[11px] shrink-0"
-                      style={{ background: AVC[activeMatch.candidateProfileId.charCodeAt(0) % 5] }}
-                    >
-                      {getInitials(item.name)}
+                  {completeHistory.map((h, i) => (
+                    <div key={h.release_id || i} className="flex items-center gap-[10px] w-[calc(100%+16px)] border-0 bg-transparent text-left rounded-[14px] p-[8px] -mx-[8px] border-t border-[#eeede6] first:border-transparent mt-[4px] pt-[12px] first:mt-0 first:pt-2">
+                      <div
+                        className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[11px] shrink-0"
+                        style={{ background: AVC[(h.other_profile_id || '').charCodeAt(0) % 5] || AVC[0] }}
+                      >
+                        {getInitials(h.other_name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <b className="block text-[13.5px] font-[600] truncate">{h.other_name}</b>
+                      </div>
+                      <em className="ml-auto not-italic text-[11px] text-[#8d8c86] whitespace-nowrap pl-2">
+                        {formatDate(h.released_at)}
+                      </em>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <b className="block text-[13.5px] font-[600]">{item.name}</b>
-                      <small className="block text-[#2d7a4b] text-[10px] font-[700]">Current Request</small>
-                    </div>
-                    <em className="ml-auto not-italic text-[11px] text-[#8d8c86]">
-                      {releaseData ? formatDate(releaseData.released_at) : 'Just now'}
-                    </em>
-                  </div>
+                  ))}
                 </div>
               );
             })()}

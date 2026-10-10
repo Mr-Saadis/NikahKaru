@@ -170,3 +170,57 @@ export async function fetchRequestReleaseHistory(requestId: string): Promise<any
   return data || [];
 }
 
+// =======================================================================
+// Fetch Profile Complete Release History (When profile is candidate or source)
+// =======================================================================
+export async function fetchProfileCompleteReleaseHistory(profileId: string): Promise<any[]> {
+  const supabase = await createClient();
+
+  // Get all requests where this profile is the source
+  const { data: sourceRequests } = await supabase
+    .from('information_requests')
+    .select('id')
+    .eq('source_profile_id', profileId);
+    
+  const requestIds = sourceRequests?.map(r => r.id) || [];
+
+  if (requestIds.length === 0) return [];
+
+  // Get all releases for these requests (i.e. candidates sent to this source profile)
+  const { data: releases, error } = await supabase
+    .from('information_releases')
+    .select(`
+      id,
+      request_id,
+      candidate_profile_id,
+      released_at
+    `)
+    .in('request_id', requestIds)
+    .order('released_at', { ascending: false });
+
+  if (error || !releases) return [];
+
+  const otherProfileIds = new Set<string>();
+  releases.forEach(r => {
+    otherProfileIds.add(r.candidate_profile_id);
+  });
+
+  const { data: namesData } = await supabase
+    .from('vw_profile_core')
+    .select('profile_id, full_name')
+    .in('profile_id', Array.from(otherProfileIds));
+    
+  const namesMap = new Map();
+  if (namesData) {
+    namesData.forEach(row => namesMap.set(row.profile_id, row.full_name));
+  }
+
+  return releases.map(r => {
+    return {
+      release_id: r.id,
+      other_profile_id: r.candidate_profile_id,
+      other_name: namesMap.get(r.candidate_profile_id) || 'Unknown',
+      released_at: r.released_at,
+    };
+  });
+}
