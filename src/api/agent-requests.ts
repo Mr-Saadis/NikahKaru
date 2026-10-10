@@ -25,12 +25,13 @@ export async function fetchAgentRequests(filters: FilterState): Promise<RequestI
   // 1. Fetch LOGGED ENTRIES (Profiles created by this agent)
   // =======================================================================
   let profilesQuery = supabase
-    .from('profiles')
+    .from('vw_profile_core')
     .select(`
-      id,
+      profile_id,
       created_at,
       status,
-      personal_information ( full_name, cnic )
+      full_name,
+      cnic
     `)
     .eq('created_by', agentId)
     .order('created_at', { ascending: false });
@@ -39,15 +40,17 @@ export async function fetchAgentRequests(filters: FilterState): Promise<RequestI
 
   if (profilesError) {
     console.error('Supabase profiles query error:', profilesError);
+  } else {
+    console.log(`Fetched ${profilesData?.length || 0} profiles for agent ${agentId}`);
   }
 
   if (!profilesError && profilesData) {
     profilesData.forEach((p: any) => {
-      const name = p.personal_information?.full_name || 'Unknown Name';
-      const cnic = p.personal_information?.cnic?.toString() || '00000-0000000-0';
+      const name = p.full_name || 'Unknown Name';
+      const cnic = p.cnic?.toString() || '00000-0000000-0';
 
       boardItems.push({
-        id: p.id, // Using profile ID
+        id: p.profile_id, // Using profile ID
         name,
         cnic,
         phone: 'N/A',
@@ -91,12 +94,14 @@ export async function fetchAgentRequests(filters: FilterState): Promise<RequestI
   if (!reqError && reqData) {
     reqData.forEach((r: any) => {
       let colStatus = 'requested'; // default
-      if (r.status === 'PENDING') {
+      if (r.status === 'PENDING' || r.status === 'PENDING_OTHER') {
         colStatus = 'requested';
-      } else if (r.status === 'APPROVED') {
+      } else if (r.status === 'IN_REVIEW') {
         colStatus = 'responded';
-      } else if (r.status === 'RELEASED' || r.status === 'CLOSED' || r.status === 'REJECTED') {
+      } else if (r.status === 'COMPLETED') {
         colStatus = 'done';
+      } else if (r.status === 'CANCELLED') {
+        colStatus = 'archive';
       }
 
       const p = r.profiles || {};
