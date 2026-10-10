@@ -42,14 +42,29 @@ export function useMatching() {
       const sourceProfileId = item.profileData?.profile_id;
       if (!sourceProfileId) throw new Error("No source profile ID found for this request");
 
-      const results = await runMatching(supabase, sourceProfileId, { 
-        limit: 50,
-        persist: false,
-        executedBy: 'frontend-preview',
-        requestId: item.id
-      });
-      
-      if (results.length > 0) {
+      // 1. Fetch real matches from vw_profile_match_results
+      const { data: viewResults, error: resultsError } = await supabase
+        .from('vw_profile_match_results')
+        .select('*')
+        .eq('source_profile_id', sourceProfileId)
+        .order('final_score', { ascending: false });
+
+      if (resultsError) console.error('Error fetching match results from view:', resultsError);
+
+      let results: MatchResult[] = [];
+      if (viewResults && viewResults.length > 0) {
+        results = viewResults.map((r: any) => ({
+          candidateProfileId: r.candidate_profile_id,
+          sourceToCandidateScore: r.source_to_candidate_score,
+          candidateToSourceScore: r.candidate_to_source_score,
+          finalScore: r.final_score,
+          rank: r.rank,
+          breakdowns: {
+            sourceToCandidate: r.score_breakdowns?.filter((b: any) => b.direction === r.source_gender) || [],
+            candidateToSource: r.score_breakdowns?.filter((b: any) => b.direction !== r.source_gender) || [],
+          }
+        }));
+
         const ids = results.map(r => r.candidateProfileId);
         const { data: fullProfiles } = await supabase
           .from('vw_profile_core')
@@ -58,9 +73,29 @@ export function useMatching() {
           
         if (fullProfiles) {
           results.forEach(r => {
-            (r as any).fullProfile = fullProfiles.find(p => p.profile_id === r.candidateProfileId);
+            (r as any).fullProfile = fullProfiles.find((p: any) => p.profile_id === r.candidateProfileId);
           });
         }
+      }
+
+      // 2. Fetch matches ledger for sent extra
+      const { data: ledgerData, error: ledgerError } = await supabase
+        .from('vw_profile_matches_ledger')
+        .select('*')
+        .or(`male_profile_id.eq.${sourceProfileId},female_profile_id.eq.${sourceProfileId}`);
+
+      if (ledgerError) console.error('Error fetching ledger from view:', ledgerError);
+
+      if (ledgerData && ledgerData.length > 0) {
+        const sentUpdates: Record<string, string> = {};
+        ledgerData.forEach((l: any) => {
+          const candidateId = l.male_profile_id === sourceProfileId ? l.female_profile_id : l.male_profile_id;
+          sentUpdates[candidateId] = l.created_at;
+        });
+        setSentExtra(prev => ({
+          ...prev,
+          [requestId]: { ...(prev[requestId] || {}), ...sentUpdates }
+        }));
       }
       
       setRealMatches(prev => ({ ...prev, [requestId]: results }));

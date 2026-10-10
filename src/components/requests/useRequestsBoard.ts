@@ -82,42 +82,9 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
       staff: urlStaff,
     };
 
-    fetch('/api/requests')
-      .then(res => res.json())
-      .then((data: any[]) => {
+    fetchRequests(activeUrlFilters)
+      .then((processedData) => {
         if (mounted) {
-          // Process raw view data into RequestItem array
-          let processedData: RequestItem[] = (data || []).map(item => ({
-            id: item.board_id,
-            name: item.full_name || 'Unknown',
-            cnic: item.cnic || '00000-0000000-0',
-            phone: item.primary_phone || 'N/A', // Adjust according to schema or keep N/A
-            staff: item.current_agent_name || item.created_by_name || 'System',
-            date: item.request_date,
-            status: item.request_status,
-            later: item.later,
-            isRead: item.is_read,
-            profileData: item // Attach full row for details sheet
-          }));
-
-          // Apply local filtering
-          if (activeUrlFilters.search) {
-            const q = activeUrlFilters.search.toLowerCase();
-            processedData = processedData.filter(item => 
-              item.name.toLowerCase().includes(q) || 
-              item.cnic.toLowerCase().includes(q)
-            );
-          }
-          if (activeUrlFilters.dateFrom) {
-            processedData = processedData.filter(item => item.date >= activeUrlFilters.dateFrom!);
-          }
-          if (activeUrlFilters.dateTo) {
-            processedData = processedData.filter(item => item.date <= activeUrlFilters.dateTo!);
-          }
-          if (activeUrlFilters.staff) {
-            processedData = processedData.filter(item => item.staff === activeUrlFilters.staff);
-          }
-
           // Apply locally stored read requests and respond later requests
           try {
             const storedRead = localStorage.getItem('agent_read_requests');
@@ -171,7 +138,7 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
       .catch(console.error);
 
     return () => { mounted = false; };
-  }, [urlSearch, urlDateFrom, urlDateTo, urlStaff]);
+  }, [urlSearch, urlDateFrom, urlDateTo, urlStaff, fetchRequests]);
 
   // Listen for open_target_request event (e.g. from NotificationDropdown when already on /requests page)
   useEffect(() => {
