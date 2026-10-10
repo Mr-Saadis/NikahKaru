@@ -78,7 +78,7 @@ export default function Header({
   const isDark = variant === 'dark';
   const btnClass = `relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
     isDark
-      ? 'bg-transparent border border-white/20 text-white hover:bg-white/10'
+      ? 'bg-white border border-[#EFE9DF] text-[#1F3B34] hover:bg-[#F4ECE1] shadow-sm'
       : 'bg-white border border-[#EFE9DF] text-[#1F3B34] hover:bg-[#F4ECE1] shadow-sm'
   }`;
 

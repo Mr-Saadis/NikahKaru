@@ -221,13 +221,27 @@ export const notificationService = {
     let candidatesData: Record<string, any> = {};
 
     if (candidateIds.length > 0) {
-      const { data: cands } = await supabase
-        .from('personal_information')
-        .select('profile_id, full_name, phone, date_of_birth, marital_status')
-        .in('profile_id', candidateIds);
+      const [candsRes, profsRes] = await Promise.all([
+        supabase
+          .from('personal_information')
+          .select('profile_id, full_name, phone, date_of_birth, marital_status')
+          .in('profile_id', candidateIds),
+        supabase
+          .from('profiles')
+          .select('id, gender')
+          .in('id', candidateIds)
+      ]);
 
-      cands?.forEach((c: any) => {
-        candidatesData[c.profile_id] = c;
+      const genderMap: Record<string, string> = {};
+      profsRes.data?.forEach((p: any) => {
+        genderMap[p.id] = p.gender;
+      });
+
+      candsRes.data?.forEach((c: any) => {
+        candidatesData[c.profile_id] = {
+          ...c,
+          gender: genderMap[c.profile_id] || null
+        };
       });
     }
 

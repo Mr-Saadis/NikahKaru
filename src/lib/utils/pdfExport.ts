@@ -85,6 +85,8 @@ function formatFieldValue(val: any, path?: string): string {
 }
 
 import { jsPDF } from 'jspdf';
+import { filterAndFormatReleaseFields } from './formatReleaseFields';
+import { useReferenceDataStore } from '@/lib/stores/reference-data-store';
 
 export async function generateReleasedProfilesPDF(data: {
   sourceProfile: any;
@@ -93,6 +95,15 @@ export async function generateReleasedProfilesPDF(data: {
   requestId?: string;
 }): Promise<void> {
   if (typeof window === 'undefined') return;
+
+  const refStore = useReferenceDataStore.getState();
+  if (!refStore.isLoaded && !refStore.isLoading) {
+    try {
+      await refStore.loadAll();
+    } catch {
+      // ignore
+    }
+  }
 
   const clientName = data.sourceProfile?.full_name || 'Client Profile';
   const clientPhone = data.sourceProfile?.phone || 'N/A';
@@ -232,12 +243,15 @@ export async function generateReleasedProfilesPDF(data: {
     const scoreVal = rel.score !== undefined && rel.score !== null ? `${rel.score}% Compatibility` : 'Released Match';
     const fields: Array<{ field_path: string; field_value: any }> = rel.fields || [];
 
-    // Pre-calculate field items and row heights (2 columns of fields)
-    const formattedFields = fields.map(f => {
-      const label = formatFieldPathLabel(f.field_path);
-      const rawVal = formatFieldValue(f.field_value, f.field_path);
-      return { label, rawVal };
-    });
+    // Pre-calculate field items and row heights (filtered for gender/marital status and resolved IDs)
+    const formattedFields = filterAndFormatReleaseFields(rel.fields || [], {
+      gender: rel.candidate?.gender,
+      marital_status: rel.candidate?.marital_status,
+      full_name: rel.candidate?.full_name
+    }).map(f => ({
+      label: f.label,
+      rawVal: f.value
+    }));
 
     const fieldColW = (contentWidth - 14) / 2; // 84mm each
     const fieldRows: Array<{ left: any; right?: any; height: number }> = [];

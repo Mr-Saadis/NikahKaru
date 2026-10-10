@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Bell, Inbox, ArrowLeft, Check, X, Clock, CalendarDays, Search, Download, FileText, Loader2 } from 'lucide-react';
 import { generateReleasedProfilesPDF } from '@/lib/utils/pdfExport';
+import { filterAndFormatReleaseFields } from '@/lib/utils/formatReleaseFields';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { notificationService } from '@/lib/services/notification-service';
 import CustomDatePicker from '@/components/ui/custom-date-picker';
@@ -613,39 +614,30 @@ export default function NotificationsPage() {
                                     </span>
                                   </div>
 
-                                  {rel.fields && rel.fields.length > 0 ? (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                      {rel.fields.map((f: any, fIdx: number) => {
-                                        const path = f.field_path || '';
-                                        const label = path ? path.split('.').pop().replace(/_/g, ' ') : 'Field';
-                                        let val = 'N/A';
-                                        if (f.field_value !== null && f.field_value !== undefined && f.field_value !== '') {
-                                          if (typeof f.field_value === 'boolean') {
-                                            val = f.field_value ? 'Yes' : 'No';
-                                          } else if (typeof f.field_value === 'string') {
-                                            if (/^\d{4}-\d{2}-\d{2}/.test(f.field_value)) {
-                                              try { const d = new Date(f.field_value); val = !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB') : f.field_value; } catch { val = f.field_value; }
-                                            } else { val = f.field_value; }
-                                          } else if (Array.isArray(f.field_value)) {
-                                            if (f.field_value.length === 0) { val = 'None'; }
-                                            else if (path.includes('education_records')) { val = f.field_value.map((item: any) => [item.qualification, item.institution_name].filter(Boolean).join(' - ') || 'Education').join(', '); }
-                                            else if (path.includes('employment_records')) { val = f.field_value.map((item: any) => [item.job_title, item.organization_name].filter(Boolean).join(' at ') || 'Employment').join(', '); }
-                                            else { val = f.field_value.map((item: any) => typeof item === 'object' ? (item.name || item.title || 'Record') : String(item)).join(', '); }
-                                          } else if (typeof f.field_value === 'object') {
-                                            val = Object.entries(f.field_value).map(([k, v]) => `${k}: ${v}`).join(', ');
-                                          } else { val = String(f.field_value); }
-                                        }
-                                        return (
+                                  {(() => {
+                                    const formattedFields = filterAndFormatReleaseFields(rel.fields || [], {
+                                      gender: rel.candidate?.gender,
+                                      marital_status: rel.candidate?.marital_status,
+                                      full_name: rel.candidate?.full_name
+                                    });
+
+                                    return formattedFields.length > 0 ? (
+                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                        {formattedFields.map((f, fIdx) => (
                                           <div key={fIdx} className="flex flex-col bg-[#FAF8F5] rounded-xl p-2.5 border border-[#EFE9DF]/60">
-                                            <span className="text-[9px] font-bold text-[#8D8C86] uppercase tracking-wider capitalize">{label}</span>
-                                            <span className="text-[12px] font-semibold text-[#1F3B34] truncate mt-0.5" title={val}>{val}</span>
+                                            <span className="text-[9px] font-bold text-[#8D8C86] uppercase tracking-wider capitalize">
+                                              {f.label}
+                                            </span>
+                                            <span className="text-[12px] font-semibold text-[#1F3B34] truncate mt-0.5" title={f.value}>
+                                              {f.value}
+                                            </span>
                                           </div>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : (
-                                    <p className="text-[12px] text-[#8D8C86] italic">No individual fields recorded.</p>
-                                  )}
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-[12px] text-[#8D8C86] italic">No individual fields recorded.</p>
+                                    );
+                                  })()}
                                 </div>
                               ))}
                             </div>
