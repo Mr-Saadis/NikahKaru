@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Bell, Inbox, ArrowLeft, Check, X, Clock, CalendarDays, Search } from 'lucide-react';
+import { Bell, Inbox, ArrowLeft, Check, X, Clock, CalendarDays, Search, Download, FileText, Loader2 } from 'lucide-react';
+import { generateReleasedProfilesPDF } from '@/lib/utils/pdfExport';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { notificationService } from '@/lib/services/notification-service';
 import CustomDatePicker from '@/components/ui/custom-date-picker';
@@ -43,6 +44,27 @@ export default function NotificationsPage() {
   const [requestDetails, setRequestDetails] = useState<any>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!requestDetails) return;
+    try {
+      setIsDownloadingPDF(true);
+      toast.info('Generating PDF download...');
+      await generateReleasedProfilesPDF({
+        sourceProfile: requestDetails.target_profile,
+        agent: requestDetails.agent,
+        releases: requestDetails.releases,
+        requestId: selectedNotification?.entity_id || undefined
+      });
+      toast.success('PDF downloaded successfully');
+    } catch (err) {
+      console.error('PDF download error:', err);
+      toast.error('Failed to download PDF');
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  };
   
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -151,9 +173,18 @@ export default function NotificationsPage() {
       return;
     }
     
-    if ((role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN') && selectedNotification.type === 'REQUEST' && selectedNotification.entity_id) {
+    if (selectedNotification.type === 'REQUEST' && selectedNotification.entity_id) {
+      const title = selectedNotification.title?.toLowerCase() || '';
+      const isReleaseNotification = title.includes('release') || title.includes('sent');
+
       setIsLoadingDetails(true);
-      notificationService.getRequestDetails(selectedNotification.entity_id).then(data => {
+
+      // Only load releases for release/sent notifications — not for "Request Submitted" or "New Match Analysis"
+      const fetchFn = isReleaseNotification
+        ? notificationService.getRequestWithReleases
+        : notificationService.getRequestBasicDetails;
+
+      fetchFn(selectedNotification.entity_id).then(data => {
         setRequestDetails(data);
         setIsLoadingDetails(false);
       });
@@ -473,76 +504,186 @@ export default function NotificationsPage() {
                   </span>
                 </div>
 
-                {(role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN') && selectedNotification.type === 'REQUEST' && (
+                {selectedNotification.type === 'REQUEST' && requestDetails && (() => {
+                  const title = selectedNotification.title?.toLowerCase() || '';
+                  const isReleaseNotif = title.includes('release') || title.includes('sent');
+                  const isManager = role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN';
+                  const hasReleases = requestDetails.releases && requestDetails.releases.length > 0;
+
+                  return (
                   <div className="flex flex-col gap-6">
-                    {/* Request Details Header */}
-                    <div className="flex flex-col gap-4">
-                      <h3 className="text-[14px] font-bold text-[#1F3B34]">Requests detail</h3>
-                      
-                      <div className="flex justify-between items-center bg-[#FAF8F5] rounded-xl ">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Requested By</span>
-                          <span className="text-[13px] font-semibold text-[#1F3B34]">
-                            {requestDetails?.agent?.full_name || 'Unknown Agent'}
-                          </span>
+
+                    {/* Manager/Admin: full details for all REQUEST notifications */}
+                    {isManager && (
+                      <>
+                        {/* Request Details Header */}
+                        <div className="flex flex-col gap-4">
+                          <h3 className="text-[14px] font-bold text-[#1F3B34]">Request Details</h3>
+                          <div className="flex justify-between items-center bg-[#FAF8F5] rounded-xl p-3 border border-[#EFE9DF]">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Requested By</span>
+                              <span className="text-[13px] font-semibold text-[#1F3B34]">
+                                {requestDetails?.agent?.full_name || 'Unknown Agent'}
+                              </span>
+                            </div>
+                            <div className="flex flex-col gap-1 text-right">
+                              <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Target Profile</span>
+                              <span className="text-[13px] font-semibold text-[#1F3B34]">
+                                {requestDetails?.target_profile?.full_name || 'Unknown Profile'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex flex-col gap-1 text-right">
-                          <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Target Profile</span>
-                          <span className="text-[13px] font-semibold text-[#1F3B34]">
-                            {requestDetails?.target_profile?.full_name || 'Unknown Profile'}
-                          </span>
+
+                        {/* Target Profile Card */}
+                        <div className="border border-[#EFE9DF] rounded-2xl p-6 shadow-sm bg-white">
+                          <h4 className="text-[10px] font-bold text-[#C86A4A] uppercase tracking-wider mb-4">TARGET PROFILE DETAIL</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Name</span>
+                              <span className="text-[14px] font-semibold text-[#1F3B34]">{requestDetails?.target_profile?.full_name || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Phone</span>
+                              <span className="text-[14px] font-semibold text-[#1F3B34]">{requestDetails?.target_profile?.phone || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Location / City</span>
+                              <span className="text-[14px] font-semibold text-[#1F3B34]">{requestDetails?.target_profile?.location || 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Agent Card */}
+                        <div className="border border-[#EFE9DF] rounded-2xl p-6 shadow-sm bg-white">
+                          <h4 className="text-[10px] font-bold text-[#C86A4A] uppercase tracking-wider mb-4">AGENT DETAIL</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Name</span>
+                              <span className="text-[14px] font-semibold text-[#1F3B34]">{requestDetails?.agent?.full_name || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Phone</span>
+                              <span className="text-[14px] font-semibold text-[#1F3B34]">{requestDetails?.agent?.phone || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Status</span>
+                              <span className="text-[14px] font-semibold text-[#1F3B34]">{requestDetails?.request?.status || 'PENDING'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Manager: Released Candidate Cards (only on release/sent notifications) */}
+                        {isReleaseNotif && hasReleases && (
+                          <div className="flex flex-col gap-4">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-[11px] font-bold text-[#1F3B34] uppercase tracking-wider flex items-center gap-2">
+                                <span>Approved Match Candidates</span>
+                                <span className="bg-[#1F3B34] text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                  {requestDetails.releases.length}
+                                </span>
+                              </h4>
+                              <button
+                                onClick={handleDownloadPDF}
+                                disabled={isDownloadingPDF}
+                                className="flex items-center gap-2 bg-[#064E3B] text-white text-[12px] font-semibold px-4 py-2 rounded-full hover:bg-[#043d2e] transition shadow-sm disabled:opacity-50"
+                              >
+                                {isDownloadingPDF ? (
+                                  <>
+                                    <Loader2 size={14} className="animate-spin" /> Downloading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download size={14} /> Download PDF
+                                  </>
+                                )}
+                              </button>
+                            </div>
+
+                            <div className="flex flex-col gap-4">
+                              {requestDetails.releases.map((rel: any, idx: number) => (
+                                <div key={rel.id || idx} className="border border-[#EFE9DF] rounded-2xl p-5 bg-white shadow-sm">
+                                  <div className="flex items-center justify-between pb-3 border-b border-[#F2EEE8] mb-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-6 h-6 rounded-full bg-[#FAF8F5] border border-[#EFE9DF] flex items-center justify-center text-[11px] font-bold text-[#1F3B34]">{idx + 1}</span>
+                                      <span className="text-[15px] font-bold text-[#1F3B34]">{rel.candidate?.full_name || 'Candidate Profile'}</span>
+                                    </div>
+                                    <span className="bg-[#EAF5ED] text-[#1F3B34] border border-[#C4E3CC] text-[11px] font-bold px-3 py-1 rounded-full">
+                                      {rel.score !== undefined && rel.score !== null ? `${rel.score}% Match` : 'Released Match'}
+                                    </span>
+                                  </div>
+
+                                  {rel.fields && rel.fields.length > 0 ? (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                      {rel.fields.map((f: any, fIdx: number) => {
+                                        const path = f.field_path || '';
+                                        const label = path ? path.split('.').pop().replace(/_/g, ' ') : 'Field';
+                                        let val = 'N/A';
+                                        if (f.field_value !== null && f.field_value !== undefined && f.field_value !== '') {
+                                          if (typeof f.field_value === 'boolean') {
+                                            val = f.field_value ? 'Yes' : 'No';
+                                          } else if (typeof f.field_value === 'string') {
+                                            if (/^\d{4}-\d{2}-\d{2}/.test(f.field_value)) {
+                                              try { const d = new Date(f.field_value); val = !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB') : f.field_value; } catch { val = f.field_value; }
+                                            } else { val = f.field_value; }
+                                          } else if (Array.isArray(f.field_value)) {
+                                            if (f.field_value.length === 0) { val = 'None'; }
+                                            else if (path.includes('education_records')) { val = f.field_value.map((item: any) => [item.qualification, item.institution_name].filter(Boolean).join(' - ') || 'Education').join(', '); }
+                                            else if (path.includes('employment_records')) { val = f.field_value.map((item: any) => [item.job_title, item.organization_name].filter(Boolean).join(' at ') || 'Employment').join(', '); }
+                                            else { val = f.field_value.map((item: any) => typeof item === 'object' ? (item.name || item.title || 'Record') : String(item)).join(', '); }
+                                          } else if (typeof f.field_value === 'object') {
+                                            val = Object.entries(f.field_value).map(([k, v]) => `${k}: ${v}`).join(', ');
+                                          } else { val = String(f.field_value); }
+                                        }
+                                        return (
+                                          <div key={fIdx} className="flex flex-col bg-[#FAF8F5] rounded-xl p-2.5 border border-[#EFE9DF]/60">
+                                            <span className="text-[9px] font-bold text-[#8D8C86] uppercase tracking-wider capitalize">{label}</span>
+                                            <span className="text-[12px] font-semibold text-[#1F3B34] truncate mt-0.5" title={val}>{val}</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <p className="text-[12px] text-[#8D8C86] italic">No individual fields recorded.</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Agent: Only see PDF download on release notifications, no detail cards */}
+                    {role === 'AGENT' && isReleaseNotif && hasReleases && (
+                      <div className="border border-[#EFE9DF] rounded-2xl p-6 shadow-sm bg-white">
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-1">
+                            <h4 className="text-[14px] font-bold text-[#1F3B34]">
+                              {requestDetails.releases.length} Matched Profile{requestDetails.releases.length > 1 ? 's' : ''} Released
+                            </h4>
+                            <p className="text-[12px] text-[#8D8C86]">
+                              Manager has released matching profiles for {requestDetails?.target_profile?.full_name || 'your request'}. Download the PDF to view details.
+                            </p>
+                          </div>
+                          <button
+                            onClick={handleDownloadPDF}
+                            disabled={isDownloadingPDF}
+                            className="flex items-center gap-2 bg-[#064E3B] text-white text-[13px] font-semibold px-5 py-3 rounded-full hover:bg-[#043d2e] transition shadow-sm shrink-0 disabled:opacity-50"
+                          >
+                            {isDownloadingPDF ? (
+                              <>
+                                <Loader2 size={16} className="animate-spin" /> Downloading...
+                              </>
+                            ) : (
+                              <>
+                                <Download size={16} strokeWidth={2.5} /> Download PDF
+                              </>
+                            )}
+                          </button>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Target Profile Card */}
-                    <div className=" border border-[#EFE9DF] rounded-2xl p-6 shadow-sm">
-                      <h4 className="text-[10px] font-bold text-[#C86A4A] uppercase tracking-wider mb-4">TARGET PROFILE DETAIL</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Name</span>
-                          <span className="text-[14px] font-semibold text-[#1F3B34]">
-                            {requestDetails?.target_profile?.full_name || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Phone</span>
-                          <span className="text-[14px] font-semibold text-[#1F3B34]">
-                            {requestDetails?.target_profile?.phone_number || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">City</span>
-                          <span className="text-[14px] font-semibold text-[#1F3B34]">
-                            {requestDetails?.target_profile?.residence_city || 'N/A'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Agent Profile Card */}
-                    <div className="border border-[#EFE9DF] rounded-2xl p-6 shadow-sm">
-                      <h4 className="text-[10px] font-bold text-[#C86A4A] uppercase tracking-wider mb-4">AGENT DETAIL</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Name</span>
-                          <span className="text-[14px] font-semibold text-[#1F3B34]">
-                            {requestDetails?.agent?.full_name || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Phone</span>
-                          <span className="text-[14px] font-semibold text-[#1F3B34]">
-                            {requestDetails?.agent?.phone || 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider">Branch</span>
-                          <span className="text-[14px] font-semibold text-[#1F3B34]">Main Office</span>
-                        </div>
-                      </div>
-                    </div>
-
+                    )}
 
                     {/* Actions */}
                     <div className="flex flex-wrap gap-4 shrink-0 mt-2">
@@ -551,7 +692,8 @@ export default function NotificationsPage() {
                       </button>
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             )}
           </div>

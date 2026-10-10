@@ -110,18 +110,18 @@ export const notificationService = {
   },
 
   /**
-   * Fetch extra details for an information request notification
+   * Fetch BASIC request details only (agent + target profile, NO releases).
+   * Used for "Request Submitted", "New Match Analysis Request" etc.
    */
-  getRequestDetails: async (requestId: string) => {
+  getRequestBasicDetails: async (requestId: string) => {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // 1. Fetch the request
     const { data: request, error: reqErr } = await supabase
       .from('information_requests')
-      .select('requested_by, source_profile_id')
+      .select('id, requested_by, source_profile_id, status, created_at')
       .eq('id', requestId)
       .single();
 
@@ -130,8 +130,7 @@ export const notificationService = {
       return null;
     }
 
-    // 2. Fetch Agent & Profile concurrently
-    const [agentRes, profileRes] = await Promise.all([
+    const [agentRes, profileRes, locationRes] = await Promise.all([
       supabase
         .from('users')
         .select('full_name, phone')
@@ -139,14 +138,119 @@ export const notificationService = {
         .single(),
       supabase
         .from('personal_information')
-        .select('full_name, phone_number, residence_city')
+        .select('full_name, phone, date_of_birth, marital_status')
         .eq('profile_id', request.source_profile_id)
-        .single()
+        .single(),
+      supabase
+        .from('profile_locations')
+        .select('current_location_text')
+        .eq('profile_id', request.source_profile_id)
+        .maybeSingle()
     ]);
 
     return {
+      request,
       agent: agentRes.data,
-      target_profile: profileRes.data
+      target_profile: {
+        ...profileRes.data,
+        location: locationRes.data?.current_location_text || 'N/A'
+      },
+      releases: [] as any[]  // empty — no releases loaded
+    };
+  },
+
+  /**
+   * Fetch FULL request details WITH releases + candidate info + fields.
+   * Used for "Matches Released" and "Matches Sent" notifications.
+   */
+  getRequestWithReleases: async (requestId: string) => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const { data: request, error: reqErr } = await supabase
+      .from('information_requests')
+      .select('id, requested_by, source_profile_id, status, created_at')
+      .eq('id', requestId)
+      .single();
+
+    if (reqErr || !request) {
+      console.error('Error fetching request:', reqErr);
+      return null;
+    }
+
+    const [agentRes, profileRes, locationRes, releasesRes] = await Promise.all([
+      supabase
+        .from('users')
+        .select('full_name, phone')
+        .eq('id', request.requested_by)
+        .single(),
+      supabase
+        .from('personal_information')
+        .select('full_name, phone, date_of_birth, marital_status')
+        .eq('profile_id', request.source_profile_id)
+        .single(),
+      supabase
+        .from('profile_locations')
+        .select('current_location_text')
+        .eq('profile_id', request.source_profile_id)
+        .maybeSingle(),
+      supabase
+        .from('information_releases')
+        .select(`
+          id,
+          candidate_profile_id,
+          release_status,
+          released_at,
+          information_release_fields (
+            id,
+            field_path,
+            field_value
+          ),
+          match_run_results (
+            final_score,
+            rank
+          )
+        `)
+        .eq('request_id', requestId)
+    ]);
+
+    const releases = releasesRes.data || [];
+    const candidateIds = releases.map((r: any) => r.candidate_profile_id);
+    let candidatesData: Record<string, any> = {};
+
+    if (candidateIds.length > 0) {
+      const { data: cands } = await supabase
+        .from('personal_information')
+        .select('profile_id, full_name, phone, date_of_birth, marital_status')
+        .in('profile_id', candidateIds);
+
+      cands?.forEach((c: any) => {
+        candidatesData[c.profile_id] = c;
+      });
+    }
+
+    const enhancedReleases = releases.map((rel: any) => ({
+      ...rel,
+      candidate: candidatesData[rel.candidate_profile_id] || { full_name: 'Candidate' },
+      score: Array.isArray(rel.match_run_results)
+        ? rel.match_run_results[0]?.final_score
+        : rel.match_run_results?.final_score,
+      rank: Array.isArray(rel.match_run_results)
+        ? rel.match_run_results[0]?.rank
+        : rel.match_run_results?.rank,
+      fields: rel.information_release_fields || []
+    }));
+
+    return {
+      request,
+      agent: agentRes.data,
+      target_profile: {
+        ...profileRes.data,
+        location: locationRes.data?.current_location_text || 'N/A'
+      },
+      releases: enhancedReleases
     };
   }
 };

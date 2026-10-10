@@ -3,9 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     // Get current user (Manager)
@@ -20,9 +21,8 @@ export async function POST(
     }
 
     // Call the RPC
-    const { error: rpcError } = await supabase.rpc('approve_information_release', {
-      p_request_id: params.id,
-      p_manager_id: user.id,
+    const { data: rpcData, error: rpcError } = await supabase.rpc('approve_information_release', {
+      p_request_id: id,
       p_releases_data: releasesData
     });
 
@@ -31,7 +31,7 @@ export async function POST(
       return NextResponse.json({ error: rpcError.message || 'Failed to approve release' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, data: rpcData });
 
   } catch (err: any) {
     console.error('API Error:', err);

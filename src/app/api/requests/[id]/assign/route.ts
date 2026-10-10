@@ -3,9 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     // Get current user (Assigner)
@@ -21,7 +22,7 @@ export async function POST(
 
     // Call the RPC
     const { error: rpcError } = await supabase.rpc('assign_information_request', {
-      p_request_id: params.id,
+      p_request_id: id,
       p_assigner_id: user.id,
       p_assignee_id: assigneeId,
       p_notes: notes
@@ -36,7 +37,7 @@ export async function POST(
     await supabase
       .from('information_requests')
       .update({ assigned_to: assigneeId })
-      .eq('id', params.id);
+      .eq('id', id);
 
     return NextResponse.json({ success: true });
 

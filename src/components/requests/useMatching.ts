@@ -138,24 +138,117 @@ export function useMatching() {
         if (!profile) continue;
 
         const groups = getMatchProfileGroups(profile);
-        const fields_data: { field_name: string; value: string }[] = [];
+        const rawPaths: string[] = [];
 
         // If UI selected 'All' via checkbox directly from board
         if (set.has('All')) {
           groups.forEach(g => {
-            g[1].forEach(f => fields_data.push({ field_name: f[0], value: f[1] }));
+            g[1].forEach(f => {
+              if (f[2]) rawPaths.push(f[2]);
+            });
           });
         } else {
           for (const key of set.values()) {
             const [groupIndex, fieldIndex] = key.split(':').map(Number);
             const fieldTuple = groups[groupIndex]?.[1]?.[fieldIndex];
-            if (fieldTuple) {
-              fields_data.push({ field_name: fieldTuple[0], value: String(fieldTuple[1]) });
+            if (fieldTuple?.[2]) {
+              rawPaths.push(fieldTuple[2]);
             }
           }
         }
 
-        releasesData.push({ candidate_profile_id: candidateId, fields_data });
+        // Deduplicate field paths to satisfy database constraints
+        const uniquePaths = Array.from(new Set(rawPaths));
+        if (uniquePaths.length === 0) {
+          uniquePaths.push('personal_information.full_name');
+        }
+        const fields_data = uniquePaths.map(fp => ({ field_path: fp }));
+
+        // Prepare score_breakdowns with required PostgreSQL row types
+        const sourceGender = item.profileData?.gender || 'MALE';
+        const candidateGender = sourceGender === 'MALE' ? 'FEMALE' : 'MALE';
+        const score_breakdowns: any[] = [];
+
+        const normalizeMatchMode = (mode?: string): string => {
+          if (!mode) return 'EXACT';
+          const upper = String(mode).toUpperCase();
+          if (upper === 'MIN_THRESHOLD') return 'MINIMUM';
+          if (upper === 'MAX_THRESHOLD') return 'MAXIMUM';
+          const valid = ['EXACT', 'RANGE', 'INCLUDES', 'EXCLUDES', 'MINIMUM', 'MAXIMUM', 'PREFERRED'];
+          return valid.includes(upper) ? upper : 'EXACT';
+        };
+
+        const normalizeImportance = (imp?: string): string => {
+          if (!imp) return 'DOESNT_MATTER';
+          const upper = String(imp).toUpperCase();
+          const valid = ['MANDATORY', 'HIGH', 'MEDIUM', 'LOW', 'DOESNT_MATTER'];
+          return valid.includes(upper) ? upper : 'DOESNT_MATTER';
+        };
+
+        if (profile.breakdowns?.sourceToCandidate?.length) {
+          for (const b of profile.breakdowns.sourceToCandidate) {
+            score_breakdowns.push({
+              direction: sourceGender,
+              criterion_code: b.criterion_code,
+              candidate_value: b.candidate_value ?? null,
+              preferred_value: b.preferred_value ?? null,
+              importance: normalizeImportance(b.importance),
+              match_mode: normalizeMatchMode(b.match_mode),
+              raw_score: Number(b.raw_score ?? 100),
+              weight: Number(b.weight ?? 1),
+              weighted_score: Number(b.weighted_score ?? 100),
+              passed_hard_filter: Boolean(b.passed_hard_filter ?? true),
+              explanation: b.explanation || 'Matched',
+              algorithm_version: 'v1'
+            });
+          }
+        }
+
+        if (profile.breakdowns?.candidateToSource?.length) {
+          for (const b of profile.breakdowns.candidateToSource) {
+            score_breakdowns.push({
+              direction: candidateGender,
+              criterion_code: b.criterion_code,
+              candidate_value: b.candidate_value ?? null,
+              preferred_value: b.preferred_value ?? null,
+              importance: normalizeImportance(b.importance),
+              match_mode: normalizeMatchMode(b.match_mode),
+              raw_score: Number(b.raw_score ?? 100),
+              weight: Number(b.weight ?? 1),
+              weighted_score: Number(b.weighted_score ?? 100),
+              passed_hard_filter: Boolean(b.passed_hard_filter ?? true),
+              explanation: b.explanation || 'Matched',
+              algorithm_version: 'v1'
+            });
+          }
+        }
+
+        if (score_breakdowns.length === 0) {
+          score_breakdowns.push({
+            direction: sourceGender,
+            criterion_code: 'OVERALL',
+            candidate_value: null,
+            preferred_value: null,
+            importance: 'HIGH',
+            match_mode: 'EXACT',
+            raw_score: Number(profile.finalScore ?? 80),
+            weight: 1,
+            weighted_score: Number(profile.finalScore ?? 80),
+            passed_hard_filter: true,
+            explanation: 'Overall Compatibility',
+            algorithm_version: 'v1'
+          });
+        }
+
+        releasesData.push({ 
+          candidate_profile_id: candidateId, 
+          source_to_candidate_score: Number(profile.sourceToCandidateScore ?? 80),
+          candidate_to_source_score: Number(profile.candidateToSourceScore ?? 80),
+          final_score: Number(profile.finalScore ?? 80),
+          passed_hard_filter: true,
+          fields_data,
+          score_breakdowns,
+        });
       }
 
       onToast('Sending matches...');

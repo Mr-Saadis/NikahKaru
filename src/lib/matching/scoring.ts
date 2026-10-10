@@ -175,7 +175,7 @@ export function evaluateSoftScoring(
     const candPractice = candidate.lifestyle_information?.religious_practice;
     const b = scoreCriterion(
       'RELIGIOUS_PRACTICE', candPractice, prefs.religion.religious_practice,
-      prefs.religion.religious_practice_importance, 'MIN_THRESHOLD',
+      prefs.religion.religious_practice_importance, 'MINIMUM',
       () => {
         const score = calculateMinThresholdScore(candPractice, prefs.religion!.religious_practice!, 'RELIGIOUS_PRACTICE');
         if (score === 1.0) {
@@ -201,7 +201,7 @@ export function evaluateSoftScoring(
       const candPractice = candidate.lifestyle_information?.religious_practice;
       const b = scoreCriterion(
         'RELIGIOUS_PRACTICE', candPractice, prefs.lifestyle.religious_practice,
-        prefs.lifestyle.religious_practice_importance, 'MIN_THRESHOLD',
+        prefs.lifestyle.religious_practice_importance, 'MINIMUM',
         () => {
           const score = calculateMinThresholdScore(candPractice, prefs.lifestyle!.religious_practice!, 'RELIGIOUS_PRACTICE');
           if (score === 1.0) {
@@ -226,7 +226,7 @@ export function evaluateSoftScoring(
 
     const b = scoreCriterion(
       'INCOME', candIncomeMax, `Min ${prefMinIncome}`,
-      prefs.profession.income_importance, 'MIN_THRESHOLD',
+      prefs.profession.income_importance, 'MINIMUM',
       () => {
         if (prefMinIncome === 0) return { score: 1.0, explanation: 'No minimum income requirement' };
         if (candIncomeMax >= prefMinIncome) {
@@ -251,7 +251,7 @@ export function evaluateSoftScoring(
 
     const b = scoreCriterion(
       'EDUCATION', candMaxLevel, `Min level ${prefMinLevel}`,
-      prefs.education.education_importance, 'MIN_THRESHOLD',
+      prefs.education.education_importance, 'MINIMUM',
       () => {
         if (candMaxLevel >= prefMinLevel) {
           return { score: 1.0, explanation: `Education level ${candMaxLevel} meets/exceeds minimum ${prefMinLevel}` };
@@ -277,7 +277,7 @@ export function evaluateSoftScoring(
                              candidate.lifestyle_information?.smoking_status;
     const b = scoreCriterion(
       'SMOKING', candidateSmoking, prefs.lifestyle.smoking,
-      prefs.lifestyle.smoking_importance, 'MAX_THRESHOLD',
+      prefs.lifestyle.smoking_importance, 'MAXIMUM',
       () => {
         const score = calculateMaxThresholdScore(candidateSmoking, prefs.lifestyle!.smoking!, 'SMOKING');
         if (score === 1.0) {
