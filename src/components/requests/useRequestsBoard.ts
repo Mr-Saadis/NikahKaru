@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import type { RequestItem, FilterState, ExpandedFilter, RequestStatus, ColumnDef } from './types';
 import { useDebounce } from '@/lib/hooks/useDebounce';
@@ -21,6 +21,10 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
   const urlDateFrom = searchParams.get('dateFrom') || '';
   const urlDateTo = searchParams.get('dateTo') || '';
   const urlStaff = searchParams.get('staff') || '';
+  const urlRequestId = searchParams.get('requestId') || searchParams.get('selectedId');
+  const urlProfileId = searchParams.get('profileId');
+
+  const autoOpenedRef = useRef<string | null>(null);
 
   const [allItems, setAllItems] = useState<RequestItem[]>([]);
   const [realAgentNames, setRealAgentNames] = useState<string[]>([]);
@@ -51,26 +55,19 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
 
   // Sync state to URL when debounced search or other filters change
   useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams();
     
     if (debouncedSearch) params.set('search', debouncedSearch);
-    else params.delete('search');
-
     if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
-    else params.delete('dateFrom');
-
     if (filters.dateTo) params.set('dateTo', filters.dateTo);
-    else params.delete('dateTo');
-
     if (filters.staff) params.set('staff', filters.staff);
-    else params.delete('staff');
 
     const newQuery = params.toString();
     const currentQuery = searchParams.toString();
     
     // Only push if there's an actual change to prevent unnecessary routing
     if (newQuery !== currentQuery) {
-      router.replace(`${pathname}?${newQuery}`, { scroll: false });
+      router.replace(`${pathname}${newQuery ? `?${newQuery}` : ''}`, { scroll: false });
     }
   }, [debouncedSearch, filters.dateFrom, filters.dateTo, filters.staff, pathname, router, searchParams]);
 
@@ -106,12 +103,101 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
           }
 
           setAllItems(processedData);
+
+          // Check if target request/profile should be opened
+          let targetReqId: string | null = null;
+          let targetProfId: string | null = null;
+
+          if (typeof window !== 'undefined') {
+            targetReqId = sessionStorage.getItem('target_open_request_id');
+            targetProfId = sessionStorage.getItem('target_open_profile_id');
+            sessionStorage.removeItem('target_open_request_id');
+            sessionStorage.removeItem('target_open_profile_id');
+
+            // If URL had query params, cleanly remove them so browser address bar stays http://localhost:3000/requests
+            const paramReq = searchParams.get('requestId') || searchParams.get('selectedId');
+            const paramProf = searchParams.get('profileId');
+            if (paramReq || paramProf) {
+              targetReqId = targetReqId || paramReq;
+              targetProfId = targetProfId || paramProf;
+              window.history.replaceState({}, '', pathname);
+            }
+          }
+
+          if (targetReqId || targetProfId) {
+            const match = processedData.find(item =>
+              (targetReqId && (item.id === targetReqId || item.profileData?.request_id === targetReqId)) ||
+              (targetProfId && (item.id === targetProfId || item.profileData?.profile_id === targetProfId || item.profileData?.source_profile_id === targetProfId))
+            );
+            if (match) {
+              setSelectedId(match.id);
+            }
+          }
         }
       })
       .catch(console.error);
 
     return () => { mounted = false; };
   }, [urlSearch, urlDateFrom, urlDateTo, urlStaff, fetchRequests]);
+
+  // Listen for open_target_request event (e.g. from NotificationDropdown when already on /requests page)
+  useEffect(() => {
+    const handleOpenTarget = (e: Event) => {
+      const customEvent = e as CustomEvent<{ requestId?: string; profileId?: string }>;
+      const reqId = customEvent.detail?.requestId;
+      const profId = customEvent.detail?.profileId;
+
+      if (!reqId && !profId) return;
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('target_open_request_id');
+        sessionStorage.removeItem('target_open_profile_id');
+      }
+
+      const findMatch = (items: RequestItem[]) =>
+        items.find(
+          item =>
+            (reqId && (item.id === reqId || item.profileData?.request_id === reqId)) ||
+            (profId && (item.id === profId || item.profileData?.profile_id === profId || item.profileData?.source_profile_id === profId))
+        );
+
+      const match = findMatch(allItems);
+      if (match) {
+        setSelectedId(match.id);
+      } else {
+        // If not found in current items (e.g. active filters or new data), reset filters and fetch fresh data
+        setFilters({ search: '', dateFrom: '', dateTo: '', staff: '' });
+        fetch('/api/requests')
+          .then(res => res.json())
+          .then((data: any[]) => {
+            const processedData: RequestItem[] = (data || []).map(item => ({
+              id: item.board_id,
+              name: item.full_name || 'Unknown',
+              cnic: item.cnic || '00000-0000000-0',
+              phone: item.primary_phone || 'N/A',
+              staff: item.current_agent_name || item.created_by_name || 'System',
+              date: item.request_date,
+              status: item.request_status,
+              later: item.later,
+              isRead: item.is_read,
+              profileData: item
+            }));
+
+            setAllItems(processedData);
+            const freshMatch = findMatch(processedData);
+            if (freshMatch) {
+              setSelectedId(freshMatch.id);
+            }
+          })
+          .catch(console.error);
+      }
+    };
+
+    window.addEventListener('open_target_request', handleOpenTarget);
+    return () => {
+      window.removeEventListener('open_target_request', handleOpenTarget);
+    };
+  }, [allItems]);
 
   // ── Filtering (Simulating Server-Side Logic locally) ──
   // Since the Server Action already filters based on URL params,

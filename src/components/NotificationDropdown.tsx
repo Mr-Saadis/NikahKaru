@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Check, X, FileText, Download, Pencil } from "lucide-react";
+import { Bell, Check, X, FileText, Download, Pencil, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { notificationService } from "@/lib/services/notification-service";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -84,6 +84,29 @@ export default function NotificationDropdown({
     router.push(`/notifications`);
   };
 
+  const handleRedirect = async (e: React.MouseEvent, notif: Notification) => {
+    e.stopPropagation();
+    setIsOpen(false);
+    markAsReadOptimistic(notif.id);
+
+    try {
+      await notificationService.markAsRead(notif.id);
+    } catch (err) {
+      console.error("Failed to mark as read", err);
+    }
+
+    if (typeof window !== 'undefined' && notif.entity_id) {
+      sessionStorage.setItem('target_open_request_id', notif.entity_id);
+      window.dispatchEvent(
+        new CustomEvent('open_target_request', {
+          detail: { requestId: notif.entity_id },
+        })
+      );
+    }
+
+    router.push('/requests');
+  };
+
   const groupedUnread = (notifications || []).reduce((groups: Record<string, Notification[]>, notif) => {
     const date = notif.created_at ? formatDateOnly(notif.created_at) : 'Unknown';
     if (!groups[date]) groups[date] = [];
@@ -135,34 +158,51 @@ export default function NotificationDropdown({
                     <div className="flex-1 h-[1px] bg-[var(--border-soft)]"></div>
                   </div>
 
-                  {notifs.map((notif) => (
-                    <div
-                      key={notif.id}
-                      onClick={() => handleItemClick(notif)}
-                      className="px-3 sm:px-4 py-3 border-b border-[var(--border-soft)] transition-colors flex items-start gap-2 sm:gap-3 cursor-pointer hover:bg-[var(--bg-sidebar)]"
-                    >
-                      <div className={`mt-0.5 p-1.5 rounded-md shrink-0 ${
-                        notif.type === 'REQUEST' ? 'bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]' :
-                        notif.type === 'SYSTEM' ? 'bg-[var(--accent-gold-bg)] text-[var(--accent-gold)]' :
-                        'bg-[var(--accent-gold)]/10 text-[var(--accent-gold)]'
-                      }`}>
-                        <FileText size={14} />
-                      </div>
+                  {notifs.map((notif) => {
+                    const isRequestNotif = notif.type === 'REQUEST' || notif.entity_type === 'information_request';
+                    const isManager = role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN';
 
-                      {/* Text */}
-                      <div className="flex-1 flex flex-col min-w-0">
-                        <h4 className="text-[13px] font-semibold text-[var(--text-page-title)] truncate pr-2">
-                          {notif.title}
-                        </h4>
-                        <p className="text-[11px] text-[var(--text-body)] line-clamp-2 mt-0.5 leading-snug">
-                          {notif.message}
-                        </p>
-                        <span className="text-[9px] text-[var(--text-subtle)] mt-1.5 font-medium">
-                          {formatTimeOnly(notif.created_at)}
-                        </span>
+                    return (
+                      <div
+                        key={notif.id}
+                        onClick={() => handleItemClick(notif)}
+                        className="px-3 sm:px-4 py-3 border-b border-[var(--border-soft)] transition-colors flex items-start gap-2 sm:gap-3 cursor-pointer hover:bg-[var(--bg-sidebar)]"
+                      >
+                        <div className={`mt-0.5 p-1.5 rounded-md shrink-0 ${
+                          notif.type === 'REQUEST' ? 'bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]' :
+                          notif.type === 'SYSTEM' ? 'bg-[var(--accent-gold-bg)] text-[var(--accent-gold)]' :
+                          'bg-[var(--accent-gold)]/10 text-[var(--accent-gold)]'
+                        }`}>
+                          <FileText size={14} />
+                        </div>
+
+                        {/* Text */}
+                        <div className="flex-1 flex flex-col min-w-0">
+                          <h4 className="text-[13px] font-semibold text-[var(--text-page-title)] truncate pr-2">
+                            {notif.title}
+                          </h4>
+                          <p className="text-[11px] text-[var(--text-body)] line-clamp-2 mt-0.5 leading-snug">
+                            {notif.message}
+                          </p>
+
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-[9px] text-[var(--text-subtle)] font-medium">
+                              {formatTimeOnly(notif.created_at)}
+                            </span>
+
+                            {isManager && isRequestNotif && (
+                              <button
+                                onClick={(e) => handleRedirect(e, notif)}
+                                className="flex items-center gap-1 text-[10px] font-bold text-[#064E3B] bg-[#EAF5ED] hover:bg-[#D4EBD9] border border-[#C4E3CC] px-2.5 py-0.5 rounded-full transition-colors shadow-2xs cursor-pointer"
+                              >
+                                <ExternalLink size={10} strokeWidth={2.5} /> Redirect
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ))
             )}
