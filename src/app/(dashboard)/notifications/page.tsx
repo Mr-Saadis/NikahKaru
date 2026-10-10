@@ -220,13 +220,24 @@ export default function NotificationsPage() {
   };
 
   const handleReviewRequest = () => {
-    if (selectedNotification?.entity_type === 'information_request' && selectedNotification.entity_id) {
-      router.push(`/dashboard/release-requests`);
-    } else if (selectedNotification?.entity_type === 'match' && selectedNotification.entity_id) {
-      router.push(`/dashboard/proposals`);
-    } else {
-      toast.info('No direct action available for this notification type.');
+    if (role !== 'MANAGER' && role !== 'HIGH_LEVEL_ADMIN') {
+      return;
     }
+
+    const requestId = selectedNotification?.entity_id || requestDetails?.request?.id;
+    const profileId = requestDetails?.request?.source_profile_id;
+
+    if (typeof window !== 'undefined') {
+      if (requestId) sessionStorage.setItem('target_open_request_id', requestId);
+      if (profileId) sessionStorage.setItem('target_open_profile_id', profileId);
+      window.dispatchEvent(
+        new CustomEvent('open_target_request', {
+          detail: { requestId, profileId },
+        })
+      );
+    }
+
+    router.push('/requests');
   };
 
   const handleDismiss = async () => {
@@ -537,7 +548,7 @@ export default function NotificationsPage() {
                         </div>
 
                         {/* Target Profile Card */}
-                        <div className="border border-[#EFE9DF] rounded-2xl p-6 shadow-sm bg-white">
+                        <div className="border border-[#EFE9DF] rounded-2xl p-6 shadow-sm">
                           <h4 className="text-[10px] font-bold text-[#C86A4A] uppercase tracking-wider mb-4">TARGET PROFILE DETAIL</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                             <div className="flex flex-col gap-1">
@@ -556,7 +567,7 @@ export default function NotificationsPage() {
                         </div>
 
                         {/* Agent Card */}
-                        <div className="border border-[#EFE9DF] rounded-2xl p-6 shadow-sm bg-white">
+                        <div className="border border-[#EFE9DF] rounded-2xl p-6 shadow-sm ">
                           <h4 className="text-[10px] font-bold text-[#C86A4A] uppercase tracking-wider mb-4">AGENT DETAIL</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                             <div className="flex flex-col gap-1">
@@ -677,12 +688,17 @@ export default function NotificationsPage() {
                       </div>
                     )}
 
-                    {/* Actions */}
-                    <div className="flex flex-wrap gap-4 shrink-0 mt-2">
-                      <button onClick={handleReviewRequest} className="flex items-center gap-2 bg-[#1F3B34] text-white font-semibold text-[13px] px-7 py-3 rounded-full hover:bg-[#172E29] transition-colors shadow-sm">
-                        <Check size={16} strokeWidth={2.5} /> Redirect
-                      </button>
-                    </div>
+                    {/* Actions - Manager Only */}
+                    {isManager && (
+                      <div className="flex flex-wrap gap-4 shrink-0 mt-2">
+                        <button
+                          onClick={handleReviewRequest}
+                          className="flex items-center gap-2 bg-[#1F3B34] text-white font-semibold text-[13px] px-7 py-3 rounded-full hover:bg-[#172E29] transition-colors shadow-sm cursor-pointer"
+                        >
+                          <Check size={16} strokeWidth={2.5} /> Redirect
+                        </button>
+                      </div>
+                    )}
                   </div>
                   );
                 })()}
