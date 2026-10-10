@@ -15,22 +15,96 @@ export function useMatching() {
   // Real DB matches state
   const [realMatches, setRealMatches] = useState<Record<string, MatchResult[]>>({});
   const [matchingLoading, setMatchingLoading] = useState<Record<string, boolean>>({});
+  
+  // Release history state
+  const [releaseHistory, setReleaseHistory] = useState<Record<string, any[]>>({});
+
+  const loadSentProfiles = useCallback(async (item: RequestItem, history: any[]) => {
+    if (!history || history.length === 0 || !item) return;
+    const requestId = item.id;
+    setRealMatches((prev) => {
+      // Only load if not already populated by a full match run
+      if (prev[requestId] && prev[requestId].length > history.length) return prev;
+      
+      const doLoad = async () => {
+        try {
+          const supabase = createBrowserClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          );
+          
+          let sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id;
+          if (!sourceProfileId && requestId) {
+            const { data: req } = await supabase
+              .from('information_requests')
+              .select('source_profile_id')
+              .eq('id', requestId)
+              .maybeSingle();
+            sourceProfileId = req?.source_profile_id || requestId;
+          }
+          
+          const ids = history.map(h => h.candidate_profile_id);
+          
+          // Fetch full profiles
+          const { data: fullProfiles } = await supabase
+            .from('vw_profile_core')
+            .select('*')
+            .in('profile_id', ids);
+            
+          // Fetch scores if sourceProfileId is available
+          let viewResults: any[] = [];
+          if (sourceProfileId) {
+            const { data: scoresData } = await supabase
+              .from('vw_profile_match_results')
+              .select('*')
+              .eq('source_profile_id', sourceProfileId)
+              .in('candidate_profile_id', ids);
+            if (scoresData) viewResults = scoresData;
+          }
+            
+          if (fullProfiles) {
+            const historyMatches: MatchResult[] = history.map(h => {
+              const r = viewResults.find((vr: any) => vr.candidate_profile_id === h.candidate_profile_id);
+              return {
+                candidateProfileId: h.candidate_profile_id,
+                sourceToCandidateScore: r?.source_to_candidate_score || 0,
+                candidateToSourceScore: r?.candidate_to_source_score || 0,
+                finalScore: r?.final_score || 0,
+                rank: r?.rank || 0,
+                breakdowns: {
+                  sourceToCandidate: r?.score_breakdowns?.filter((b: any) => b.direction === r.source_gender) || [],
+                  candidateToSource: r?.score_breakdowns?.filter((b: any) => b.direction !== r.source_gender) || [],
+                },
+                fullProfile: fullProfiles.find((p: any) => p.profile_id === h.candidate_profile_id)
+              };
+            });
+            setRealMatches(p => ({ ...p, [requestId]: historyMatches }));
+          }
+        } catch (err) {
+          console.error("Error loading sent profiles:", err);
+        }
+      };
+      doLoad();
+      return prev;
+    });
+  }, []);
 
   const toggleMatches = useCallback(async (item: RequestItem, forceRematch = false) => {
     const requestId = item.id;
+    let isTurningOff = false;
+    
     setMatchesOn((prev) => {
       const isCurrentlyOn = prev[requestId];
       if (isCurrentlyOn && !forceRematch) {
         setOpenProfile((curr) => (curr?.requestId === requestId ? null : curr));
+        isTurningOff = true;
         return { ...prev, [requestId]: false };
       }
       return { ...prev, [requestId]: true };
     });
 
-    // If we already have non-empty matches, no need to fetch again immediately unless forceRematch
-    if (!forceRematch && realMatches[requestId] && realMatches[requestId].length > 0) return;
+    if (isTurningOff) return;
 
-    // Fetch real matches
     setMatchingLoading(prev => ({ ...prev, [requestId]: true }));
     
     try {
@@ -41,7 +115,6 @@ export function useMatching() {
       
       let sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id;
       if (!sourceProfileId && item.id) {
-        // Fallback: Check if item.id is a request_id or profile_id
         const { data: req } = await supabase
           .from('information_requests')
           .select('source_profile_id')
@@ -51,7 +124,6 @@ export function useMatching() {
       }
       if (!sourceProfileId) throw new Error("No source profile ID found for this request");
 
-      // 1. Fetch real matches from vw_profile_match_results or calculate dynamically
       let results: MatchResult[] = [];
 
       if (!forceRematch) {
@@ -78,7 +150,6 @@ export function useMatching() {
         }
       }
 
-      // If no persisted matches exist yet or forced rematch, run deterministic matching engine
       if (results.length === 0) {
         try {
           results = await runMatching(supabase, sourceProfileId, {
@@ -91,6 +162,26 @@ export function useMatching() {
           console.error('Error running matching engine:', engineErr);
         }
       }
+
+      // Merge history matches if they are missing from results
+      setReleaseHistory(prevHistory => {
+        const history = prevHistory[requestId] || [];
+        if (history.length > 0) {
+          history.forEach(h => {
+            if (!results.some(r => r.candidateProfileId === h.candidate_profile_id)) {
+              results.push({
+                candidateProfileId: h.candidate_profile_id,
+                sourceToCandidateScore: 0,
+                candidateToSourceScore: 0,
+                finalScore: 0,
+                rank: 0,
+                breakdowns: { sourceToCandidate: [], candidateToSource: [] }
+              });
+            }
+          });
+        }
+        return prevHistory;
+      });
 
       if (results && results.length > 0) {
         const ids = results.map(r => r.candidateProfileId);
@@ -106,7 +197,6 @@ export function useMatching() {
         }
       }
 
-      // 2. Fetch matches ledger for sent extra
       const { data: ledgerData, error: ledgerError } = await supabase
         .from('vw_profile_matches_ledger')
         .select('*')
@@ -132,7 +222,7 @@ export function useMatching() {
     } finally {
       setMatchingLoading(prev => ({ ...prev, [requestId]: false }));
     }
-  }, [realMatches, matchesOn]);
+  }, [matchesOn]);
 
   const setPage = useCallback((requestId: string, page: number) => {
     setMatchPage((prev) => ({ ...prev, [requestId]: page }));
@@ -190,6 +280,12 @@ export function useMatching() {
       const releasesData = [];
       
       for (const [candidateId, set] of reqChosen.entries()) {
+        const isAlreadySentLocal = sentExtra[item.id]?.[candidateId];
+        const isAlreadySentHistory = releaseHistory[item.id]?.some((r: any) => r.candidate_profile_id === candidateId);
+        if (isAlreadySentLocal || isAlreadySentHistory) {
+          continue; // Skip if already sent
+        }
+
         if (set.size === 0) {
           const profile = results.find((x) => x.candidateProfileId === candidateId);
           onToast(`Select at least one detail for ${profile?.candidateData?.personal_information?.full_name || 'candidate'}`);
@@ -375,5 +471,8 @@ export function useMatching() {
     toggleSelection,
     updateSelectionKeys,
     sendSelected,
+    releaseHistory,
+    setReleaseHistory,
+    loadSentProfiles,
   };
 }

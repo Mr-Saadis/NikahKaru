@@ -9,6 +9,7 @@ import { ProfileNav } from './ProfileNav';
 import { ProfileSection } from './ProfileSection';
 import { useScrollSpy } from './useScrollSpy';
 import { useNavigationLock } from '@/lib/stores/navigation-lock-store';
+import { fetchRequestReleaseHistory } from '@/lib/actions/requests';
 
 interface RequestDetailsSheetProps {
   item: RequestItem | null;
@@ -72,6 +73,8 @@ export default function RequestDetailsSheet({
   const [stickyVisible, setStickyVisible] = useState(false);
   const prevIdRef = useRef<string | null>(null);
 
+  const releaseHistory = item ? (matching.releaseHistory[item.id] || []) : [];
+
   useEffect(() => {
     onHeightChange?.(height);
   }, [height, onHeightChange]);
@@ -80,9 +83,18 @@ export default function RequestDetailsSheet({
     if (item && item.id !== prevIdRef.current) {
       prevIdRef.current = item.id;
       setStickyVisible(false);
+      
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      
+      // Fetch release history if item is responded or completed
+      fetchRequestReleaseHistory(item.id).then((history) => {
+        matching.setReleaseHistory((prev: any) => ({ ...prev, [item.id]: history }));
+        if (history && history.length > 0) {
+          matching.loadSentProfiles(item, history);
+        }
+      });
     }
-  }, [item, scrollRef]);
+  }, [item, scrollRef, matching]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -150,10 +162,11 @@ export default function RequestDetailsSheet({
 
   const handleMatchNow = useCallback(() => {
     if (!item) return;
-    matching.toggleMatches(item);
+    const isTurningOn = !matching.matchesOn[item.id];
+    matching.toggleMatches(item, isTurningOn);
     
     // Scroll logic if turned on
-    if (!matching.matchesOn[item.id]) {
+    if (isTurningOn) {
       setTimeout(() => {
         if (matchesRef.current && scrollRef.current) {
           scrollRef.current.scrollTo({
@@ -195,7 +208,13 @@ export default function RequestDetailsSheet({
   
   const page = matching.matchPage[item.id] || 0;
   const reqChosen = matching.chosen[item.id];
-  const M = matching.realMatches[item.id] || [];
+  let M = matching.realMatches[item.id] || [];
+  
+  if (!isMatchesOn && releaseHistory.length > 0) {
+    // If not matching but we have history, only show the history profiles
+    M = M.filter((m: any) => releaseHistory.some((r: any) => r.candidate_profile_id === m.candidateProfileId));
+  }
+  
   const S = M.filter((m: any) => matching.sentExtra[item.id]?.[m.candidateProfileId]);
 
   return (
@@ -389,14 +408,14 @@ export default function RequestDetailsSheet({
                   className="inline-flex items-center gap-[9px] h-[48px] px-[26px] border-0 rounded-full bg-[#111] text-white font-inherit text-[14px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(0,0,0,.25)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_14px_30px_rgba(0,0,0,.32)]"
                 >
                   <SparkIcon size={17} className={`text-[#eddd02] ${isMatchingLoading ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
-                  <span>{isMatchesOn ? 'Hide Matches' : isMatchingLoading ? 'Finding matches…' : 'Match Now'}</span>
+                  <span>{isMatchesOn ? 'Hide Matches' : isMatchingLoading ? 'Finding matches…' : (releaseHistory.length > 0 ? 'Rematch' : 'Match Now')}</span>
                 </button>
               </div>
             </div>
           </div>
 
           <div id="mt" ref={matchesRef}>
-            {isMatchesOn && (
+            {(isMatchesOn || releaseHistory.length > 0) && (
               <MatchesSection
                 item={item}
                 matches={M}
@@ -407,6 +426,7 @@ export default function RequestDetailsSheet({
                 openProfile={matching.openProfile}
                 setOpenProfile={matching.setOpenProfile}
                 toggleSelection={matching.toggleSelection}
+                releaseHistory={releaseHistory}
                 sendSelected={(c) => matching.sendSelected(c, onToast, (candidateId: string, reqId: string) => matching.setOpenProfile({ candidateId, requestId: reqId }), () => matching.setOpenProfile(null))}
               />
             )}

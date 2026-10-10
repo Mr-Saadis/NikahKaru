@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ArrowLeft, FileEdit } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import DraftsDialog from './DraftsDialog';
 import NotificationDropdown from '@/components/NotificationDropdown';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -83,25 +83,29 @@ export default function Header({
   }`;
 
   const badgeBorder = isDark ? "border-[#2F3E51]" : "border-white";
+  const pathname = usePathname();
+  const isNotificationsPage = pathname === '/notifications';
 
   return (
     <>
-      <div className="absolute top-9 right-12 flex items-center gap-3 z-[40]">
-        <button 
-          onClick={() => setIsDraftsOpen(true)}
-          title="Saved Drafts"
-          className={btnClass}
-        >
-          <FileEdit className="w-4 h-4" />
-          {draftCount > 0 && (
-            <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#C86A4A] border-2 ${badgeBorder} flex items-center justify-center text-[9px] font-bold text-white`}>
-              {draftCount}
-            </div>
-          )}
-        </button>
+      {!isNotificationsPage && (
+        <div className="absolute top-9 right-12 flex items-center gap-3 z-[40]">
+          <button 
+            onClick={() => setIsDraftsOpen(true)}
+            title="Saved Drafts"
+            className={btnClass}
+          >
+            <FileEdit className="w-4 h-4" />
+            {draftCount > 0 && (
+              <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#C86A4A] border-2 ${badgeBorder} flex items-center justify-center text-[9px] font-bold text-white`}>
+                {draftCount}
+              </div>
+            )}
+          </button>
 
-        <NotificationDropdown btnClass={btnClass} />
-      </div>
+          <NotificationDropdown btnClass={btnClass} />
+        </div>
+      )}
 
       {isDraftsOpen && (
         <DraftsDialog 

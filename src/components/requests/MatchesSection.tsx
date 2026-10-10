@@ -24,6 +24,7 @@ interface MatchesSectionProps {
   setOpenProfile: (p: { candidateId: string; requestId: string } | null) => void;
   toggleSelection: (reqId: string, candidateId: string, keys: string[]) => void;
   sendSelected: (item: RequestItem) => void;
+  releaseHistory?: any[];
   keysOf?: any; // Mock keys no longer needed
 }
 
@@ -38,11 +39,21 @@ export function MatchesSection({
   setOpenProfile,
   toggleSelection,
   sendSelected,
+  releaseHistory = [],
 }: MatchesSectionProps) {
   const a = page * 5;
   const pageMatches = useMemo(() => matches.slice(a, a + 5), [matches, a]);
   const rem = Math.min(5, matches.length - a - 5);
-  const n = chosen?.size || 0;
+  let n = 0;
+  if (chosen) {
+    for (const [candidateId, keys] of chosen.entries()) {
+      const releaseData = releaseHistory.find(r => r.candidate_profile_id === candidateId);
+      const isAlreadySent = sent.some(s => s.candidateProfileId === candidateId) || !!releaseData;
+      if (!isAlreadySent) {
+        n++;
+      }
+    }
+  }
 
   const formatDate = (iso: string) => {
     if (!iso) return '';
@@ -83,7 +94,8 @@ export function MatchesSection({
         {pageMatches.map((m, i) => {
           const isChosen = chosen?.has(m.candidateProfileId) || false;
           const isOpen = openProfile?.requestId === item.id && openProfile.candidateId === m.candidateProfileId;
-          const isSent = sent.some(s => s.candidateProfileId === m.candidateProfileId);
+          const releaseData = releaseHistory.find(r => r.candidate_profile_id === m.candidateProfileId);
+          const isSent = sent.some(s => s.candidateProfileId === m.candidateProfileId) || !!releaseData;
 
           const p = (m as any).fullProfile || m.candidateData;
           const cName = p?.full_name || p?.personal_information?.full_name || 'Unknown';
@@ -209,7 +221,8 @@ export function MatchesSection({
             </h4>
             
             {(() => {
-              const isSentCurrent = sent.some(s => s.candidateProfileId === activeMatch.candidateProfileId);
+              const releaseData = releaseHistory.find(r => r.candidate_profile_id === activeMatch.candidateProfileId);
+              const isSentCurrent = sent.some(s => s.candidateProfileId === activeMatch.candidateProfileId) || !!releaseData;
               
               if (!isSentCurrent) {
                 return (
@@ -233,7 +246,7 @@ export function MatchesSection({
                       <small className="block text-[#2d7a4b] text-[10px] font-[700]">Current Request</small>
                     </div>
                     <em className="ml-auto not-italic text-[11px] text-[#8d8c86]">
-                      Just now
+                      {releaseData ? formatDate(releaseData.released_at) : 'Just now'}
                     </em>
                   </div>
                 </div>

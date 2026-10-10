@@ -24,6 +24,7 @@ interface MatchProfilePanelProps {
   updateSelectionKeys: (keys: Set<string>) => void;
   isSent: boolean;
   sentDate?: string;
+  releaseHistory?: any[];
 }
 
 export function MatchProfilePanel({
@@ -35,7 +36,8 @@ export function MatchProfilePanel({
   toggleSelection,
   updateSelectionKeys,
   isSent,
-  sentDate
+  sentDate,
+  releaseHistory = []
 }: MatchProfilePanelProps) {
   const isOpen = !!openProfile && openProfile.requestId === item?.id && !!matchProfile;
   const isSelected = chosenKeys.size > 0;
@@ -50,8 +52,25 @@ export function MatchProfilePanel({
     if (isOpen && matchProfile?.candidateProfileId !== prevId.current) {
       prevId.current = matchProfile?.candidateProfileId || null;
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      
+      // Auto-select fields if already sent from history
+      const historyRecord = releaseHistory.find(r => r.candidate_profile_id === matchProfile?.candidateProfileId);
+      if (historyRecord && historyRecord.selected_fields && groups.length > 0) {
+        const next = new Set<string>();
+        groups.forEach((g, i) => {
+          g[1].forEach((r, j) => {
+            const fieldPath = r[2]; // get the field path from getMatchProfileGroups
+            if (fieldPath && historyRecord.selected_fields.includes(fieldPath)) {
+              next.add(`${i}:${j}`);
+            }
+          });
+        });
+        if (next.size > 0) {
+          updateSelectionKeys(next);
+        }
+      }
     }
-  }, [isOpen, matchProfile]);
+  }, [isOpen, matchProfile, releaseHistory, updateSelectionKeys]);
 
   const formatDate = (iso: string) => {
     if (!iso) return '';

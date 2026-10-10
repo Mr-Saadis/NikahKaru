@@ -19,6 +19,9 @@ interface BoardColumnProps {
   onDragEnd: () => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export default function BoardColumn({
@@ -30,26 +33,20 @@ export default function BoardColumn({
   onDragEnd,
   selectedId,
   onSelect,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
 }: BoardColumnProps) {
-  // Pagination state
-  const [visibleCount, setVisibleCount] = useState(20);
-
-  // Reset pagination if total cards change significantly (e.g. filters applied)
-  useEffect(() => {
-    setVisibleCount(20);
-  }, [cards.length]);
-
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    // If scrolled within 100px of the bottom, load 20 more
     if (scrollHeight - scrollTop - clientHeight < 100) {
-      if (visibleCount < cards.length) {
-        setVisibleCount((prev) => prev + 20);
+      if (hasMore && !isLoadingMore && onLoadMore) {
+        onLoadMore();
       }
     }
   };
 
-  const visibleCards = cards.slice(0, visibleCount);
+  const visibleCards = cards;
 
   return (
     <div
@@ -127,6 +124,13 @@ export default function BoardColumn({
               isSelected={card.id === selectedId}
             />
           ))
+        )}
+        
+        {isLoadingMore && (
+          <div className="py-4 text-center text-xs text-muted-foreground flex items-center justify-center space-x-2">
+            <div className="w-3 h-3 border-2 border-[#1F3B34] border-t-transparent rounded-full animate-spin"></div>
+            <span>Loading...</span>
+          </div>
         )}
       </div>
     </div>

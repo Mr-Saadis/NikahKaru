@@ -7,11 +7,12 @@ import { useDebounce } from '@/lib/hooks/useDebounce';
 
 interface UseRequestsBoardProps {
   columns: ColumnDef[];
-  fetchRequests: (filters: FilterState) => Promise<RequestItem[]>;
+  fetchColumnRequests?: (status: string, filters: FilterState, offset: number, limit: number) => Promise<RequestItem[]>;
+  fetchRequests?: (filters: FilterState) => Promise<RequestItem[]>;
   fetchNames: () => Promise<string[]>;
 }
 
-export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequestsBoardProps) {
+export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, fetchNames }: UseRequestsBoardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -27,6 +28,10 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
   const autoOpenedRef = useRef<string | null>(null);
 
   const [allItems, setAllItems] = useState<RequestItem[]>([]);
+  // Pagination State
+  const [columnOffsets, setColumnOffsets] = useState<Record<string, number>>({});
+  const [columnHasMore, setColumnHasMore] = useState<Record<string, boolean>>({});
+  const [isLoadingMore, setIsLoadingMore] = useState<Record<string, boolean>>({});
   const [realAgentNames, setRealAgentNames] = useState<string[]>([]);
   
   // Local state for immediate UI response
@@ -71,7 +76,7 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
     }
   }, [debouncedSearch, filters.dateFrom, filters.dateTo, filters.staff, pathname, router, searchParams]);
 
-  // Load data via API (Option B style - single fetch)
+  // Load data via API
   useEffect(() => {
     let mounted = true;
     
@@ -82,63 +87,105 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
       staff: urlStaff,
     };
 
-    fetchRequests(activeUrlFilters)
-      .then((processedData) => {
-        if (mounted) {
-          // Apply locally stored read requests and respond later requests
-          try {
-            const storedRead = localStorage.getItem('agent_read_requests');
-            const storedLater = localStorage.getItem('respond_later_requests');
-            
-            const readIds = new Set(storedRead ? JSON.parse(storedRead) : []);
-            const laterIds = new Set(storedLater ? JSON.parse(storedLater) : []);
-            
-            processedData = processedData.map(item => ({
-              ...item,
-              isRead: readIds.has(item.id) ? true : item.isRead,
-              later: laterIds.has(item.id) ? true : item.later
-            }));
-          } catch (e) {
-            console.error('Failed to parse local storage states', e);
-          }
+    const processData = (processedData: RequestItem[]) => {
+      if (!mounted) return;
+      try {
+        const storedRead = localStorage.getItem('agent_read_requests');
+        const storedLater = localStorage.getItem('respond_later_requests');
+        
+        const readIds = new Set(storedRead ? JSON.parse(storedRead) : []);
+        const laterIds = new Set(storedLater ? JSON.parse(storedLater) : []);
+        
+        processedData = processedData.map(item => ({
+          ...item,
+          isRead: readIds.has(item.id) ? true : item.isRead,
+          later: laterIds.has(item.id) ? true : item.later
+        }));
+      } catch (e) {
+        console.error('Failed to parse local storage states', e);
+      }
 
-          setAllItems(processedData);
+      setAllItems(processedData);
 
-          // Check if target request/profile should be opened
-          let targetReqId: string | null = null;
-          let targetProfId: string | null = null;
+      // Target open logic
+      let targetReqId: string | null = null;
+      let targetProfId: string | null = null;
 
-          if (typeof window !== 'undefined') {
-            targetReqId = sessionStorage.getItem('target_open_request_id');
-            targetProfId = sessionStorage.getItem('target_open_profile_id');
-            sessionStorage.removeItem('target_open_request_id');
-            sessionStorage.removeItem('target_open_profile_id');
+      if (typeof window !== 'undefined') {
+        targetReqId = sessionStorage.getItem('target_open_request_id');
+        targetProfId = sessionStorage.getItem('target_open_profile_id');
+        sessionStorage.removeItem('target_open_request_id');
+        sessionStorage.removeItem('target_open_profile_id');
 
-            // If URL had query params, cleanly remove them so browser address bar stays http://localhost:3000/requests
-            const paramReq = searchParams.get('requestId') || searchParams.get('selectedId');
-            const paramProf = searchParams.get('profileId');
-            if (paramReq || paramProf) {
-              targetReqId = targetReqId || paramReq;
-              targetProfId = targetProfId || paramProf;
-              window.history.replaceState({}, '', pathname);
-            }
-          }
-
-          if (targetReqId || targetProfId) {
-            const match = processedData.find(item =>
-              (targetReqId && (item.id === targetReqId || item.profileData?.request_id === targetReqId)) ||
-              (targetProfId && (item.id === targetProfId || item.profileData?.profile_id === targetProfId || item.profileData?.source_profile_id === targetProfId))
-            );
-            if (match) {
-              setSelectedId(match.id);
-            }
-          }
+        const paramReq = searchParams.get('requestId') || searchParams.get('selectedId');
+        const paramProf = searchParams.get('profileId');
+        if (paramReq || paramProf) {
+          targetReqId = targetReqId || paramReq;
+          targetProfId = targetProfId || paramProf;
+          window.history.replaceState({}, '', pathname);
         }
-      })
-      .catch(console.error);
+      }
+
+      if (targetReqId || targetProfId) {
+        const match = processedData.find(item =>
+          (targetReqId && (item.id === targetReqId || item.profileData?.request_id === targetReqId)) ||
+          (targetProfId && (item.id === targetProfId || item.profileData?.profile_id === targetProfId || item.profileData?.source_profile_id === targetProfId))
+        );
+        if (match) {
+          setSelectedId(match.id);
+        }
+      }
+    };
+
+    if (fetchRequests) {
+      fetchRequests(activeUrlFilters)
+        .then(results => {
+          if (mounted) {
+            const counts: Record<string, number> = {};
+            const hasMore: Record<string, boolean> = {};
+            columns.forEach(c => {
+              counts[c.key] = 0;
+              hasMore[c.key] = true;
+            });
+            
+            results.forEach(item => {
+              if (counts[item.status] !== undefined) {
+                counts[item.status]++;
+              }
+            });
+            
+            setColumnOffsets(counts);
+            setColumnHasMore(hasMore);
+            processData(results);
+          }
+        })
+        .catch(console.error);
+    } else if (fetchColumnRequests) {
+      Promise.all(columns.map(c => fetchColumnRequests(c.key, activeUrlFilters, 0, 20)))
+        .then(results => {
+          let allFetched: RequestItem[] = [];
+          const newOffsets: Record<string, number> = {};
+          const newHasMore: Record<string, boolean> = {};
+          
+          results.forEach((res, idx) => {
+            allFetched = [...allFetched, ...res];
+            const colKey = columns[idx].key;
+            newOffsets[colKey] = 20;
+            newHasMore[colKey] = res.length === 20;
+          });
+          
+          if (mounted) {
+            setColumnOffsets(newOffsets);
+            setColumnHasMore(newHasMore);
+            processData(allFetched);
+          }
+        })
+        .catch(console.error);
+    }
 
     return () => { mounted = false; };
-  }, [urlSearch, urlDateFrom, urlDateTo, urlStaff, fetchRequests]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlSearch, urlDateFrom, urlDateTo, urlStaff]);
 
   // Listen for open_target_request event (e.g. from NotificationDropdown when already on /requests page)
   useEffect(() => {
@@ -361,6 +408,46 @@ export function useRequestsBoard({ columns, fetchRequests, fetchNames }: UseRequ
     closeSheet,
     toggleLater,
     markAsReadLocal,
+
+    // Pagination
+    loadMoreColumn: useCallback(async (colKey: string) => {
+      if (!fetchColumnRequests || isLoadingMore[colKey] || !columnHasMore[colKey]) return;
+      
+      setIsLoadingMore(prev => ({ ...prev, [colKey]: true }));
+      
+      try {
+        const offset = columnOffsets[colKey] || 0;
+        const result = await fetchColumnRequests(colKey, filters, offset, 20);
+        
+        if (result.length > 0) {
+          const storedRead = localStorage.getItem('agent_read_requests');
+          const storedLater = localStorage.getItem('respond_later_requests');
+          const readIds = new Set(storedRead ? JSON.parse(storedRead) : []);
+          const laterIds = new Set(storedLater ? JSON.parse(storedLater) : []);
+          
+          const processed = result.map(item => ({
+            ...item,
+            isRead: readIds.has(item.id) ? true : item.isRead,
+            later: laterIds.has(item.id) ? true : item.later
+          }));
+
+          setAllItems(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newItems = processed.filter(p => !existingIds.has(p.id));
+            return [...prev, ...newItems];
+          });
+        }
+        
+        setColumnOffsets(prev => ({ ...prev, [colKey]: offset + 20 }));
+        setColumnHasMore(prev => ({ ...prev, [colKey]: result.length === 20 }));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoadingMore(prev => ({ ...prev, [colKey]: false }));
+      }
+    }, [fetchColumnRequests, columnHasMore, columnOffsets, filters, isLoadingMore]),
+    isLoadingMore,
+    columnHasMore,
 
     // Staff list (for filter dropdown)
     staffNames: realAgentNames,
