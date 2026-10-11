@@ -7,8 +7,12 @@ import {
   fetchAgentNames as apiFetchAgentNames, 
   markRequestAsRead as apiMarkRequestAsRead,
   fetchRequestReleaseHistory as apiFetchRequestReleaseHistory,
-  fetchProfileCompleteReleaseHistory as apiFetchProfileCompleteReleaseHistory
+  fetchProfileCompleteReleaseHistory as apiFetchProfileCompleteReleaseHistory,
+  fetchProfileAuditLogs as apiFetchProfileAuditLogs,
+  type ProfileAuditLogItem,
 } from '@/api/requests';
+
+export type { ProfileAuditLogItem };
 
 export async function fetchBoardRequests(filters: FilterState): Promise<RequestItem[]> {
   return apiFetchBoardRequests(filters);
@@ -38,3 +42,8 @@ export async function fetchRequestReleaseHistory(requestId: string): Promise<any
 export async function fetchProfileCompleteReleaseHistory(profileId: string): Promise<any[]> {
   return apiFetchProfileCompleteReleaseHistory(profileId);
 }
+
+export async function fetchProfileAuditLogs(profileId: string): Promise<ProfileAuditLogItem[]> {
+  return apiFetchProfileAuditLogs(profileId);
+}
+

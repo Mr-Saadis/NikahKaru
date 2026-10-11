@@ -10,6 +10,7 @@ import { ProfileSection } from './ProfileSection';
 import { useScrollSpy } from './useScrollSpy';
 import { useNavigationLock } from '@/lib/stores/navigation-lock-store';
 import { fetchRequestReleaseHistory } from '@/lib/actions/requests';
+import { ProfileAuditLogsSection } from './ProfileAuditLogsSection';
 
 interface RequestDetailsSheetProps {
   item: RequestItem | null;
@@ -450,6 +451,13 @@ export default function RequestDetailsSheet({
               className="w-full min-h-[96px] border-0 rounded-[18px] bg-[#faf9f6] p-[12px_14px] font-inherit text-[13px] resize-y outline-none shadow-[inset_0_0_0_1px_#e8e7e0] focus:shadow-[0_0_0_2px_#111]"
             />
           </div>
+
+          {/* Profile Audit Logs (kb kia, kisny kia, kia kiaa) */}
+          <ProfileAuditLogsSection
+            profileId={item?.profileData?.profile_id || item?.profileData?.id || item?.id}
+            profileName={item?.name}
+          />
+
 
           <div className="flex gap-[10px] mt-[16px] animate-[sheet-rise_.6s_cubic-bezier(.22,1,.36,1)_both]" style={{ animationDelay: '.32s' }}>
             <button

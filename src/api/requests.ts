@@ -224,3 +224,225 @@ export async function fetchProfileCompleteReleaseHistory(profileId: string): Pro
     };
   });
 }
+
+// =======================================================================
+// Fetch Profile Audit Logs (kb kia, kisny kia, kia kiaa)
+// =======================================================================
+export interface ProfileAuditLogItem {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  actor_user_id: string | null;
+  actor_name: string;
+  actor_role: string;
+  created_at: string;
+  title: string;
+  description: string;
+  metadata?: any;
+  old_data?: any;
+  new_data?: any;
+}
+
+function formatAuditAction(log: any): { title: string; description: string } {
+  const action = log.action;
+  const entityType = log.entity_type;
+  const meta = log.metadata || {};
+  const newData = log.new_data || {};
+  const oldData = log.old_data || {};
+
+  if (action === 'CREATE' && entityType === 'information_request') {
+    return {
+      title: 'Information Request Created',
+      description: `Agent requested candidate matching for this profile (Status: ${newData.status || 'PENDING'}).`,
+    };
+  }
+
+  if (action === 'RELEASE' && entityType === 'information_request') {
+    const candidateCount = meta.selected_candidate_count ?? 1;
+    const fieldCount = meta.field_snapshot_count;
+    return {
+      title: 'Candidate Profiles Released',
+      description: `Manager released ${candidateCount} candidate profile${candidateCount > 1 ? 's' : ''}${fieldCount ? ` (${fieldCount} fields approved)` : ''}.`,
+    };
+  }
+
+  if (action === 'CREATE' && (entityType === 'profile' || entityType === 'profiles')) {
+    return {
+      title: 'Profile Created',
+      description: 'Profile registered in the NikaahKaro matrimonial system.',
+    };
+  }
+
+  if (action === 'UPDATE' && (entityType === 'profile' || entityType === 'profiles')) {
+    return {
+      title: 'Profile Updated',
+      description: 'Profile details or partner preferences were updated.',
+    };
+  }
+
+  if (action === 'STATUS_CHANGE') {
+    return {
+      title: 'Status Changed',
+      description: `Profile status updated${newData.status ? ` to ${newData.status}` : ''}${oldData.status ? ` (from ${oldData.status})` : ''}.`,
+    };
+  }
+
+  if (action === 'MATCH_RUN') {
+    return {
+      title: 'Match Algorithm Executed',
+      description: 'Deterministic match run evaluated candidate compatibility scores.',
+    };
+  }
+
+  if (action === 'APPROVE') {
+    return {
+      title: 'Request Approved',
+      description: 'Manager approved the information disclosure request.',
+    };
+  }
+
+  if (action === 'REJECT') {
+    return {
+      title: 'Request Rejected',
+      description: meta.reason ? `Request rejected: ${meta.reason}` : 'Information request was rejected.',
+    };
+  }
+
+  if (action === 'ASSIGN') {
+    return {
+      title: 'Agent Assigned',
+      description: meta.agent_name ? `Assigned to agent ${meta.agent_name}.` : 'Profile assigned to an agent.',
+    };
+  }
+
+  if (action === 'UNASSIGN') {
+    return {
+      title: 'Agent Unassigned',
+      description: 'Agent assignment removed.',
+    };
+  }
+
+  const cleanAction = (action || 'ACTION').replace(/_/g, ' ');
+  const cleanEntity = (entityType || 'ENTITY').replace(/_/g, ' ');
+  return {
+    title: `${cleanAction} (${cleanEntity})`,
+    description: meta.note || meta.summary || `Action performed on ${cleanEntity.toLowerCase()}.`,
+  };
+}
+
+export async function fetchProfileAuditLogs(profileId: string): Promise<ProfileAuditLogItem[]> {
+  if (!profileId) return [];
+
+  const supabase = createAdminClient();
+
+  // 1. Get all requests associated with this profile
+  const { data: sourceRequests } = await supabase
+    .from('information_requests')
+    .select('id')
+    .eq('source_profile_id', profileId);
+
+  const requestIds = (sourceRequests || []).map((r: any) => r.id);
+
+  // 2. Fetch audit logs directly tied to profile or its requests
+  let rawLogs: any[] = [];
+
+  if (requestIds.length > 0) {
+    const { data: logs, error } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .or(`entity_id.eq.${profileId},entity_id.in.(${requestIds.join(',')})`)
+      .order('created_at', { ascending: false });
+
+    if (!error && logs) {
+      rawLogs = logs;
+    }
+  } else {
+    const { data: logs, error } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .eq('entity_id', profileId)
+      .order('created_at', { ascending: false });
+
+    if (!error && logs) {
+      rawLogs = logs;
+    }
+  }
+
+  // Also query any logs where new_data contains source_profile_id = profileId
+  const { data: jsonLogs } = await supabase
+    .from('audit_logs')
+    .select('*')
+    .filter('new_data->>source_profile_id', 'eq', profileId);
+
+  if (jsonLogs && jsonLogs.length > 0) {
+    const existingIds = new Set(rawLogs.map(l => l.id));
+    for (const jLog of jsonLogs) {
+      if (!existingIds.has(jLog.id)) {
+        rawLogs.push(jLog);
+        existingIds.add(jLog.id);
+      }
+    }
+    rawLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  if (rawLogs.length === 0) return [];
+
+  // 3. Resolve actor details (names, roles)
+  const actorIds = Array.from(new Set(rawLogs.map(l => l.actor_user_id).filter(Boolean)));
+  const userMap = new Map<string, { name: string; role: string }>();
+
+  if (actorIds.length > 0) {
+    const { data: usersData } = await supabase
+      .from('users')
+      .select('id, full_name, email')
+      .in('id', actorIds);
+
+    const { data: rolesData } = await supabase
+      .from('user_roles')
+      .select('user_id, roles(name)')
+      .in('user_id', actorIds);
+
+    const rolesMap = new Map<string, string>();
+    if (rolesData) {
+      rolesData.forEach((r: any) => {
+        const roleName = r.roles?.name;
+        if (roleName) rolesMap.set(r.user_id, roleName);
+      });
+    }
+
+    if (usersData) {
+      usersData.forEach((u: any) => {
+        userMap.set(u.id, {
+          name: u.full_name || u.email?.split('@')[0] || 'User',
+          role: rolesMap.get(u.id) || 'AGENT',
+        });
+      });
+    }
+  }
+
+  // 4. Transform into rich ProfileAuditLogItem
+  return rawLogs.map((log: any) => {
+    const actor = log.actor_user_id ? userMap.get(log.actor_user_id) : null;
+    const actorRole = actor?.role || (log.metadata?.role ?? 'SYSTEM');
+    const actorName = actor?.name || (actorRole === 'SYSTEM' ? 'System' : 'Staff');
+    const { title, description } = formatAuditAction(log);
+
+    return {
+      id: log.id,
+      action: log.action,
+      entity_type: log.entity_type,
+      entity_id: log.entity_id,
+      actor_user_id: log.actor_user_id,
+      actor_name: actorName,
+      actor_role: actorRole,
+      created_at: log.created_at,
+      title,
+      description,
+      metadata: log.metadata,
+      old_data: log.old_data,
+      new_data: log.new_data,
+    };
+  });
+}
+
