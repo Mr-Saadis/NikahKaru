@@ -171,6 +171,125 @@ export async function fetchRequestReleaseHistory(requestId: string): Promise<any
 }
 
 // =======================================================================
+// Fetch Sent Candidate Profiles with Role-Based Field Masking
+// (If AGENT calls this, unapproved fields are stripped at server level!)
+// =======================================================================
+export async function fetchSentProfilesForRequest(
+  requestId: string,
+  sourceProfileId?: string
+): Promise<{ history: any[]; fullProfiles: any[]; viewResults: any[] }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { history: [], fullProfiles: [], viewResults: [] };
+
+  // Determine user role
+  const { data: roleData } = await supabase
+    .from('user_roles')
+    .select('roles!inner(name)')
+    .eq('user_id', user.id)
+    .single();
+
+  const userRole = (roleData as any)?.roles?.name || 'AGENT';
+  const isAgent = userRole === 'AGENT';
+
+  // 1. Fetch release history for this request
+  const { data: historyData, error: histError } = await supabase.rpc('get_request_release_history', {
+    p_request_id: requestId,
+  });
+
+  const history = historyData || [];
+  if (history.length === 0) {
+    return { history: [], fullProfiles: [], viewResults: [] };
+  }
+
+  const candidateIds = history.map((h: any) => h.candidate_profile_id);
+
+  // 2. Fetch profiles from database
+  const { data: profilesData } = await supabase
+    .from('vw_profile_core')
+    .select('*')
+    .in('profile_id', candidateIds);
+
+  let fullProfiles = profilesData || [];
+
+  // 3. Fetch scores if sourceProfileId provided
+  let viewResults: any[] = [];
+  if (sourceProfileId) {
+    const { data: scoresData } = await supabase
+      .from('vw_profile_match_results')
+      .select('*')
+      .eq('source_profile_id', sourceProfileId)
+      .in('candidate_profile_id', candidateIds);
+    if (scoresData) viewResults = scoresData;
+  }
+
+  // 4. CRITICAL AGENT SECURITY: Strip unapproved fields if caller is an AGENT!
+  if (isAgent) {
+    const fieldMapping: Record<string, string[]> = {
+      'personal_information.profile_picture': ['profile_url', 'profile_picture'],
+      'personal_information.cnic': ['cnic'],
+      'personal_information.phone': ['phone', 'primary_phone'],
+      'personal_information.full_name': ['full_name'],
+      'personal_information.date_of_birth': ['date_of_birth'],
+      'personal_information.marital_status': ['marital_status'],
+      'personal_information.number_of_children': ['number_of_children'],
+      'physical_information.height_cm': ['height_cm'],
+      'physical_information.weight_kg': ['weight_kg'],
+      'physical_information.complexion': ['complexion'],
+      'physical_information.has_disability': ['has_disability', 'disability_details'],
+      'education_records': ['qualification', 'field_of_study'],
+      'employment_records': ['job_title'],
+      'income_information.monthly_income_min': ['monthly_income_min', 'monthly_income_max', 'currency_code'],
+      'religion_information.religion_id': ['religion_name_en', 'religion_name_ur'],
+      'religion_information.sect_id': ['sect_name_en', 'sect_name_ur'],
+      'religion_information.caste_id': ['caste_name_en', 'caste_name_ur', 'other_caste_text'],
+      'personal_information.mother_tongue_id': ['mother_tongue_name_en', 'mother_tongue_name_ur'],
+      'profile_locations.current_city_id': ['current_city_name_en', 'current_city_name_ur', 'current_location_text', 'current_country_name_en', 'current_province_name_en'],
+      'profile_locations.permanent_city_id': ['permanent_city_name_en', 'permanent_city_name_ur', 'permanent_location_text'],
+      'residency_information.house_status': ['house_status', 'property_type', 'nationality_country_name_en'],
+      'family_information.family_profession_business': ['family_profession_business'],
+      'family_information.social_background': ['social_background'],
+      'residency_information.family_setup': ['family_setup'],
+      'residency_information.living_with': ['living_with', 'living_with_other_details'],
+      'lifestyle_information.religious_practice': ['religious_practice'],
+      'lifestyle_information.beard': ['beard'],
+      'lifestyle_information.hijab': ['hijab'],
+      'lifestyle_information.smoking': ['smoking'],
+    };
+
+    fullProfiles = fullProfiles.map((prof: any) => {
+      const h = history.find((x: any) => x.candidate_profile_id === prof.profile_id);
+      const selectedSet = new Set<string>(h?.selected_fields || []);
+
+      const masked: any = {
+        profile_id: prof.profile_id,
+        gender: prof.gender,
+      };
+
+      for (const [fieldPath, columnKeys] of Object.entries(fieldMapping)) {
+        if (selectedSet.has(fieldPath)) {
+          for (const key of columnKeys) {
+            if (prof[key] !== undefined) {
+              masked[key] = prof[key];
+            }
+          }
+        } else {
+          // Explicitly nullify unapproved fields so they never leave the server!
+          for (const key of columnKeys) {
+            masked[key] = null;
+          }
+        }
+      }
+
+      return masked;
+    });
+  }
+
+  return { history, fullProfiles, viewResults };
+}
+
+
+// =======================================================================
 // Fetch Profile Complete Release History (When profile is candidate or source)
 // =======================================================================
 export async function fetchProfileCompleteReleaseHistory(profileId: string): Promise<any[]> {

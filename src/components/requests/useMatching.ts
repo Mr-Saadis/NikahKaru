@@ -4,8 +4,13 @@ import { createBrowserClient } from '@supabase/ssr';
 import { runMatching } from '@/lib/matching/engine';
 import type { MatchResult } from '@/lib/matching/types';
 import { getMatchProfileGroups } from './utils';
+import { fetchSentProfilesForRequest } from '@/lib/actions/requests';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 export function useMatching() {
+  const { role } = useAuth();
+  const isAgent = role === 'AGENT';
+
   const [matchesOn, setMatchesOn] = useState<Record<string, boolean>>({});
   const [matchPage, setMatchPage] = useState<Record<string, number>>({});
   const [chosen, setChosen] = useState<Record<string, Map<string, Set<string>>>>({});
@@ -22,71 +27,32 @@ export function useMatching() {
   const loadSentProfiles = useCallback(async (item: RequestItem, history: any[]) => {
     if (!history || history.length === 0 || !item) return;
     const requestId = item.id;
-    setRealMatches((prev) => {
-      // Only load if not already populated by a full match run
-      if (prev[requestId] && prev[requestId].length > history.length) return prev;
-      
-      const doLoad = async () => {
-        try {
-          const supabase = createBrowserClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-          );
-          
-          let sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id;
-          if (!sourceProfileId && requestId) {
-            const { data: req } = await supabase
-              .from('information_requests')
-              .select('source_profile_id')
-              .eq('id', requestId)
-              .maybeSingle();
-            sourceProfileId = req?.source_profile_id || requestId;
-          }
-          
-          const ids = history.map(h => h.candidate_profile_id);
-          
-          // Fetch full profiles
-          const { data: fullProfiles } = await supabase
-            .from('vw_profile_core')
-            .select('*')
-            .in('profile_id', ids);
-            
-          // Fetch scores if sourceProfileId is available
-          let viewResults: any[] = [];
-          if (sourceProfileId) {
-            const { data: scoresData } = await supabase
-              .from('vw_profile_match_results')
-              .select('*')
-              .eq('source_profile_id', sourceProfileId)
-              .in('candidate_profile_id', ids);
-            if (scoresData) viewResults = scoresData;
-          }
-            
-          if (fullProfiles) {
-            const historyMatches: MatchResult[] = history.map(h => {
-              const r = viewResults.find((vr: any) => vr.candidate_profile_id === h.candidate_profile_id);
-              return {
-                candidateProfileId: h.candidate_profile_id,
-                sourceToCandidateScore: r?.source_to_candidate_score || 0,
-                candidateToSourceScore: r?.candidate_to_source_score || 0,
-                finalScore: r?.final_score || 0,
-                rank: r?.rank || 0,
-                breakdowns: {
-                  sourceToCandidate: r?.score_breakdowns?.filter((b: any) => b.direction === r.source_gender) || [],
-                  candidateToSource: r?.score_breakdowns?.filter((b: any) => b.direction !== r.source_gender) || [],
-                },
-                fullProfile: fullProfiles.find((p: any) => p.profile_id === h.candidate_profile_id)
-              };
-            });
-            setRealMatches(p => ({ ...p, [requestId]: historyMatches }));
-          }
-        } catch (err) {
-          console.error("Error loading sent profiles:", err);
-        }
-      };
-      doLoad();
-      return prev;
-    });
+    try {
+      const sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id;
+      const { fullProfiles, viewResults } = await fetchSentProfilesForRequest(requestId, sourceProfileId);
+        
+      if (fullProfiles && fullProfiles.length > 0) {
+        const historyMatches: MatchResult[] = history.map(h => {
+          const r = viewResults?.find((vr: any) => vr.candidate_profile_id === h.candidate_profile_id);
+          const p = fullProfiles.find((prof: any) => prof.profile_id === h.candidate_profile_id);
+          return {
+            candidateProfileId: h.candidate_profile_id,
+            sourceToCandidateScore: r?.source_to_candidate_score || 0,
+            candidateToSourceScore: r?.candidate_to_source_score || 0,
+            finalScore: r?.final_score || 0,
+            rank: r?.rank || 0,
+            breakdowns: {
+              sourceToCandidate: r?.score_breakdowns?.filter((b: any) => b.direction === r.source_gender) || [],
+              candidateToSource: r?.score_breakdowns?.filter((b: any) => b.direction !== r.source_gender) || [],
+            },
+            fullProfile: p
+          };
+        });
+        setRealMatches(p => ({ ...p, [requestId]: historyMatches }));
+      }
+    } catch (err) {
+      console.error("Error loading sent profiles:", err);
+    }
   }, []);
 
   const toggleMatches = useCallback(async (item: RequestItem, forceRematch = false) => {
@@ -104,6 +70,45 @@ export function useMatching() {
     });
 
     if (isTurningOff) return;
+
+    // For AGENT: Load sent/released profiles securely via server action!
+    // Never query vw_profile_core, vw_profile_match_results or runMatching in client browser!
+    if (isAgent) {
+      setMatchingLoading(prev => ({ ...prev, [requestId]: true }));
+      try {
+        const sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id;
+        const { history, fullProfiles, viewResults } = await fetchSentProfilesForRequest(requestId, sourceProfileId);
+        
+        setReleaseHistory(prev => ({ ...prev, [requestId]: history || [] }));
+        
+        if (history && history.length > 0) {
+          const historyMatches: MatchResult[] = history.map(h => {
+            const r = viewResults?.find((vr: any) => vr.candidate_profile_id === h.candidate_profile_id);
+            const p = fullProfiles?.find((prof: any) => prof.profile_id === h.candidate_profile_id);
+            return {
+              candidateProfileId: h.candidate_profile_id,
+              sourceToCandidateScore: r?.source_to_candidate_score || 0,
+              candidateToSourceScore: r?.candidate_to_source_score || 0,
+              finalScore: r?.final_score || 0,
+              rank: r?.rank || 0,
+              breakdowns: {
+                sourceToCandidate: r?.score_breakdowns?.filter((b: any) => b.direction === r.source_gender) || [],
+                candidateToSource: r?.score_breakdowns?.filter((b: any) => b.direction !== r.source_gender) || [],
+              },
+              fullProfile: p
+            };
+          });
+          setRealMatches(prev => ({ ...prev, [requestId]: historyMatches }));
+        } else {
+          setRealMatches(prev => ({ ...prev, [requestId]: [] }));
+        }
+      } catch (e) {
+        console.error('Error fetching sent profiles for agent:', e);
+      } finally {
+        setMatchingLoading(prev => ({ ...prev, [requestId]: false }));
+      }
+      return;
+    }
 
     setMatchingLoading(prev => ({ ...prev, [requestId]: true }));
     
@@ -299,21 +304,25 @@ export function useMatching() {
         const groups = getMatchProfileGroups(profile);
         const rawPaths: string[] = [];
 
-        // If UI selected 'All' via checkbox directly from board
-        if (set.has('All')) {
-          groups.forEach(g => {
-            g[1].forEach(f => {
-              if (f[2]) rawPaths.push(f[2]);
-            });
-          });
-        } else {
-          for (const key of set.values()) {
-            const [groupIndex, fieldIndex] = key.split(':').map(Number);
+        // 1. Collect explicitly selected field paths
+        for (const key of set.values()) {
+          if (key === 'All') continue;
+          const [groupIndex, fieldIndex] = key.split(':').map(Number);
+          if (!isNaN(groupIndex) && !isNaN(fieldIndex)) {
             const fieldTuple = groups[groupIndex]?.[1]?.[fieldIndex];
             if (fieldTuple?.[2]) {
               rawPaths.push(fieldTuple[2]);
             }
           }
+        }
+
+        // 2. Only fall back to all fields if user selected 'All' and selected no specific keys
+        if (rawPaths.length === 0 && set.has('All')) {
+          groups.forEach(g => {
+            g[1].forEach(f => {
+              if (f[2]) rawPaths.push(f[2]);
+            });
+          });
         }
 
         // Deduplicate field paths to satisfy database constraints

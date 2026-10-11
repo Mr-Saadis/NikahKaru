@@ -13,6 +13,7 @@ import Toast from './Toast';
 import type { ColumnDef, FilterState, RequestItem } from './types';
 import { useMatching } from './useMatching';
 import { MatchProfilePanel } from './MatchProfilePanel';
+import { getMatchProfileGroups } from './utils';
 
 // ============================================================
 // RequestsBoard — State owner and layout orchestrator
@@ -271,7 +272,12 @@ export default function RequestsBoard({ columns, fetchColumnRequests, fetchReque
         onClose={() => matching.setOpenProfile(null)}
         toggleSelection={() => {
           if (!selectedItem || !matching.openProfile) return;
-          matching.toggleSelection(selectedItem.id, matching.openProfile.candidateId, ['All']);
+          const matchProfile = matching.realMatches[selectedItem.id]?.find(
+            (m: any) => m.candidateProfileId === matching.openProfile?.candidateId
+          );
+          const groups = matchProfile ? getMatchProfileGroups(matchProfile) : [];
+          const allKeys = groups.flatMap((g, idx) => g[1].map((_, j) => `${idx}:${j}`));
+          matching.toggleSelection(selectedItem.id, matching.openProfile.candidateId, allKeys);
         }}
         updateSelectionKeys={(keys) => {
           if (!selectedItem || !matching.openProfile) return;

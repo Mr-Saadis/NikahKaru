@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import type { RequestItem, ColumnDef } from './types';
 import { useBottomSheet } from './useBottomSheet';
 import { XIcon, PhoneIcon, CopyIcon, UserIcon, HashIcon, CalendarIcon, SparkIcon, BookmarkFilledIcon } from './icons';
@@ -11,6 +12,8 @@ import { useScrollSpy } from './useScrollSpy';
 import { useNavigationLock } from '@/lib/stores/navigation-lock-store';
 import { fetchRequestReleaseHistory } from '@/lib/actions/requests';
 import { ProfileAuditLogsSection } from './ProfileAuditLogsSection';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { submitMatchRequest } from '@/lib/actions/agent-requests';
 
 interface RequestDetailsSheetProps {
   item: RequestItem | null;
@@ -69,6 +72,11 @@ export default function RequestDetailsSheet({
     grabHandleProps,
     heroPointerProps,
   } = useBottomSheet({ isOpen, containerRef, onClose });
+
+  const router = useRouter();
+  const { role } = useAuth();
+  const isAgent = role === 'AGENT';
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
   const [notesMap, setNotesMap] = useState<Record<string, string>>({});
   const [stickyVisible, setStickyVisible] = useState(false);
@@ -185,6 +193,26 @@ export default function RequestDetailsSheet({
     onToast('Matches refreshed (from cache)');
   }, [item, onToast]);
 
+  const handleAgentSubmitRequest = useCallback(async () => {
+    if (!item) return;
+    setIsSubmittingRequest(true);
+    try {
+      const sourceProfileId = item.profileData?.profile_id || item.profileData?.id || item.id;
+      const res = await submitMatchRequest(sourceProfileId);
+      if (res.success) {
+        onToast('Match analysis requested successfully!');
+        onClose();
+        router.refresh();
+      } else {
+        onToast(res.error || 'Failed to submit request');
+      }
+    } catch (e: any) {
+      onToast(e.message || 'Error submitting request');
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  }, [item, onToast, onClose, router]);
+
   const activeSectionIndex = useScrollSpy(scrollRef, 'section[data-sec]', [item?.id, matching.matchesOn[item?.id || '']]);
 
   const handleNavClick = useCallback((index: number) => {
@@ -203,16 +231,17 @@ export default function RequestDetailsSheet({
 
   const col = columns.find((c) => c.key === item.status) ?? columns[0];
   const heroBase = getHeroBase(item.status, columns);
-  const itemIndex = allItems.findIndex((i) => i.id === item.id);
-  const requestId = `NK-${1040 + (itemIndex >= 0 ? itemIndex : 0)}`;
+  const requestId = item.profileData?.request_id
+    ? `REQ-${item.profileData.request_id.slice(0, 8).toUpperCase()}`
+    : `PROF-${item.id.slice(0, 8).toUpperCase()}`;
   const noteValue = notesMap[item.id] ?? '';
   
   const page = matching.matchPage[item.id] || 0;
   const reqChosen = matching.chosen[item.id];
   let M = matching.realMatches[item.id] || [];
   
-  if (!isMatchesOn && releaseHistory.length > 0) {
-    // If not matching but we have history, only show the history profiles
+  if (isAgent || (!isMatchesOn && releaseHistory.length > 0)) {
+    // For AGENT: only show profiles released by manager from history
     M = M.filter((m: any) => releaseHistory.some((r: any) => r.candidate_profile_id === m.candidateProfileId));
   }
   
@@ -393,25 +422,51 @@ export default function RequestDetailsSheet({
                 </div>
               ))}
               
-              <div className="ml-auto flex items-center gap-[10px]">
-                {isMatchesOn && (
+              {isAgent ? (
+                <div className="ml-auto flex items-center gap-[10px]">
+                  {item.status === 'logged' && (
+                    <button
+                      type="button"
+                      disabled={isSubmittingRequest}
+                      onClick={handleAgentSubmitRequest}
+                      className="inline-flex items-center gap-[9px] h-[48px] px-[24px] border-0 rounded-full bg-[#064e3b] text-white font-inherit text-[13.5px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(6,78,59,.25)] transition-all duration-200 hover:-translate-y-[2px] disabled:opacity-50"
+                    >
+                      <SparkIcon size={16} className={`text-[#eddd02] ${isSubmittingRequest ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
+                      <span>{isSubmittingRequest ? 'Submitting…' : 'Request Matches from Manager'}</span>
+                    </button>
+                  )}
+                  {item.status === 'requested' && (
+                    <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#FDF0D8] border border-[#F5C770] text-[#92400e] text-[13px] font-[600]">
+                      <span>⏳ Awaiting Manager Review</span>
+                    </div>
+                  )}
+                  {(item.status === 'responded' || item.status === 'done') && (
+                    <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#E8F5E9] border border-[#A5D6A7] text-[#1B5E20] text-[13px] font-[600]">
+                      <span>✓ Matches Released ({releaseHistory.length})</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="ml-auto flex items-center gap-[10px]">
+                  {isMatchesOn && (
+                    <button
+                      type="button"
+                      onClick={handleRematch}
+                      className="inline-flex items-center justify-center h-[48px] px-[20px] border-0 rounded-full bg-[rgba(255,255,255,.72)] backdrop-blur-[8px] text-[#111] font-inherit text-[13px] font-[600] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,.08)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(0,0,0,.15)]"
+                    >
+                      Rematch
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={handleRematch}
-                    className="inline-flex items-center justify-center h-[48px] px-[20px] border-0 rounded-full bg-[rgba(255,255,255,.72)] backdrop-blur-[8px] text-[#111] font-inherit text-[13px] font-[600] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,.08)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(0,0,0,.15)]"
+                    onClick={handleMatchNow}
+                    className="inline-flex items-center gap-[9px] h-[48px] px-[26px] border-0 rounded-full bg-[#111] text-white font-inherit text-[14px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(0,0,0,.25)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_14px_30px_rgba(0,0,0,.32)]"
                   >
-                    Rematch
+                    <SparkIcon size={17} className={`text-[#eddd02] ${isMatchingLoading ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
+                    <span>{isMatchesOn ? 'Hide Matches' : isMatchingLoading ? 'Finding matches…' : (releaseHistory.length > 0 ? 'Rematch' : 'Match Now')}</span>
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleMatchNow}
-                  className="inline-flex items-center gap-[9px] h-[48px] px-[26px] border-0 rounded-full bg-[#111] text-white font-inherit text-[14px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(0,0,0,.25)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_14px_30px_rgba(0,0,0,.32)]"
-                >
-                  <SparkIcon size={17} className={`text-[#eddd02] ${isMatchingLoading ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
-                  <span>{isMatchesOn ? 'Hide Matches' : isMatchingLoading ? 'Finding matches…' : (releaseHistory.length > 0 ? 'Rematch' : 'Match Now')}</span>
-                </button>
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -442,15 +497,18 @@ export default function RequestDetailsSheet({
             <ProfileSection item={item} />
           </div>
 
-          <div className="bg-[#fff] border border-[#eeede6] shadow-[0_6px_18px_rgba(30,30,50,.05)] rounded-[24px] p-[18px_20px] mt-[16px] animate-[sheet-rise_.6s_cubic-bezier(.22,1,.36,1)_both]" style={{ animationDelay: '.26s' }}>
-            <h4 className="m-[0_0_12px] text-[13px] font-[700] tracking-[-0.1px]">Manager notes</h4>
-            <textarea
-              placeholder="Write a note for this request…"
-              value={noteValue}
-              onChange={(e) => setNotesMap((p) => ({ ...p, [item.id]: e.target.value }))}
-              className="w-full min-h-[96px] border-0 rounded-[18px] bg-[#faf9f6] p-[12px_14px] font-inherit text-[13px] resize-y outline-none shadow-[inset_0_0_0_1px_#e8e7e0] focus:shadow-[0_0_0_2px_#111]"
-            />
-          </div>
+          {!isAgent && (
+            <div className="bg-[#fff] border border-[#eeede6] shadow-[0_6px_18px_rgba(30,30,50,.05)] rounded-[24px] p-[18px_20px] mt-[16px] animate-[sheet-rise_.6s_cubic-bezier(.22,1,.36,1)_both]" style={{ animationDelay: '.26s' }}>
+              <h4 className="m-[0_0_12px] text-[13px] font-[700] tracking-[-0.1px]">Manager notes</h4>
+              <textarea
+                placeholder="Write a note for this request…"
+                value={noteValue}
+                onChange={(e) => setNotesMap((p) => ({ ...p, [item.id]: e.target.value }))}
+                className="w-full min-h-[96px] border-0 rounded-[18px] bg-[#faf9f6] p-[12px_14px] font-inherit text-[13px] resize-y outline-none shadow-[inset_0_0_0_1px_#e8e7e0] focus:shadow-[0_0_0_2px_#111]"
+              />
+            </div>
+          )}
+
 
           {/* Profile Audit Logs (kb kia, kisny kia, kia kiaa) */}
           <ProfileAuditLogsSection
