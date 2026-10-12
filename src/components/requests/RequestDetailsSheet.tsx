@@ -101,7 +101,7 @@ export default function RequestDetailsSheet({
 
   const addLock = useNavigationLock((s) => s.addLock);
   const removeLock = useNavigationLock((s) => s.removeLock);
-  
+
   const isMatchesOn = item ? matching.matchesOn[item.id] : false;
   const isMatchingLoading = item ? matching.matchingLoading[item.id] : false;
 
@@ -151,7 +151,7 @@ export default function RequestDetailsSheet({
   const handleMatchNow = useCallback(() => {
     if (!item) return;
     matching.toggleMatches(item);
-    
+
     // Scroll logic if turned on
     if (!matching.matchesOn[item.id]) {
       setTimeout(() => {
@@ -192,7 +192,7 @@ export default function RequestDetailsSheet({
   const itemIndex = allItems.findIndex((i) => i.id === item.id);
   const requestId = `NK-${1040 + (itemIndex >= 0 ? itemIndex : 0)}`;
   const noteValue = notesMap[item.id] ?? '';
-  
+
   const page = matching.matchPage[item.id] || 0;
   const reqChosen = matching.chosen[item.id];
   const M = matching.realMatches[item.id] || [];
@@ -372,7 +372,7 @@ export default function RequestDetailsSheet({
                   <b className={`block text-[13.5px] font-[600] mt-[1px] ${['#2F3E51', '#1F3B34', '#C86A4A'].includes(heroBase) ? 'text-white' : 'text-[#111]'}`}>{t[2]}</b>
                 </div>
               ))}
-              
+
               <div className="ml-auto flex items-center gap-[10px]">
                 {isMatchesOn && (
                   <button
