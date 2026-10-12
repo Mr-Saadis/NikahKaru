@@ -1,9 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import type { MatchResult } from '@/lib/matching/types';
 import { CheckBox } from './CheckBox';
 import { MatchRing } from './MatchRing';
 import { CheckIcon, SendIcon, ChevronRightIcon } from './icons';
 import type { RequestItem } from './types';
+import { fetchProfileCompleteReleaseHistory } from '@/lib/actions/requests';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { getMatchProfileGroups } from './utils';
 
 function getInitials(name: string): string {
   const parts = (name || '').trim().split(/\s+/);
@@ -24,6 +27,7 @@ interface MatchesSectionProps {
   setOpenProfile: (p: { candidateId: string; requestId: string } | null) => void;
   toggleSelection: (reqId: string, candidateId: string, keys: string[]) => void;
   sendSelected: (item: RequestItem) => void;
+  releaseHistory?: any[];
   keysOf?: any; // Mock keys no longer needed
 }
 
@@ -38,11 +42,50 @@ export function MatchesSection({
   setOpenProfile,
   toggleSelection,
   sendSelected,
+  releaseHistory = [],
 }: MatchesSectionProps) {
+  const { role } = useAuth();
+  const isAgent = role === 'AGENT';
+
+  const [completeHistory, setCompleteHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const activeMatch = useMemo(() => {
+    if (!openProfile || openProfile.requestId !== item.id) return null;
+    return matches.find(m => m.candidateProfileId === openProfile.candidateId) || null;
+  }, [openProfile, matches, item.id]);
+
+  useEffect(() => {
+    if (activeMatch && !isAgent) {
+      setLoadingHistory(true);
+      fetchProfileCompleteReleaseHistory(activeMatch.candidateProfileId)
+        .then(res => {
+          setCompleteHistory(res || []);
+          setLoadingHistory(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setCompleteHistory([]);
+          setLoadingHistory(false);
+        });
+    } else {
+      setCompleteHistory([]);
+    }
+  }, [activeMatch?.candidateProfileId, isAgent]);
+
   const a = page * 5;
   const pageMatches = useMemo(() => matches.slice(a, a + 5), [matches, a]);
   const rem = Math.min(5, matches.length - a - 5);
-  const n = chosen?.size || 0;
+  let n = 0;
+  if (chosen) {
+    for (const [candidateId, keysSet] of chosen.entries()) {
+      const releaseData = releaseHistory.find(r => r.candidate_profile_id === candidateId);
+      const isAlreadySent = sent.some(s => s.candidateProfileId === candidateId) || !!releaseData;
+      if (!isAlreadySent && keysSet && keysSet.size > 0) {
+        n++;
+      }
+    }
+  }
 
   const formatDate = (iso: string) => {
     if (!iso) return '';
@@ -51,46 +94,62 @@ export function MatchesSection({
     return `${d}.${m}.${y.slice(2)}`;
   };
 
-  const activeMatch = useMemo(() => {
-    if (!openProfile || openProfile.requestId !== item.id) return null;
-    return matches.find(m => m.candidateProfileId === openProfile.candidateId) || null;
-  }, [openProfile, matches, item.id]);
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-[1.55fr_1fr] gap-4 mt-4 animate-[rise_.6s_cubic-bezier(.22,1,.36,1)_both]">
       {/* LEFT BOX */}
       <div className="bg-white border border-[#eeede6] shadow-[0_6px_18px_rgba(30,30,50,.05)] rounded-[24px] p-[18px_20px]">
         <div className="flex items-center justify-between gap-[10px] mb-3">
           <h4 className="flex items-baseline gap-2 m-0 text-[14px] font-[700] tracking-[-0.2px]">
-            Matches <small className="text-[#8d8c86] text-[11px] font-[500]">{matches.length} found · highest match first</small>
+            {isAgent ? 'Released Candidates' : 'Matches'}{' '}
+            <small className="text-[#8d8c86] text-[11px] font-[500]">
+              {matches.length} {isAgent ? 'released' : 'found · highest match first'}
+            </small>
           </h4>
-          <button
-            type="button"
-            disabled={n === 0}
-            onClick={() => sendSelected(item)}
-            title={`Send selected profiles to ${item.name}`}
-            className={`inline-flex items-center gap-2 h-[38px] px-[18px] border-0 rounded-full font-inherit text-[12.5px] font-[600] whitespace-nowrap transition-all duration-220
-              ${n === 0
-                ? 'bg-[#e4e3dc] text-[#9a9992] cursor-default'
-                : 'bg-[#111] text-white cursor-pointer hover:-translate-y-[2px] hover:shadow-[0_10px_20px_rgba(0,0,0,.22)]'
-              }`}
-          >
-            <SendIcon size={14} />
-            Send{n > 0 ? ` (${n})` : ''}
-          </button>
+          {!isAgent && (
+            <button
+              type="button"
+              disabled={n === 0}
+              onClick={() => sendSelected(item)}
+              title={`Send selected profiles to ${item.name}`}
+              className={`inline-flex items-center gap-2 h-[38px] px-[18px] border-0 rounded-full font-inherit text-[12.5px] font-[600] whitespace-nowrap transition-all duration-220
+                ${n === 0
+                  ? 'bg-[#e4e3dc] text-[#9a9992] cursor-default'
+                  : 'bg-[#111] text-white cursor-pointer hover:-translate-y-[2px] hover:shadow-[0_10px_20px_rgba(0,0,0,.22)]'
+                }`}
+            >
+              <SendIcon size={14} />
+              Send{n > 0 ? ` (${n})` : ''}
+            </button>
+          )}
         </div>
 
         {pageMatches.map((m, i) => {
-          const isChosen = chosen?.has(m.candidateProfileId) || false;
+          const isChosen = (chosen?.get(m.candidateProfileId)?.size || 0) > 0;
           const isOpen = openProfile?.requestId === item.id && openProfile.candidateId === m.candidateProfileId;
-          const isSent = sent.some(s => s.candidateProfileId === m.candidateProfileId);
+          const releaseData = releaseHistory.find(r => r.candidate_profile_id === m.candidateProfileId);
+          const isSent = sent.some(s => s.candidateProfileId === m.candidateProfileId) || !!releaseData;
+          const allowedFields = new Set<string>(releaseData?.selected_fields || []);
 
           const p = (m as any).fullProfile || m.candidateData;
-          const cName = p?.full_name || p?.personal_information?.full_name || 'Unknown';
-          const dob = p?.date_of_birth || p?.personal_information?.date_of_birth;
-          const cAge = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / 31557600000) : 'N/A';
-          const cCity = p?.current_city_name_en || p?.location?.current_city?.name_en || 'Unknown City';
-          const cJob = p?.job_title || p?.education_profession?.job_title || 'Unknown Job';
+          const cName = (!isAgent || allowedFields.has('personal_information.full_name'))
+            ? (p?.full_name || p?.personal_information?.full_name || 'Candidate')
+            : 'Candidate';
+          const dob = (!isAgent || allowedFields.has('personal_information.date_of_birth'))
+            ? (p?.date_of_birth || p?.personal_information?.date_of_birth)
+            : null;
+          const cAge = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / 31557600000) : null;
+          const cCity = (!isAgent || allowedFields.has('profile_locations.current_city_id'))
+            ? (p?.current_city_name_en || p?.location?.current_city?.name_en || null)
+            : null;
+          const cJob = (!isAgent || allowedFields.has('employment_records'))
+            ? (p?.job_title || p?.education_profession?.job_title || null)
+            : null;
+
+          const cardSub = [
+            cAge ? `${cAge} yrs` : null,
+            cCity,
+            cJob
+          ].filter(Boolean).join(' · ');
 
           return (
             <div
@@ -112,25 +171,28 @@ export function MatchesSection({
               `}
               style={{ animationDelay: `${i * 0.06}s` }}
             >
-              <CheckBox
-                checked={isChosen || isSent}
-                disabled={isSent}
-                className="-mr-[2px]"
-                aria-label={`Select ${cName}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSelection(item.id, m.candidateProfileId, ['All']); // Sending 'All' for simplicity
-                  if (!chosen?.has(m.candidateProfileId)) {
-                    // Became selected
-                    setOpenProfile({ candidateId: m.candidateProfileId, requestId: item.id });
-                  } else {
-                    // Became unselected
-                    if (openProfile?.candidateId === m.candidateProfileId) {
-                      setOpenProfile(null);
+              {!isAgent && (
+                <CheckBox
+                  checked={isChosen || isSent}
+                  disabled={isSent}
+                  className="-mr-[2px]"
+                  aria-label={`Select ${cName}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const groups = getMatchProfileGroups(m);
+                    const allKeys = groups.flatMap((g, idx) => g[1].map((_, j) => `${idx}:${j}`));
+                    if (isChosen) {
+                      toggleSelection(item.id, m.candidateProfileId, []);
+                      if (openProfile?.candidateId === m.candidateProfileId) {
+                        setOpenProfile(null);
+                      }
+                    } else {
+                      toggleSelection(item.id, m.candidateProfileId, allKeys);
+                      setOpenProfile({ candidateId: m.candidateProfileId, requestId: item.id });
                     }
-                  }
-                }}
-              />
+                  }}
+                />
+              )}
               
               <div
                 className="w-[44px] h-[44px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[13px] shrink-0"
@@ -142,16 +204,18 @@ export function MatchesSection({
               <div className="flex-1 min-w-0">
                 <b className="block text-[14.5px] font-[600] tracking-[-0.2px]">
                   {cName}
-                  {isSent && (
+                  {isSent && !isAgent && (
                     <span className="inline-flex items-center gap-1 ml-2 align-[1px] bg-[#e3f4e8] text-[#2d7a4b] rounded-full px-[8px] py-[2px] text-[10px] font-[700]">
                       <CheckIcon size={10} strokeWidth={3} />
                       Sent
                     </span>
                   )}
                 </b>
-                <small className="block mt-[2px] text-[#8d8c86] text-[11px] font-[500]">
-                  {cAge} yrs · {cCity} · {cJob}
-                </small>
+                {cardSub && (
+                  <small className="block mt-[2px] text-[#8d8c86] text-[11px] font-[500]">
+                    {cardSub}
+                  </small>
+                )}
               </div>
 
               <div className="flex flex-col items-center">
@@ -195,12 +259,56 @@ export function MatchesSection({
           <>
             <div className="flex items-center gap-2 mb-3">
               <h4 className="flex items-baseline gap-2 m-0 text-[14px] font-[700] tracking-[-0.2px]">
-                Sent history
+                {isAgent ? 'Release Details' : 'Sent history'}
               </h4>
             </div>
             <div className="text-[#8d8c86] text-center text-[12px] pt-[48px] m-auto">
-              Select a match to see who they were sent to before.
+              {isAgent ? 'Select a candidate to view release details.' : 'Select a match to see who they were sent to before.'}
             </div>
+          </>
+        ) : isAgent ? (
+          <>
+            <h4 className="flex items-baseline gap-2 m-0 text-[14px] font-[700] tracking-[-0.2px] mb-3">
+              Release Details
+            </h4>
+            {(() => {
+              const releaseData = releaseHistory.find(r => r.candidate_profile_id === activeMatch.candidateProfileId);
+              const p = (activeMatch as any).fullProfile || activeMatch.candidateData;
+              const candName = p?.full_name || 'Candidate';
+              return (
+                <div className="space-y-3 pt-1">
+                  <div className="p-[12px_14px] rounded-[16px] bg-[#faf9f5] border border-[#eeede6]">
+                    <span className="block text-[11px] font-[500] text-[#8d8c86]">Candidate</span>
+                    <b className="block text-[14px] font-[700] text-[#111] mt-[2px]">{candName}</b>
+                  </div>
+                  <div className="p-[12px_14px] rounded-[16px] bg-[#faf9f5] border border-[#eeede6]">
+                    <span className="block text-[11px] font-[500] text-[#8d8c86]">Released For</span>
+                    <b className="block text-[13.5px] font-[600] text-[#111] mt-[2px]">{item.name}</b>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-[10px_12px] rounded-[14px] bg-[#faf9f5] border border-[#eeede6]">
+                      <span className="block text-[10.5px] font-[500] text-[#8d8c86]">Release Date</span>
+                      <b className="block text-[12.5px] font-[600] text-[#111] mt-[2px]">
+                        {releaseData?.released_at ? formatDate(releaseData.released_at) : 'N/A'}
+                      </b>
+                    </div>
+                    <div className="p-[10px_12px] rounded-[14px] bg-[#faf9f5] border border-[#eeede6]">
+                      <span className="block text-[10.5px] font-[500] text-[#8d8c86]">Fields Released</span>
+                      <b className="block text-[12.5px] font-[600] text-[#064e3b] mt-[2px]">
+                        {releaseData?.selected_fields?.length || 0} fields
+                      </b>
+                    </div>
+                  </div>
+                  <div className="p-[10px_12px] rounded-[14px] bg-[#e8f5e9] border border-[#c8e6c9] text-[#1b5e20] text-[11.5px] font-[500] flex items-center gap-2">
+                    <CheckIcon size={14} strokeWidth={2.5} />
+                    <span>Approved & Released by Manager</span>
+                  </div>
+                  <p className="text-[11px] text-[#8d8c86] leading-relaxed pt-1">
+                    Tap the candidate card to open their approved profile details in the right side panel.
+                  </p>
+                </div>
+              );
+            })()}
           </>
         ) : (
           <>
@@ -209,9 +317,14 @@ export function MatchesSection({
             </h4>
             
             {(() => {
-              const isSentCurrent = sent.some(s => s.candidateProfileId === activeMatch.candidateProfileId);
+              const releaseData = releaseHistory.find(r => r.candidate_profile_id === activeMatch.candidateProfileId);
+              const isSentCurrent = sent.some(s => s.candidateProfileId === activeMatch.candidateProfileId) || !!releaseData;
               
-              if (!isSentCurrent) {
+              if (loadingHistory) {
+                return <div className="text-[#8d8c86] text-center text-[12px] pt-[48px] m-auto">Loading history...</div>;
+              }
+              
+              if (completeHistory.length === 0 && !isSentCurrent) {
                 return (
                   <div className="text-[#8d8c86] text-center text-[12px] pt-[48px] m-auto">
                     This profile has no past sent history.
@@ -221,21 +334,22 @@ export function MatchesSection({
               
               return (
                 <div className="flex flex-col min-h-0 overflow-y-auto pr-1">
-                  <div className="flex items-center gap-[10px] w-[calc(100%+16px)] border-0 bg-transparent text-left rounded-[14px] p-[8px] -mx-[8px] border-t border-transparent">
-                    <div
-                      className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[11px] shrink-0"
-                      style={{ background: AVC[activeMatch.candidateProfileId.charCodeAt(0) % 5] }}
-                    >
-                      {getInitials(item.name)}
+                  {completeHistory.map((h, i) => (
+                    <div key={h.release_id || i} className="flex items-center gap-[10px] w-[calc(100%+16px)] border-0 bg-transparent text-left rounded-[14px] p-[8px] -mx-[8px] border-t border-[#eeede6] first:border-transparent mt-[4px] pt-[12px] first:mt-0 first:pt-2">
+                      <div
+                        className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[11px] shrink-0"
+                        style={{ background: AVC[(h.other_profile_id || '').charCodeAt(0) % 5] || AVC[0] }}
+                      >
+                        {getInitials(h.other_name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <b className="block text-[13.5px] font-[600] truncate">{h.other_name}</b>
+                      </div>
+                      <em className="ml-auto not-italic text-[11px] text-[#8d8c86] whitespace-nowrap pl-2">
+                        {formatDate(h.released_at)}
+                      </em>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <b className="block text-[13.5px] font-[600]">{item.name}</b>
-                      <small className="block text-[#2d7a4b] text-[10px] font-[700]">Current Request</small>
-                    </div>
-                    <em className="ml-auto not-italic text-[11px] text-[#8d8c86]">
-                      Just now
-                    </em>
-                  </div>
+                  ))}
                 </div>
               );
             })()}
@@ -245,3 +359,4 @@ export function MatchesSection({
     </div>
   );
 }
+

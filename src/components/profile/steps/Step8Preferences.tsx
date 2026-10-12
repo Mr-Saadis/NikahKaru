@@ -221,9 +221,10 @@ export type Step8Data = {
 interface Step8Props {
   data: Step8Data;
   onChange: (data: Step8Data) => void;
+  gender?: 'MALE' | 'FEMALE';
 }
 
-export default function Step8Preferences({ data, onChange }: Step8Props) {
+export default function Step8Preferences({ data, onChange, gender }: Step8Props) {
   const { religions, castes, countries, provinces, cities, getSectsByReligion, educationLevels, occupations } = useReferenceData();
   const availableSects = data.pref_religion_id ? getSectsByReligion(Number(data.pref_religion_id)) : [];
   
@@ -352,30 +353,38 @@ export default function Step8Preferences({ data, onChange }: Step8Props) {
           </div>
         )}
         
-        <ImportanceRow label={<>Beard Preference Importance</>} value={data.pref_beard_importance} onChange={(v) => handleImportanceChange('pref_beard_importance', v, ['pref_beard'])} />
-        {data.pref_beard_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Beard Required?</span>
-            <div className="flex gap-1.5">
-              {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
-                <button key={v} type="button" onClick={() => set('pref_beard', data.pref_beard === v ? '' : v as YesNo)}
-                  className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_beard === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
-              ))}
-            </div>
-          </div>
+        {gender !== 'MALE' && (
+          <>
+            <ImportanceRow label={<>Beard Preference Importance</>} value={data.pref_beard_importance} onChange={(v) => handleImportanceChange('pref_beard_importance', v, ['pref_beard'])} />
+            {data.pref_beard_importance !== DOESNT_MATTER_VALUE && (
+              <div className="flex items-center justify-between gap-2 py-2">
+                <span className="text-[12px] font-medium text-[#4E473D] flex-1">Beard Required?</span>
+                <div className="flex gap-1.5">
+                  {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
+                    <button key={v} type="button" onClick={() => set('pref_beard', data.pref_beard === v ? '' : v as YesNo)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_beard === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
         
-        <ImportanceRow label={<>Hijab Preference Importance</>} value={data.pref_hijab_importance} onChange={(v) => handleImportanceChange('pref_hijab_importance', v, ['pref_hijab'])} />
-        {data.pref_hijab_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Hijab Required?</span>
-            <div className="flex gap-1.5">
-              {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
-                <button key={v} type="button" onClick={() => set('pref_hijab', data.pref_hijab === v ? '' : v as YesNo)}
-                  className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_hijab === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
-              ))}
-            </div>
-          </div>
+        {gender !== 'FEMALE' && (
+          <>
+            <ImportanceRow label={<>Hijab Preference Importance</>} value={data.pref_hijab_importance} onChange={(v) => handleImportanceChange('pref_hijab_importance', v, ['pref_hijab'])} />
+            {data.pref_hijab_importance !== DOESNT_MATTER_VALUE && (
+              <div className="flex items-center justify-between gap-2 py-2">
+                <span className="text-[12px] font-medium text-[#4E473D] flex-1">Hijab Required?</span>
+                <div className="flex gap-1.5">
+                  {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
+                    <button key={v} type="button" onClick={() => set('pref_hijab', data.pref_hijab === v ? '' : v as YesNo)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_hijab === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </SectionCard>
 

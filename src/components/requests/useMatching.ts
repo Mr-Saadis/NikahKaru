@@ -4,8 +4,13 @@ import { createBrowserClient } from '@supabase/ssr';
 import { runMatching } from '@/lib/matching/engine';
 import type { MatchResult } from '@/lib/matching/types';
 import { getMatchProfileGroups } from './utils';
+import { fetchSentProfilesForRequest } from '@/lib/actions/requests';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 export function useMatching() {
+  const { role } = useAuth();
+  const isAgent = role === 'AGENT';
+
   const [matchesOn, setMatchesOn] = useState<Record<string, boolean>>({});
   const [matchPage, setMatchPage] = useState<Record<string, number>>({});
   const [chosen, setChosen] = useState<Record<string, Map<string, Set<string>>>>({});
@@ -15,22 +20,96 @@ export function useMatching() {
   // Real DB matches state
   const [realMatches, setRealMatches] = useState<Record<string, MatchResult[]>>({});
   const [matchingLoading, setMatchingLoading] = useState<Record<string, boolean>>({});
+  
+  // Release history state
+  const [releaseHistory, setReleaseHistory] = useState<Record<string, any[]>>({});
+
+  const loadSentProfiles = useCallback(async (item: RequestItem, history: any[]) => {
+    if (!history || history.length === 0 || !item) return;
+    const requestId = item.id;
+    try {
+      const sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id;
+      const { fullProfiles, viewResults } = await fetchSentProfilesForRequest(requestId, sourceProfileId);
+        
+      if (fullProfiles && fullProfiles.length > 0) {
+        const historyMatches: MatchResult[] = history.map(h => {
+          const r = viewResults?.find((vr: any) => vr.candidate_profile_id === h.candidate_profile_id);
+          const p = fullProfiles.find((prof: any) => prof.profile_id === h.candidate_profile_id);
+          return {
+            candidateProfileId: h.candidate_profile_id,
+            sourceToCandidateScore: r?.source_to_candidate_score || 0,
+            candidateToSourceScore: r?.candidate_to_source_score || 0,
+            finalScore: r?.final_score || 0,
+            rank: r?.rank || 0,
+            breakdowns: {
+              sourceToCandidate: r?.score_breakdowns?.filter((b: any) => b.direction === r.source_gender) || [],
+              candidateToSource: r?.score_breakdowns?.filter((b: any) => b.direction !== r.source_gender) || [],
+            },
+            fullProfile: p
+          };
+        });
+        setRealMatches(p => ({ ...p, [requestId]: historyMatches }));
+      }
+    } catch (err) {
+      console.error("Error loading sent profiles:", err);
+    }
+  }, []);
 
   const toggleMatches = useCallback(async (item: RequestItem, forceRematch = false) => {
     const requestId = item.id;
+    let isTurningOff = false;
+    
     setMatchesOn((prev) => {
       const isCurrentlyOn = prev[requestId];
       if (isCurrentlyOn && !forceRematch) {
         setOpenProfile((curr) => (curr?.requestId === requestId ? null : curr));
+        isTurningOff = true;
         return { ...prev, [requestId]: false };
       }
       return { ...prev, [requestId]: true };
     });
 
-    // If we already have non-empty matches, no need to fetch again immediately unless forceRematch
-    if (!forceRematch && realMatches[requestId] && realMatches[requestId].length > 0) return;
+    if (isTurningOff) return;
 
-    // Fetch real matches
+    // For AGENT: Load sent/released profiles securely via server action!
+    // Never query vw_profile_core, vw_profile_match_results or runMatching in client browser!
+    if (isAgent) {
+      setMatchingLoading(prev => ({ ...prev, [requestId]: true }));
+      try {
+        const sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id;
+        const { history, fullProfiles, viewResults } = await fetchSentProfilesForRequest(requestId, sourceProfileId);
+        
+        setReleaseHistory(prev => ({ ...prev, [requestId]: history || [] }));
+        
+        if (history && history.length > 0) {
+          const historyMatches: MatchResult[] = history.map(h => {
+            const r = viewResults?.find((vr: any) => vr.candidate_profile_id === h.candidate_profile_id);
+            const p = fullProfiles?.find((prof: any) => prof.profile_id === h.candidate_profile_id);
+            return {
+              candidateProfileId: h.candidate_profile_id,
+              sourceToCandidateScore: r?.source_to_candidate_score || 0,
+              candidateToSourceScore: r?.candidate_to_source_score || 0,
+              finalScore: r?.final_score || 0,
+              rank: r?.rank || 0,
+              breakdowns: {
+                sourceToCandidate: r?.score_breakdowns?.filter((b: any) => b.direction === r.source_gender) || [],
+                candidateToSource: r?.score_breakdowns?.filter((b: any) => b.direction !== r.source_gender) || [],
+              },
+              fullProfile: p
+            };
+          });
+          setRealMatches(prev => ({ ...prev, [requestId]: historyMatches }));
+        } else {
+          setRealMatches(prev => ({ ...prev, [requestId]: [] }));
+        }
+      } catch (e) {
+        console.error('Error fetching sent profiles for agent:', e);
+      } finally {
+        setMatchingLoading(prev => ({ ...prev, [requestId]: false }));
+      }
+      return;
+    }
+
     setMatchingLoading(prev => ({ ...prev, [requestId]: true }));
     
     try {
@@ -41,7 +120,6 @@ export function useMatching() {
       
       let sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id;
       if (!sourceProfileId && item.id) {
-        // Fallback: Check if item.id is a request_id or profile_id
         const { data: req } = await supabase
           .from('information_requests')
           .select('source_profile_id')
@@ -51,7 +129,6 @@ export function useMatching() {
       }
       if (!sourceProfileId) throw new Error("No source profile ID found for this request");
 
-      // 1. Fetch real matches from vw_profile_match_results or calculate dynamically
       let results: MatchResult[] = [];
 
       if (!forceRematch) {
@@ -78,7 +155,6 @@ export function useMatching() {
         }
       }
 
-      // If no persisted matches exist yet or forced rematch, run deterministic matching engine
       if (results.length === 0) {
         try {
           results = await runMatching(supabase, sourceProfileId, {
@@ -91,6 +167,26 @@ export function useMatching() {
           console.error('Error running matching engine:', engineErr);
         }
       }
+
+      // Merge history matches if they are missing from results
+      setReleaseHistory(prevHistory => {
+        const history = prevHistory[requestId] || [];
+        if (history.length > 0) {
+          history.forEach(h => {
+            if (!results.some(r => r.candidateProfileId === h.candidate_profile_id)) {
+              results.push({
+                candidateProfileId: h.candidate_profile_id,
+                sourceToCandidateScore: 0,
+                candidateToSourceScore: 0,
+                finalScore: 0,
+                rank: 0,
+                breakdowns: { sourceToCandidate: [], candidateToSource: [] }
+              });
+            }
+          });
+        }
+        return prevHistory;
+      });
 
       if (results && results.length > 0) {
         const ids = results.map(r => r.candidateProfileId);
@@ -106,7 +202,6 @@ export function useMatching() {
         }
       }
 
-      // 2. Fetch matches ledger for sent extra
       const { data: ledgerData, error: ledgerError } = await supabase
         .from('vw_profile_matches_ledger')
         .select('*')
@@ -132,7 +227,7 @@ export function useMatching() {
     } finally {
       setMatchingLoading(prev => ({ ...prev, [requestId]: false }));
     }
-  }, [realMatches, matchesOn]);
+  }, [matchesOn]);
 
   const setPage = useCallback((requestId: string, page: number) => {
     setMatchPage((prev) => ({ ...prev, [requestId]: page }));
@@ -190,6 +285,12 @@ export function useMatching() {
       const releasesData = [];
       
       for (const [candidateId, set] of reqChosen.entries()) {
+        const isAlreadySentLocal = sentExtra[item.id]?.[candidateId];
+        const isAlreadySentHistory = releaseHistory[item.id]?.some((r: any) => r.candidate_profile_id === candidateId);
+        if (isAlreadySentLocal || isAlreadySentHistory) {
+          continue; // Skip if already sent
+        }
+
         if (set.size === 0) {
           const profile = results.find((x) => x.candidateProfileId === candidateId);
           onToast(`Select at least one detail for ${profile?.candidateData?.personal_information?.full_name || 'candidate'}`);
@@ -203,21 +304,25 @@ export function useMatching() {
         const groups = getMatchProfileGroups(profile);
         const rawPaths: string[] = [];
 
-        // If UI selected 'All' via checkbox directly from board
-        if (set.has('All')) {
-          groups.forEach(g => {
-            g[1].forEach(f => {
-              if (f[2]) rawPaths.push(f[2]);
-            });
-          });
-        } else {
-          for (const key of set.values()) {
-            const [groupIndex, fieldIndex] = key.split(':').map(Number);
+        // 1. Collect explicitly selected field paths
+        for (const key of set.values()) {
+          if (key === 'All') continue;
+          const [groupIndex, fieldIndex] = key.split(':').map(Number);
+          if (!isNaN(groupIndex) && !isNaN(fieldIndex)) {
             const fieldTuple = groups[groupIndex]?.[1]?.[fieldIndex];
             if (fieldTuple?.[2]) {
               rawPaths.push(fieldTuple[2]);
             }
           }
+        }
+
+        // 2. Only fall back to all fields if user selected 'All' and selected no specific keys
+        if (rawPaths.length === 0 && set.has('All')) {
+          groups.forEach(g => {
+            g[1].forEach(f => {
+              if (f[2]) rawPaths.push(f[2]);
+            });
+          });
         }
 
         // Deduplicate field paths to satisfy database constraints
@@ -375,5 +480,8 @@ export function useMatching() {
     toggleSelection,
     updateSelectionKeys,
     sendSelected,
+    releaseHistory,
+    setReleaseHistory,
+    loadSentProfiles,
   };
 }

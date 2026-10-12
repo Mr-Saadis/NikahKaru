@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import RequestsBoard from '@/components/requests/RequestsBoard';
 import { AGENT_COLUMNS } from '@/components/requests/constants';
-import { fetchAgentRequests, fetchAgentNames } from '@/lib/actions/agent-requests';
+import { fetchAgentRequests, fetchAgentColumnRequests, fetchAgentNames } from '@/lib/actions/agent-requests';
 import { markRequestAsRead } from '@/lib/actions/requests';
 
 // ============================================================
@@ -34,6 +34,7 @@ export default function AgentRequestsPage() {
         <RequestsBoard 
           columns={AGENT_COLUMNS}
           fetchRequests={fetchAgentRequests}
+          fetchColumnRequests={fetchAgentColumnRequests}
           fetchNames={fetchAgentNames}
           hideStaffFilter={true}
         />

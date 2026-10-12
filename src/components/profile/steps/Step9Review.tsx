@@ -163,8 +163,8 @@ export default function Step9Review({ step1, step2, step3, step4, step5, step6, 
         {/* Lifestyle */}
         <ReviewSection icon={Heart} title="Lifestyle" step={7} onEdit={onGoToStep}>
           <ReviewRow label="Religious Practice" value={step7.religious_practice?.replace(/_/g, ' ')} />
-          <ReviewRow label="Beard" value={step7.beard} />
-          <ReviewRow label="Hijab" value={step7.hijab} />
+          {step1.gender === 'MALE' && <ReviewRow label="Beard" value={step7.beard} />}
+          {step1.gender === 'FEMALE' && <ReviewRow label="Hijab" value={step7.hijab} />}
           <ReviewRow label="Smoking" value={step7.smoking} />
           <ReviewRow label="Willing to Relocate" value={step7.willing_to_relocate} />
         </ReviewSection>

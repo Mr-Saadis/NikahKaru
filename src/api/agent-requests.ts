@@ -1,163 +1,112 @@
-// Raw database queries for agent requests
-
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import type { RequestItem, FilterState } from '@/components/requests/types';
 
-export async function fetchAgentRequests(filters: FilterState): Promise<RequestItem[]> {
+// =======================================================================
+// Fetch all board requests for agent (used on initial load / full sync)
+// =======================================================================
+export async function fetchAgentBoardRequests(filters: FilterState): Promise<RequestItem[]> {
   const supabase = await createClient();
-  const boardItems: RequestItem[] = [];
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  // Query official agent requests board view
+  let query = supabase.from('vw_agent_requests_board').select('*');
 
-  const agentId = user.id;
-
-  // We need the agent's name
-  const { data: userData } = await supabase
-    .from('users')
-    .select('full_name')
-    .eq('id', agentId)
-    .single();
-  const agentName = userData?.full_name || 'Agent';
-
-  // =======================================================================
-  // 1. Fetch LOGGED ENTRIES (Profiles created by this agent)
-  // =======================================================================
-  let profilesQuery = supabase
-    .from('vw_profile_core')
-    .select(`
-      profile_id,
-      created_at,
-      status,
-      full_name,
-      cnic
-    `)
-    .eq('created_by', agentId)
-    .order('created_at', { ascending: false });
-
-  const { data: profilesData, error: profilesError } = await profilesQuery;
-
-  if (profilesError) {
-    console.error('Supabase profiles query error:', profilesError);
-  } else {
-    console.log(`Fetched ${profilesData?.length || 0} profiles for agent ${agentId}`);
+  // Database-Level Filtering
+  if (filters.search) {
+    const q = `%${filters.search}%`;
+    query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+  }
+  if (filters.dateFrom) {
+    query = query.gte('request_date', filters.dateFrom);
+  }
+  if (filters.dateTo) {
+    query = query.lte('request_date', filters.dateTo);
   }
 
-  if (!profilesError && profilesData) {
-    profilesData.forEach((p: any) => {
-      const name = p.full_name || 'Unknown Name';
-      const cnic = p.cnic?.toString() || '00000-0000000-0';
+  query = query.order('request_date', { ascending: false }).limit(200);
 
-      boardItems.push({
-        id: p.profile_id, // Using profile ID
-        name,
-        cnic,
-        phone: 'N/A',
-        staff: agentName,
-        date: p.created_at,
-        status: 'logged', // Matches AGENT_COLUMNS[0].key
-        later: false
-      });
-    });
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Supabase agent requests view query error:', error);
+    return [];
   }
 
-  // =======================================================================
-  // 2. Fetch Requests (Requested, Responded, Completed)
-  // =======================================================================
-  // Agent requests:
-  // - Requested: status = 'PENDING'
-  // - Responded: status = 'APPROVED' or 'RELEASED'
-  // - Completed: ? Maybe a separate completed status or if a match is finalised? Let's use 'REJECTED' or a custom logic. Let's map 'RELEASED' to completed if it's fully done, or use the request status. For now, 'COMPLETED' is not a standard status. Let's map 'APPROVED' to responded, and 'RELEASED' to completed. Or maybe we just use standard 'PENDING' -> requested, 'APPROVED' -> responded, 'REJECTED' -> done (or a specific completed state). Wait, the user said "jo usne apni taraf se complete ki hoongi". Let's assume there is a 'CLOSED' or 'COMPLETED' status, or we map 'RELEASED' to done, and 'APPROVED' to responded. Let's map 'PENDING' -> 'requested', 'APPROVED' -> 'responded', 'REJECTED' or 'CLOSED' -> 'done'.
-  // We'll just map the existing statuses.
-
-  const { data: reqData, error: reqError } = await supabase
-    .from('information_requests')
-    .select(`
-      id,
-      status,
-      created_at,
-      is_read,
-      source_profile_id,
-      profiles (
-        id,
-        personal_information ( full_name, cnic )
-      )
-    `)
-    .eq('requested_by', agentId)
-    .order('created_at', { ascending: false });
-
-  if (reqError) {
-    console.error('Supabase requests query error:', reqError);
-  }
-
-  if (!reqError && reqData) {
-    reqData.forEach((r: any) => {
-      let colStatus = 'requested'; // default
-      if (r.status === 'PENDING' || r.status === 'PENDING_OTHER') {
-        colStatus = 'requested';
-      } else if (r.status === 'IN_REVIEW') {
-        colStatus = 'responded';
-      } else if (r.status === 'COMPLETED') {
-        colStatus = 'done';
-      } else if (r.status === 'CANCELLED') {
-        colStatus = 'archive';
-      }
-
-      const p = r.profiles || {};
-      const pi = p.personal_information || {};
-
-      boardItems.push({
-        id: r.id,
-        name: pi.full_name || 'Unknown',
-        cnic: pi.cnic?.toString() || '00000-0000000-0',
-        phone: 'N/A',
-        staff: agentName,
-        date: r.created_at,
-        status: colStatus,
-        later: false,
-        // For agent, we temporarily ignore the manager's is_read so the colors show up correctly.
-        // Once agent_is_read is added to the DB, we can map it here.
-        isRead: false 
-      });
-    });
-  }
-
-  // â”€â”€ Apply Search & Filters locally (same as manager) â”€â”€
-  return boardItems.filter((item) => {
-    // 1. Search term (Name, ID, CNIC)
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      const matchesSearch =
-        item.name.toLowerCase().includes(q) ||
-        item.id.toLowerCase().includes(q) ||
-        item.cnic.toLowerCase().includes(q);
-      if (!matchesSearch) return false;
-    }
-
-    // 2. Date from
-    if (filters.dateFrom) {
-      if (new Date(item.date) < new Date(filters.dateFrom)) return false;
-    }
-
-    // 3. Date to
-    if (filters.dateTo) {
-      // Add 1 day to include the whole "To" day
-      const toDate = new Date(filters.dateTo);
-      toDate.setDate(toDate.getDate() + 1);
-      if (new Date(item.date) >= toDate) return false;
-    }
-
-    // 4. Staff (for agent it's always themselves, but we'll apply it just in case)
-    if (filters.staff && item.staff !== filters.staff) {
-      return false;
-    }
-
-    return true;
-  });
+  return (data || []).map((item: any) => ({
+    id: item.board_id,
+    name: item.full_name || 'Unknown',
+    cnic: item.cnic || '00000-0000000-0',
+    phone: item.phone || item.primary_phone || 'N/A',
+    staff: item.created_by_name || item.current_agent_name || 'Agent',
+    date: item.request_date,
+    status: item.request_status,
+    later: item.later || false,
+    isRead: item.is_read || false,
+    profileData: item, // Full profile payload attached for sheet & sections
+  }));
 }
 
-// Fetch staff names for filter dropdown (Only the agent themselves)
+// =======================================================================
+// Fetch column requests for agent with pagination (Lazy Loading)
+// =======================================================================
+export async function fetchAgentColumnRequests(
+  status: string,
+  filters: FilterState,
+  offset: number = 0,
+  limit: number = 20
+): Promise<RequestItem[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from('vw_agent_requests_board')
+    .select('*')
+    .eq('request_status', status);
+
+  // Database-Level Filtering
+  if (filters.search) {
+    const q = `%${filters.search}%`;
+    query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+  }
+  if (filters.dateFrom) {
+    query = query.gte('request_date', filters.dateFrom);
+  }
+  if (filters.dateTo) {
+    query = query.lte('request_date', filters.dateTo);
+  }
+
+  // Pagination & Sorting
+  query = query
+    .order('request_date', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error(`Supabase agent requests view error for column ${status}:`, error);
+    return [];
+  }
+
+  return (data || []).map((item: any) => ({
+    id: item.board_id,
+    name: item.full_name || 'Unknown',
+    cnic: item.cnic || '00000-0000000-0',
+    phone: item.phone || item.primary_phone || 'N/A',
+    staff: item.created_by_name || item.current_agent_name || 'Agent',
+    date: item.request_date,
+    status: item.request_status,
+    later: item.later || false,
+    isRead: item.is_read || false,
+    profileData: item, // Full profile payload attached
+  }));
+}
+
+// Backward-compatible alias
+export async function fetchAgentRequests(filters: FilterState): Promise<RequestItem[]> {
+  return fetchAgentBoardRequests(filters);
+}
+
+// =======================================================================
+// Fetch Agent Names (current agent name for filter consistency)
+// =======================================================================
 export async function fetchAgentNames(): Promise<string[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

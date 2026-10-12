@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import RequestsBoard from '@/components/requests/RequestsBoard';
 import { COLUMNS } from '@/components/requests/constants';
-import { fetchBoardRequests, fetchAgentNames, markRequestAsRead } from '@/lib/actions/requests';
+import { fetchBoardRequests, fetchColumnRequests, fetchAgentNames, markRequestAsRead } from '@/lib/actions/requests';
 
 // ============================================================
 // /requests — Manager Request Operations board
@@ -46,6 +46,7 @@ export default function RequestsPage() {
         <RequestsBoard 
           columns={COLUMNS}
           fetchRequests={fetchBoardRequests}
+          fetchColumnRequests={fetchColumnRequests}
           fetchNames={fetchAgentNames}
           onMarkAsRead={markRequestAsRead}
         />

@@ -10,11 +10,14 @@ export function getMatchProfileGroups(match: any): ProfileGroup[] {
 
   return [
     ["Basic Information", [
+      ["Profile picture", "Include", "personal_information.profile_picture"],
       ["Full name", d.full_name || 'N/A', "personal_information.full_name"], 
+      ...(d.gender ? [["Gender", d.gender, "profiles.gender"] as ProfileField] : []),
       ["Phone", d.phone || d.primary_phone || 'N/A', "personal_information.phone"], 
+      ["CNIC", d.cnic || 'N/A', "personal_information.cnic"],
       ["DOB", d.date_of_birth ? new Date(d.date_of_birth).toLocaleDateString() : 'N/A', "personal_information.date_of_birth"], 
       ["Marital status", d.marital_status || 'N/A', "personal_information.marital_status"],
-      ["Children", d.number_of_children !== null && d.number_of_children !== undefined ? String(d.number_of_children) : 'N/A', "personal_information.number_of_children"]
+      ...(d.marital_status !== 'NEVER_MARRIED' ? [["Children", d.number_of_children !== null && d.number_of_children !== undefined ? String(d.number_of_children) : 'N/A', "personal_information.number_of_children"] as ProfileField] : [])
     ]],
     ["Physical Attributes", [
       ["Height", d.height_cm ? `${d.height_cm} cm` : 'N/A', "physical_information.height_cm"], 
@@ -35,6 +38,7 @@ export function getMatchProfileGroups(match: any): ProfileGroup[] {
       ["Mother tongue", d.mother_tongue_name_en || 'N/A', "personal_information.mother_tongue_id"]
     ]],
     ["Location & Residency", [
+      ...(d.current_country_name_en || d.current_country ? [["Current country", d.current_country_name_en || d.current_country, "profile_locations.current_country_id"] as ProfileField] : []),
       ["Current city", d.current_city_name_en || d.current_location_text || 'N/A', "profile_locations.current_city_id"], 
       ["Permanent city", d.permanent_city_name_en || d.permanent_location_text || 'N/A', "profile_locations.permanent_city_id"], 
       ["Residency", d.nationality_country_name_en || 'N/A', "residency_information.house_status"]
@@ -47,8 +51,8 @@ export function getMatchProfileGroups(match: any): ProfileGroup[] {
     ]],
     ["Lifestyle", [
       ["Prayer", d.religious_practice || 'N/A', "lifestyle_information.religious_practice"], 
-      ["Beard", d.beard || 'N/A', "lifestyle_information.beard"], 
-      ["Hijab", d.hijab || 'N/A', "lifestyle_information.hijab"], 
+      ...(d.gender !== 'FEMALE' ? [["Beard", d.beard || 'N/A', "lifestyle_information.beard"] as ProfileField] : []), 
+      ...(d.gender !== 'MALE' ? [["Hijab", d.hijab || 'N/A', "lifestyle_information.hijab"] as ProfileField] : []), 
       ["Smoking", d.smoking || 'N/A', "lifestyle_information.smoking"]
     ]]
   ];
@@ -61,12 +65,14 @@ export function getProfileGroups(item: RequestItem): ProfileGroup[] {
 
   return [
     ["Basic Information", [
+      ["Profile picture", "Include"],
       ["Full name", d.full_name || item.name], 
+      ...(d.gender ? [["Gender", d.gender] as ProfileField] : []),
       ["Phone", d.primary_phone || item.phone], 
       ["CNIC", d.cnic || item.cnic], 
       ["DOB", d.date_of_birth ? new Date(d.date_of_birth).toLocaleDateString() : 'N/A'], 
       ["Marital status", d.marital_status || 'N/A'],
-      ["Children", d.number_of_children !== null ? String(d.number_of_children) : 'N/A']
+      ...(d.marital_status !== 'NEVER_MARRIED' ? [["Children", d.number_of_children !== null ? String(d.number_of_children) : 'N/A'] as ProfileField] : [])
     ]],
     ["Physical Attributes", [
       ["Height", d.height_cm ? `${d.height_cm} cm` : 'N/A'], 
@@ -87,6 +93,7 @@ export function getProfileGroups(item: RequestItem): ProfileGroup[] {
       ["Mother tongue", d.mother_tongue_name_en || 'N/A']
     ]],
     ["Location & Residency", [
+      ...(d.current_country_name_en || d.current_country ? [["Current country", d.current_country_name_en || d.current_country] as ProfileField] : []),
       ["Current city", d.current_city_name_en || d.current_location_text || 'N/A'], 
       ["Permanent city", d.permanent_city_name_en || d.permanent_location_text || 'N/A'], 
       ["Residency", d.nationality_country_name_en || 'N/A']
@@ -99,8 +106,8 @@ export function getProfileGroups(item: RequestItem): ProfileGroup[] {
     ]],
     ["Lifestyle", [
       ["Prayer", d.religious_practice || 'N/A'], 
-      ["Beard", d.beard || 'N/A'], 
-      ["Hijab", d.hijab || 'N/A'], 
+      ...(d.gender !== 'FEMALE' ? [["Beard", d.beard || 'N/A'] as ProfileField] : []), 
+      ...(d.gender !== 'MALE' ? [["Hijab", d.hijab || 'N/A'] as ProfileField] : []), 
       ["Smoking", d.smoking || 'N/A']
     ]],
     ["Partner Preferences", [

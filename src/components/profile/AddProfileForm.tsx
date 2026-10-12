@@ -1190,7 +1190,7 @@ export default function AddProfileForm() {
       case 5: return <Step5LocationResidency data={step5} onChange={setStep5} />;
       case 6: return <Step6FamilyDetails data={step6} onChange={setStep6} />;
       case 7: return <Step7Lifestyle data={step7} onChange={setStep7} gender={step1.gender || undefined} />;
-      case 8: return <Step8Preferences data={step8} onChange={setStep8} />;
+      case 8: return <Step8Preferences data={step8} onChange={setStep8} gender={step1.gender || undefined} />;
       case 9: return (
         <Step9Review
           step1={step1} step2={step2} step3={step3} step4={step4}

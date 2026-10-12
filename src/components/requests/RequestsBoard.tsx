@@ -13,6 +13,7 @@ import Toast from './Toast';
 import type { ColumnDef, FilterState, RequestItem } from './types';
 import { useMatching } from './useMatching';
 import { MatchProfilePanel } from './MatchProfilePanel';
+import { getMatchProfileGroups } from './utils';
 
 // ============================================================
 // RequestsBoard — State owner and layout orchestrator
@@ -20,13 +21,14 @@ import { MatchProfilePanel } from './MatchProfilePanel';
 
 export interface RequestsBoardProps {
   columns: ColumnDef[];
-  fetchRequests: (filters: FilterState) => Promise<RequestItem[]>;
+  fetchColumnRequests?: (status: string, filters: FilterState, offset: number, limit: number) => Promise<RequestItem[]>;
+  fetchRequests?: (filters: FilterState) => Promise<RequestItem[]>;
   fetchNames: () => Promise<string[]>;
   hideStaffFilter?: boolean;
   onMarkAsRead?: (id: string) => Promise<void>;
 }
 
-export default function RequestsBoard({ columns, fetchRequests, fetchNames, hideStaffFilter, onMarkAsRead }: RequestsBoardProps) {
+export default function RequestsBoard({ columns, fetchColumnRequests, fetchRequests, fetchNames, hideStaffFilter, onMarkAsRead }: RequestsBoardProps) {
   const {
     filteredItems,
     columnCards,
@@ -50,7 +52,10 @@ export default function RequestsBoard({ columns, fetchRequests, fetchNames, hide
     toggleLater,
     staffNames,
     markAsReadLocal,
-  } = useRequestsBoard({ columns, fetchRequests, fetchNames });
+    loadMoreColumn,
+    isLoadingMore,
+    columnHasMore,
+  } = useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, fetchNames });
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const leftColRef = useRef<HTMLDivElement>(null);
@@ -195,6 +200,9 @@ export default function RequestsBoard({ columns, fetchRequests, fetchNames, hide
                 onDragEnd={handleDragEnd}
                 selectedId={selectedId}
                 onSelect={handleSelectCard}
+                onLoadMore={() => loadMoreColumn(col.key)}
+                hasMore={columnHasMore[col.key] ?? false}
+                isLoadingMore={isLoadingMore[col.key] ?? false}
               />
             );
           })}
@@ -249,17 +257,27 @@ export default function RequestsBoard({ columns, fetchRequests, fetchNames, hide
             : new Set()
         }
         isSent={
-          !!(selectedItem && matching.openProfile && matching.sentExtra[selectedItem.id]?.[matching.openProfile.candidateId])
+          !!(selectedItem && matching.openProfile && (
+            matching.sentExtra[selectedItem.id]?.[matching.openProfile.candidateId] ||
+            (matching.releaseHistory[selectedItem.id] || []).some((r: any) => r.candidate_profile_id === matching.openProfile?.candidateId)
+          ))
         }
         sentDate={
           (selectedItem && matching.openProfile)
-            ? matching.sentExtra[selectedItem.id]?.[matching.openProfile.candidateId]
+            ? (matching.sentExtra[selectedItem.id]?.[matching.openProfile.candidateId] || 
+               (matching.releaseHistory[selectedItem.id] || []).find((r: any) => r.candidate_profile_id === matching.openProfile?.candidateId)?.released_at)
             : undefined
         }
+        releaseHistory={selectedItem ? (matching.releaseHistory[selectedItem.id] || []) : []}
         onClose={() => matching.setOpenProfile(null)}
         toggleSelection={() => {
           if (!selectedItem || !matching.openProfile) return;
-          matching.toggleSelection(selectedItem.id, matching.openProfile.candidateId, ['All']);
+          const matchProfile = matching.realMatches[selectedItem.id]?.find(
+            (m: any) => m.candidateProfileId === matching.openProfile?.candidateId
+          );
+          const groups = matchProfile ? getMatchProfileGroups(matchProfile) : [];
+          const allKeys = groups.flatMap((g, idx) => g[1].map((_, j) => `${idx}:${j}`));
+          matching.toggleSelection(selectedItem.id, matching.openProfile.candidateId, allKeys);
         }}
         updateSelectionKeys={(keys) => {
           if (!selectedItem || !matching.openProfile) return;
