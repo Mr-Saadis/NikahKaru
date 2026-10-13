@@ -42,10 +42,10 @@ import {
 import { ProfileService, type ProfileFilters } from '@/lib/services/profile-service';
 import type { ProfileListItem, ProfileStatus, FullProfile } from '@/lib/types/database.types';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import NotificationDropdown from '@/components/NotificationDropdown';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { runMatching } from '@/lib/matching/engine';
 import { createClient } from '@/lib/supabase/client';
 import {
   getMockMatchResults,
@@ -279,7 +279,15 @@ export default function ProfilesListPage() {
     getCasteById,
     getMotherTongueById,
   } = useReferenceData();
-  const { user } = useAuth();
+  const { user, role, isInitialized } = useAuth();
+  const router = useRouter();
+
+  // Role check: Only AGENT can access Profiles page
+  useEffect(() => {
+    if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) {
+      router.replace('/overview');
+    }
+  }, [isInitialized, role, router]);
 
   // ── State ─────────────────────────────────────────────────────
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);
@@ -392,38 +400,10 @@ export default function ProfilesListPage() {
   // ── Resolve a candidate ID to the profile list item ───────────
   const findProfile = useCallback(
     (id: string) => {
-      // Return from prefetch cache if it exists, else list
-      return prefetchedProfiles[id] || (profiles.find((p) => p.id === id) ?? null);
+      return profiles.find((p) => p.id === id) ?? null;
     },
-    [profiles, prefetchedProfiles],
+    [profiles],
   );
-
-  // ── Prefetch missing profiles for top 5 matches ───────────
-  useEffect(() => {
-    if (!matchData?.isReal || !matchData.top5) return;
-
-    const missingIds = matchData.top5
-      .map(m => m.candidateId)
-      .filter(id => !findProfile(id));
-
-    if (missingIds.length > 0) {
-      const fetchMissing = async () => {
-        try {
-          const promises = missingIds.map(id => ProfileService.getProfileById(id));
-          const results = await Promise.all(promises);
-          
-          setPrefetchedProfiles(prev => {
-            const newMap = { ...prev };
-            results.forEach((p: any) => { if (p) newMap[p.id] = p; });
-            return newMap;
-          });
-        } catch (e) {
-          console.error("Failed to prefetch candidate profiles", e);
-        }
-      };
-      fetchMissing();
-    }
-  }, [matchData, findProfile]);
 
   // ── Run Real Matching Algorithm ────────────────────────────────
   const handleRunMatches = async (e: React.MouseEvent) => {
@@ -440,18 +420,19 @@ export default function ProfilesListPage() {
     setRunningMatchesMap(prev => ({ ...prev, [currentId]: true }));
     addLock(currentId, `Running match for ${profileName}`);
     try {
-      const supabase = createClient();
-      
-      const matchResults = await runMatching(supabase, currentId, {
-        persist: false,
-        executedBy: 'frontend-preview',
+      const res = await fetch('/api/matching/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceProfileId: currentId }),
       });
-      
-      const realResults = matchResults.map(res => ({
-        candidateId: res.candidateProfileId,
-        score: Math.round(res.finalScore),
-        _realResult: res // attach full payload for breakdown UI
-      }));
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to run matching algorithm');
+      }
+
+      const data = await res.json();
+      const realResults = data.candidates || [];
 
       setRealMatchResultsMap(prev => ({
         ...prev,
@@ -499,13 +480,15 @@ export default function ProfilesListPage() {
 
   // ── Load stats (once) ─────────────────────────────────────────
   useEffect(() => {
+    if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) return;
     ProfileService.getProfileStats()
       .then(setStats)
       .catch(console.error);
-  }, []);
+  }, [isInitialized, role]);
 
   // ── Load profile list ─────────────────────────────────────────
   const loadProfiles = useCallback(async () => {
+    if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) return;
     setLoading(true);
     try {
       const res = await ProfileService.getProfilesList(filters);
@@ -523,7 +506,7 @@ export default function ProfilesListPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, isInitialized, role, selectedId]);
 
   useEffect(() => {
     loadProfiles();
@@ -547,19 +530,34 @@ export default function ProfilesListPage() {
       try {
         const matches = await ProfileService.getProfileMatches(id);
         if (matches.results && matches.results.length > 0 && !cancelled) {
-          const formattedResults = matches.results.map((res: any) => ({
-            candidateId: res.candidate_profile_id,
-            score: Math.round(res.final_score),
-            _realResult: {
-              ...res,
-              candidateProfileId: res.candidate_profile_id,
-              finalScore: res.final_score,
-              breakdowns: {
-                sourceToCandidate: res.score_breakdowns?.filter((b: any) => b.direction === 'SOURCE_TO_CANDIDATE') || [],
-                candidateToSource: res.score_breakdowns?.filter((b: any) => b.direction === 'CANDIDATE_TO_SOURCE') || []
-              }
-            }
-          }));
+          const currentSourceGender = selectedProfile?.gender || 'MALE';
+          const formattedResults = matches.results.map((res: any) => {
+            const sourceGender = res.source_gender || currentSourceGender;
+            const s2cBreakdowns = (res.score_breakdowns || []).filter((b: any) =>
+              !b.direction || b.direction === 'SOURCE_TO_CANDIDATE' || b.direction === sourceGender
+            );
+            const c2sBreakdowns = (res.score_breakdowns || []).filter((b: any) =>
+              b.direction && b.direction !== sourceGender && b.direction !== 'SOURCE_TO_CANDIDATE'
+            );
+            return {
+              candidateId: res.candidate_profile_id,
+              candidateName: res.candidate_profile_name,
+              candidateDob: res.candidate_dob,
+              candidateCityId: res.candidate_city_id,
+              candidateCityName: res.candidate_city_name,
+              candidateProfileUrl: res.candidate_profile_url,
+              score: Math.round(res.final_score),
+              _realResult: {
+                ...res,
+                candidateProfileId: res.candidate_profile_id,
+                finalScore: res.final_score,
+                breakdowns: {
+                  sourceToCandidate: s2cBreakdowns.length > 0 ? s2cBreakdowns : (res.score_breakdowns || []),
+                  candidateToSource: c2sBreakdowns,
+                },
+              },
+            };
+          });
           setRealMatchResultsMap(prev => ({ ...prev, [id]: formattedResults }));
         }
       } catch (e) {
@@ -709,6 +707,12 @@ export default function ProfilesListPage() {
     return null;
   };
 
+  const resolveCityById = (cityId?: number | null) => {
+    if (!cityId) return null;
+    const c = getCityById(cityId);
+    return c ? c.name_en : null;
+  };
+
   // ── Build subtitle for selected profile header ────────────────
   const buildSubtitle = (p: FullProfile): string => {
     const parts: string[] = [];
@@ -816,7 +820,7 @@ export default function ProfilesListPage() {
                   const selectedMatch = results.find((m: any) => m.candidateId === selectedMatchId) || top5[0];
                   const cp = selectedMatch ? findProfile(selectedMatch.candidateId) : null;
 
-                  if (!selectedMatch || !cp) return null;
+                  if (!selectedMatch) return null;
 
                   return (
                     <section className="w-full flex-1 flex flex-col rounded-[24px] p-6 lg:p-8 bg-white border border-[#E9E4DC] shadow-sm relative overflow-hidden">
@@ -901,16 +905,22 @@ export default function ProfilesListPage() {
                         {(() => {
                           let breakdownItems: { raw_category: string, category: string; score: number }[] = [];
                           if (matchData.isReal && selectedMatch._realResult) {
-                            breakdownItems = selectedMatch._realResult.breakdowns.sourceToCandidate.map((b: any) => ({
-                              raw_category: b.criterion_code,
-                              category: b.criterion_code.replace('_', ' ').toUpperCase(),
-                              score: Math.round(b.raw_score * 100)
-                            }));
+                            const rawList = selectedMatch._realResult.breakdowns?.sourceToCandidate || [];
+                            breakdownItems = rawList.map((b: any) => {
+                              const rawScore = Number(b.raw_score ?? 1);
+                              const scoreVal = rawScore <= 1 ? Math.round(rawScore * 100) : Math.round(rawScore);
+                              const code = String(b.criterion_code || '');
+                              return {
+                                raw_category: code.toUpperCase(),
+                                category: code.replace(/_/g, ' ').toUpperCase(),
+                                score: scoreVal,
+                              };
+                            });
                           } else {
                             breakdownItems = getMockMatchBreakdown(selectedId!, selectedMatch.candidateId).map((b: any) => ({
-                              raw_category: b.category.toUpperCase().replace(' ', '_'),
+                              raw_category: b.category.toUpperCase().replace(/ /g, '_'),
                               category: b.category.toUpperCase(),
-                              score: b.score
+                              score: b.score,
                             }));
                           }
 
@@ -918,7 +928,7 @@ export default function ProfilesListPage() {
                             { title: 'Age & Marital Status', keys: ['AGE', 'MARITAL_STATUS', 'CHILDREN'] },
                             { title: 'Physical', keys: ['HEIGHT', 'WEIGHT', 'DISABILITY', 'COMPLEXION'] },
                             { title: 'Religion & Culture', keys: ['RELIGION', 'SECT', 'CASTE', 'RELIGIOUS_PRACTICE'] },
-                            { title: 'Income & Career', keys: ['INCOME'] },
+                            { title: 'Income & Career', keys: ['INCOME', 'EDUCATION'] },
                             { title: 'Location', keys: ['COUNTRY'] },
                             { title: 'Lifestyle', keys: ['FAMILY_SETUP', 'SMOKING', 'BEARD', 'HIJAB'] },
                           ];
@@ -987,7 +997,7 @@ export default function ProfilesListPage() {
 
                         <h3 className="text-[12px] font-bold text-[#A3B18A] tracking-widest uppercase mb-1">Total Compatibility</h3>
                         <h4 className="text-[16px] font-bold text-white mb-6 text-center leading-tight">
-                          {cp?.personal_information?.full_name || 'Selected Profile'}
+                          {selectedMatch?.candidateName || cp?.personal_information?.full_name || 'Selected Profile'}
                         </h4>
 
                         <div className="flex items-end gap-2">
@@ -1054,13 +1064,14 @@ export default function ProfilesListPage() {
             </div>
 
             <div className="grid grid-cols-1 @[600px]:grid-cols-2 @[1100px]:grid-cols-1 gap-3">
-              {top5.map((match, index) => {
+              {top5.map((match: any, index: number) => {
                 const cp = findProfile(match.candidateId);
-                if (!cp) return null;
-                const name = cp.personal_information?.full_name || 'Unknown';
+                const name = match.candidateName || cp?.personal_information?.full_name || 'Candidate';
                 const initial = name.charAt(0).toUpperCase();
-                const age = computeAge(cp.personal_information?.date_of_birth);
-                const city = resolveCity(cp);
+                const dob = match.candidateDob || cp?.personal_information?.date_of_birth;
+                const age = computeAge(dob);
+                const city = match.candidateCityName || resolveCityById(match.candidateCityId) || (cp ? resolveCity(cp) : '');
+                const avatar = match.candidateProfileUrl || cp?.profile_URL;
                 const scoreColor = getScoreColor(match.score);
                 const scoreLabel = getScoreLabel(match.score);
                 const isSelected = selectedMatchId === match.candidateId;
@@ -1081,8 +1092,8 @@ export default function ProfilesListPage() {
 
                     {/* Avatar */}
                     <div className="relative shrink-0">
-                      {cp.profile_URL ? (
-                        <img src={cp.profile_URL} alt={name} className="w-[46px] h-[46px] rounded-[14px] object-cover shadow-sm" />
+                      {avatar ? (
+                        <img src={avatar} alt={name} className="w-[46px] h-[46px] rounded-[14px] object-cover shadow-sm" />
                       ) : (
                         <div className={`w-[46px] h-[46px] rounded-[14px] flex items-center justify-center font-bold text-[18px] border shadow-sm ${isSelected ? 'bg-white/10 text-white border-white/20' : 'bg-[#A3B18A]/20 text-[#1F3B34] border-[#A3B18A]/30'}`}>
                           {initial}
@@ -1503,6 +1514,10 @@ export default function ProfilesListPage() {
   // ════════════════════════════════════════════════════════════════
   // RENDER
   // ════════════════════════════════════════════════════════════════
+  if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) {
+    return null;
+  }
+
   return (
     <>
       <div className="flex-1 flex min-h-0 py-2">

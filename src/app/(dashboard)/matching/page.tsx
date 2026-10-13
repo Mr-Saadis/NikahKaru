@@ -30,7 +30,7 @@ export default function MatchingPage() {
       const { data, error } = await supabase
         .from('profiles')
         .select(`
-          id, gender, created_at,
+          id, gender, status, created_at,
           personal_information (*),
           physical_information (*),
           education_records (*),
@@ -66,7 +66,7 @@ export default function MatchingPage() {
   const handleRunMatch = async (mode: 'PREVIEW' | 'OFFICIAL') => {
     if (!selectedProfile) return;
     
-    if (selectedProfile.status !== 'ACTIVE') {
+    if (selectedProfile.status && selectedProfile.status !== 'ACTIVE') {
       setError("Matching can only be run on ACTIVE profiles. Please ensure the profile is fully approved and active first.");
       return;
     }

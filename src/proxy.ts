@@ -43,9 +43,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Protect Admin Routes (Role Based Access Control)
+  // Protect Role Based Access Control Routes
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
-  if (user && isAdminRoute) {
+  const isProfilesRoute = request.nextUrl.pathname.startsWith('/profiles') || request.nextUrl.pathname.startsWith('/add-profile');
+
+  if (user && (isAdminRoute || isProfilesRoute)) {
     // Fetch user role
     const { data: userRoleData } = await supabase
       .from('user_roles')
@@ -56,8 +58,15 @@ export async function proxy(request: NextRequest) {
     // @ts-ignore - Supabase types might complain about nested selection
     const roleName = userRoleData?.role?.name;
     
-    if (roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
+    if (isAdminRoute && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
       // If not an admin, redirect to dashboard overview
+      const url = request.nextUrl.clone();
+      url.pathname = '/overview';
+      return NextResponse.redirect(url);
+    }
+
+    if (isProfilesRoute && (roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN')) {
+      // Manager and High Level Admin cannot access profile page
       const url = request.nextUrl.clone();
       url.pathname = '/overview';
       return NextResponse.redirect(url);

@@ -16,10 +16,7 @@ import {
   HeartHandshake,
   FileCheck,
   ClipboardList,
-  Send,
-  MessageSquareWarning,
   ShieldCheck,
-  LineChart,
   LogOut,
   PanelLeftClose,
   PanelLeft,
@@ -55,21 +52,18 @@ const GAP = 8;          // space between aside right edge and wrapper right edge
 
 export const navItems = [
   { label: 'Overview', href: '/overview', icon: LayoutDashboard, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'overview' },
-  { label: 'Profiles', href: '/profiles', icon: Users, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'profiles' },
+  { label: 'Directory', href: '/directory', icon: BookUser, roles: ['MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'directory' },
+  { label: 'Profiles', href: '/profiles', icon: Users, roles: ['AGENT'], id: 'profiles' },
   { label: 'Add Profile', href: '/add-profile', icon: UserPlus, roles: ['AGENT'], id: 'add-new' },
   { label: 'Matching', href: '/matching', icon: HeartHandshake, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'matching' },
   { label: 'Requests', href: '/requests', icon: ClipboardList, roles: ['MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'requests' },
   { label: 'My Requests', href: '/agent-requests', icon: ClipboardList, roles: ['AGENT'], id: 'agent-requests' },
-  { label: 'Directory', href: '/directory', icon: BookUser, roles: ['MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'directory' },
-  { label: 'Releases', href: '/release-requests', icon: FileCheck, roles: ['MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'release-requests' },
-  { label: 'Proposals', href: '/proposals', icon: Send, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'proposals' },
-  { label: 'Feedback', href: '/feedback', icon: MessageSquareWarning, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'feedback' },
+  { label: 'Releases', href: '/release-requests', icon: FileCheck, roles: ['MANAGER'], id: 'release-requests' },
   { label: 'Notifications', href: '/notifications', icon: Bell, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'notifications' },
 ];
 
 export const adminItems = [
   { label: 'Users', href: '/admin/users', icon: ShieldCheck, roles: ['HIGH_LEVEL_ADMIN'], id: 'admin-users' },
-  { label: 'Analytics', href: '/admin/analytics', icon: LineChart, roles: ['HIGH_LEVEL_ADMIN'], id: 'admin-analytics' },
 ];
 
 /*

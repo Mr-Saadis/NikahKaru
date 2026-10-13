@@ -6,16 +6,26 @@ import { ArrowLeft, Edit2, PauseCircle, CheckCircle, Trash2, Download } from 'lu
 import { ProfileService } from '@/lib/services/profile-service';
 import type { FullProfile, ProfileStatus } from '@/lib/types/database.types';
 import Link from 'next/link';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 export default function ProfileDetailPage() {
   const params = useParams();
   const router = useRouter();
   const profileId = params.id as string;
+  const { role, isInitialized } = useAuth();
 
   const [profile, setProfile] = useState<FullProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Role check: Only AGENT can access Profile detail
   useEffect(() => {
+    if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) {
+      router.replace('/overview');
+    }
+  }, [isInitialized, role, router]);
+
+  useEffect(() => {
+    if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) return;
     const loadProfile = async () => {
       try {
         const data = await ProfileService.getProfileById(profileId);
@@ -27,7 +37,7 @@ export default function ProfileDetailPage() {
       }
     };
     if (profileId) loadProfile();
-  }, [profileId]);
+  }, [profileId, isInitialized, role]);
 
   const handleStatusChange = async (newStatus: ProfileStatus) => {
     try {
@@ -48,6 +58,10 @@ export default function ProfileDetailPage() {
       default: return <span className="text-[12px] font-bold text-[#696256]">{status}</span>;
     }
   };
+
+  if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) {
+    return null;
+  }
 
   if (loading) {
     return <div className="p-8 text-center text-[#78716C] font-medium">Loading dossier...</div>;

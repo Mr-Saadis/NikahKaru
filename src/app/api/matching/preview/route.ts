@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { runMatching, fetchPreferences } from '@/lib/matching/engine';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,19 +30,71 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Agent preview: Do NOT persist, do NOT limit (return all)
-    const results = await runMatching(supabase, sourceProfileId, {
+    // Run preview matching on server side using admin client (evaluates traits safely without exposing them)
+    const adminSupabase = createAdminClient();
+    const results = await runMatching(adminSupabase, sourceProfileId, {
       persist: false,
       executedBy: userData.user.id,
-      // limit is omitted to return ALL candidates as requested
     });
 
-    const sourcePrefs = await fetchPreferences(supabase, sourceProfileId);
+    const sourcePrefs = await fetchPreferences(adminSupabase, sourceProfileId);
+
+    // For Agent Preview: slice ONLY the top 5 candidates
+    const top5 = results.slice(0, 5);
+
+    // Fetch the real display names for ONLY these top 5 candidates
+    const top5Ids = top5.map(r => r.candidateProfileId);
+    let namesMap = new Map<string, string>();
+    if (top5Ids.length > 0) {
+      const { data: namesData } = await adminSupabase
+        .from('personal_information')
+        .select('profile_id, full_name')
+        .in('profile_id', top5Ids);
+
+      namesMap = new Map((namesData || []).map((n: any) => [n.profile_id, n.full_name]));
+    }
+
+    // Sanitize results: return fields for both matching page and profile preview
+    const sanitizedCandidates = top5.map(r => {
+      const cleanBreakdowns = (r.breakdowns?.sourceToCandidate || []).map((b: any) => ({
+        criterion_code: b.criterion_code,
+        raw_score: typeof b.raw_score === 'number' ? b.raw_score : Number(b.raw_score ?? 1),
+      }));
+
+      const displayName = namesMap.get(r.candidateProfileId) || r.candidateData?.personal_information?.full_name || 'Candidate';
+
+      return {
+        // Properties used by profile page
+        candidateId: r.candidateProfileId,
+        candidateName: displayName,
+        candidateDob: r.candidateData?.personal_information?.date_of_birth || null,
+        candidateCityId: r.candidateData?.profile_locations?.current_city_id || null,
+        candidateProfileUrl: r.candidateData?.profile_URL || null,
+        score: Math.round(r.finalScore),
+        _realResult: {
+          candidateProfileId: r.candidateProfileId,
+          finalScore: r.finalScore,
+          breakdowns: {
+            sourceToCandidate: cleanBreakdowns,
+            candidateToSource: [],
+          },
+        },
+        // Properties used by matching page
+        candidateProfileId: r.candidateProfileId,
+        finalScore: Math.round(r.finalScore),
+        sourceToCandidateScore: r.sourceToCandidateScore,
+        candidateToSourceScore: r.candidateToSourceScore,
+        rank: r.rank,
+        candidateData: r.candidateData,
+        candidatePrefs: r.candidatePrefs,
+        breakdowns: r.breakdowns,
+      };
+    });
 
     return NextResponse.json({
       success: true,
       totalConsidered: results.length,
-      candidates: results,
+      candidates: sanitizedCandidates,
       sourcePrefs,
     });
   } catch (error: any) {
