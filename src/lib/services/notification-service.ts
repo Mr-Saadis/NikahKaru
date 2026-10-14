@@ -63,6 +63,70 @@ export const notificationService = {
   },
 
   /**
+   * Fetch paginated notifications with count and hasMore flag
+   */
+  getMyNotificationsPaginated: async (
+    userId: string,
+    role: string,
+    filters?: NotificationFilters
+  ): Promise<{ data: Notification[]; totalCount: number; hasMore: boolean }> => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const limit = filters?.limit ?? 10;
+    const page = filters?.page ?? 1;
+
+    let query = supabase
+      .from('notifications')
+      .select('*', { count: 'exact' })
+      .or(`user_id.eq.${userId},target_role.eq.${role}`);
+
+    if (filters?.status === 'unread') {
+      query = query.eq('is_read', false);
+    } else if (filters?.status === 'read') {
+      query = query.eq('is_read', true);
+    }
+
+    if (filters?.fromDate) {
+      query = query.gte('created_at', new Date(filters.fromDate).toISOString());
+    }
+
+    if (filters?.toDate) {
+      const to = new Date(filters.toDate + 'T23:59:59').toISOString();
+      query = query.lte('created_at', to);
+    }
+
+    if (filters?.searchQuery) {
+      query = query.or(`title.ilike.%${filters.searchQuery}%,message.ilike.%${filters.searchQuery}%`);
+    }
+
+    query = query.order('created_at', { ascending: false });
+
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Error fetching notifications:', error);
+      throw error;
+    }
+
+    const items = (data || []) as Notification[];
+    const totalCount = count ?? 0;
+    const hasMore = count !== null ? from + items.length < totalCount : items.length === limit;
+
+    return {
+      data: items,
+      totalCount,
+      hasMore,
+    };
+  },
+
+  /**
    * Mark a single notification as read
    */
   markAsRead: async (notificationId: string): Promise<void> => {

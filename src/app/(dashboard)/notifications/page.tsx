@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Bell, Inbox, ArrowLeft, Check, X, Clock, CalendarDays, Search, Download, FileText, Loader2 } from 'lucide-react';
 import { generateReleasedProfilesPDF } from '@/lib/utils/pdfExport';
 import { filterAndFormatReleaseFields } from '@/lib/utils/formatReleaseFields';
@@ -17,6 +17,8 @@ type UINotif = Notification & {
   date: string;
   time: string;
 };
+
+const PAGE_SIZE = 15;
 
 const formatTime = (isoString: string) => {
   const d = new Date(isoString);
@@ -46,6 +48,15 @@ export default function NotificationsPage() {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const pageRef = useRef(1);
+  const hasMoreRef = useRef(true);
+  const isFetchingRef = useRef(false);
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPDF = async () => {
     if (!requestDetails) return;
@@ -66,63 +77,128 @@ export default function NotificationsPage() {
       setIsDownloadingPDF(false);
     }
   };
-  
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
-  const fetchNotifications = useCallback(async (reset = false) => {
+  // Load first page (on filter change or initial load)
+  const loadInitialNotifications = useCallback(async () => {
     if (!user?.id || !role) return;
-    const currentPage = reset ? 1 : page;
 
-    if (reset) {
-      setIsLoadingList(true);
-    } else {
-      setIsFetchingMore(true);
-    }
+    setIsLoadingList(true);
+    isFetchingRef.current = true;
+    pageRef.current = 1;
+    hasMoreRef.current = true;
+    setHasMore(true);
 
     try {
-      const data = await notificationService.getMyNotifications(user.id, role, {
+      const res = await notificationService.getMyNotificationsPaginated(user.id, role, {
         searchQuery: appliedSearchQuery,
         fromDate,
         toDate,
         status: activeTab,
-        page: currentPage,
-        limit: 25
+        page: 1,
+        limit: PAGE_SIZE,
       });
-      
-      const newNotifs = data.map(n => ({
+
+      const formatted = res.data.map(n => ({
         ...n,
         date: formatDate(n.created_at),
         time: formatTime(n.created_at),
       }));
 
-      if (reset) {
-        setNotifications(newNotifs);
-      } else {
-        setNotifications(prev => [...prev, ...newNotifs]);
-      }
-      
-      setHasMore(data.length === 25);
-      if (reset) setPage(1);
+      setNotifications(formatted);
+      setTotalCount(res.totalCount);
+      setHasMore(res.hasMore);
+      hasMoreRef.current = res.hasMore;
 
+      // Reset scroll to top
+      if (listContainerRef.current) {
+        listContainerRef.current.scrollTop = 0;
+      }
     } catch (err) {
+      console.error('Failed to load notifications:', err);
       toast.error('Failed to load notifications');
     } finally {
       setIsLoadingList(false);
+      isFetchingRef.current = false;
+    }
+  }, [user?.id, role, appliedSearchQuery, fromDate, toDate, activeTab]);
+
+  // Load next page (infinite scroll)
+  const loadMoreNotifications = useCallback(async () => {
+    if (!user?.id || !role) return;
+    if (isFetchingRef.current || !hasMoreRef.current || isLoadingList) return;
+
+    isFetchingRef.current = true;
+    setIsFetchingMore(true);
+
+    const nextPage = pageRef.current + 1;
+
+    try {
+      const res = await notificationService.getMyNotificationsPaginated(user.id, role, {
+        searchQuery: appliedSearchQuery,
+        fromDate,
+        toDate,
+        status: activeTab,
+        page: nextPage,
+        limit: PAGE_SIZE,
+      });
+
+      const formatted = res.data.map(n => ({
+        ...n,
+        date: formatDate(n.created_at),
+        time: formatTime(n.created_at),
+      }));
+
+      setNotifications(prev => {
+        const existingIds = new Set(prev.map(n => n.id));
+        const unique = formatted.filter(n => !existingIds.has(n.id));
+        return [...prev, ...unique];
+      });
+
+      pageRef.current = nextPage;
+      setTotalCount(res.totalCount);
+      setHasMore(res.hasMore);
+      hasMoreRef.current = res.hasMore;
+    } catch (err) {
+      console.error('Failed to load more notifications:', err);
+      toast.error('Failed to load more notifications');
+    } finally {
       setIsFetchingMore(false);
+      isFetchingRef.current = false;
     }
-  }, [user?.id, role, appliedSearchQuery, fromDate, toDate, activeTab, page]);
+  }, [user?.id, role, appliedSearchQuery, fromDate, toDate, activeTab, isLoadingList]);
 
+  // Fetch when filters or user context changes
   useEffect(() => {
-    fetchNotifications(true);
-  }, [appliedSearchQuery, fromDate, toDate, activeTab, user?.id, role]);
+    loadInitialNotifications();
+  }, [loadInitialNotifications]);
 
+  // Setup IntersectionObserver on sentinel
   useEffect(() => {
-    if (page > 1) {
-      fetchNotifications(false);
-    }
-  }, [page]);
+    if (isLoadingList) return;
+
+    const sentinel = sentinelRef.current;
+    const container = listContainerRef.current;
+    if (!sentinel || !container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMoreNotifications();
+        }
+      },
+      {
+        root: container,
+        rootMargin: '200px',
+        threshold: 0.05,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isLoadingList, loadMoreNotifications]);
 
   useEffect(() => {
     // Real-time subscription
@@ -370,13 +446,12 @@ export default function NotificationsPage() {
           {/* BLUE BOX: Timeline Notification List */}
           {/* CHANGED: min-h-0 + overflow-x-hidden so nothing spills past the panel edge */}
           <div 
+            ref={listContainerRef}
             className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden hide-scrollbar pt-2 pb-2 flex flex-col gap-2"
             onScroll={(e) => {
               const target = e.currentTarget;
-              if (target.scrollHeight - target.scrollTop <= target.clientHeight + 50) {
-                if (hasMore && !isFetchingMore) {
-                  setPage(p => p + 1);
-                }
+              if (target.scrollHeight - target.scrollTop <= target.clientHeight + 150) {
+                loadMoreNotifications();
               }
             }}
           >
@@ -447,10 +522,22 @@ export default function NotificationsPage() {
               </div>
             )}
             
-            {/* Loading indicator for infinite scroll */}
-            {isFetchingMore && (
-              <div className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white/50"></div>
+            {/* Infinite scroll sentinel & indicators */}
+            {!isLoadingList && (
+              <div ref={sentinelRef} className="py-2 flex flex-col items-center justify-center">
+                {isFetchingMore && (
+                  <div className="flex items-center gap-2 py-3 text-white/60">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#C86A4A]" />
+                    <span className="text-[12px] font-medium">Loading more notifications...</span>
+                  </div>
+                )}
+                {!hasMore && notifications.length > 0 && (
+                  <div className="py-3 text-center">
+                    <span className="text-[11px] font-semibold text-white/30 uppercase tracking-widest">
+                      All caught up {totalCount > 0 ? `(${totalCount})` : ''}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
