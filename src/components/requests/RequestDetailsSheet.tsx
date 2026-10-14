@@ -27,6 +27,7 @@ interface RequestDetailsSheetProps {
   onHeightChange?: (height: number) => void;
   matching: any;
   hideRespondLater?: boolean;
+  rightOffset?: number | string;
 }
 
 function getInitials(name: string): string {
@@ -65,6 +66,7 @@ export default function RequestDetailsSheet({
   columns,
   matching,
   hideRespondLater = false,
+  rightOffset = 10,
 }: RequestDetailsSheetProps) {
   const {
     height,
@@ -259,7 +261,7 @@ export default function RequestDetailsSheet({
       style={{
         position: 'absolute',
         left: 0,
-        right: 10,
+        right: rightOffset,
         bottom: 0,
         zIndex: 40,
         display: 'flex',
@@ -270,7 +272,7 @@ export default function RequestDetailsSheet({
         height: isOpen ? height : 0,
         transition: isDragging
           ? 'none'
-          : `height .45s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1), visibility 0s ${isOpen ? '0s' : '.65s'}`,
+          : `height .45s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1), right .4s cubic-bezier(.22,1,.36,1), visibility 0s ${isOpen ? '0s' : '.65s'}`,
         transform: isOpen ? 'translateY(0)' : 'translateY(106%)',
         visibility: isOpen ? 'visible' : 'hidden',
         overscrollBehavior: 'contain',

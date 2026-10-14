@@ -13,7 +13,7 @@ import {
   applyFilters,
   calculateModeCounts,
 } from '@/lib/directory/filters';
-import { getDirectoryEntries } from '@/lib/directory/get-directory-entries';
+import { getDirectoryEntries, serializeFiltersToParams } from '@/lib/directory/get-directory-entries';
 import { DIRECTORY_THEME } from '@/lib/directory/directory-theme';
 import { FilterColumn } from './FilterColumn';
 import { EnteredFiltersPanel } from './EnteredFiltersPanel';
@@ -28,10 +28,14 @@ import { MatchProfilePanel } from '@/components/requests/MatchProfilePanel';
 import { getMatchProfileGroups } from '@/components/requests/utils';
 import Toast from '@/components/requests/Toast';
 import type { RequestItem } from '@/components/requests/types';
+import { createClient } from '@/lib/supabase/client';
+import { clearDirectoryCache, getCachedEntries } from '@/lib/directory/directory-cache';
 
 export function DirectoryClient() {
+  const [baseEntries, setBaseEntries] = useState<DirectoryEntry[]>([]);
   const [entries, setEntries] = useState<DirectoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
 
   const [filters, setFilters] = useState<ActiveFilterValues>(INITIAL_ACTIVE_FILTERS);
   const [mode, setMode] = useState<FilterMode>('all');
@@ -43,12 +47,21 @@ export function DirectoryClient() {
   const containerRef = useRef<HTMLDivElement>(null);
   const matching = useMatching();
 
-  // Load entries via single typed data-access function
+  const [isDesktop, setIsDesktop] = useState(true);
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 900);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // 1. Initial load: fetch base non-draft profiles
   useEffect(() => {
     let mounted = true;
     getDirectoryEntries()
       .then((data) => {
         if (mounted) {
+          setBaseEntries(data);
           setEntries(data);
           setIsLoading(false);
         }
@@ -68,6 +81,96 @@ export function DirectoryClient() {
   // Derive effective mode: fallback to 'all' if no active filters
   const effectiveMode: FilterMode =
     !hasActiveFilters && (mode === 'exact' || mode === 'similar') ? 'all' : mode;
+
+  // 2. Live API Filter Queries
+  // Skip API call if no active filters (use baseEntries directly, Rule 2.1)
+  // Check cache immediately if query already cached (instant 0ms response)
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (!hasActiveFilters) {
+      if (baseEntries.length > 0) {
+        setEntries(baseEntries);
+      }
+      setIsFetching(false);
+      return;
+    }
+
+    const params = serializeFiltersToParams(filters, effectiveMode);
+    const queryString = params.toString();
+
+    // Instant Cache Hit check — 0ms, no debounce, no network call!
+    const cached = getCachedEntries(queryString);
+    if (cached) {
+      setEntries(cached);
+      setIsFetching(false);
+      return;
+    }
+
+    setIsFetching(true);
+    const controller = new AbortController();
+
+    const timer = setTimeout(() => {
+      getDirectoryEntries(filters, effectiveMode, controller.signal)
+        .then((data) => {
+          setEntries(data);
+          setIsFetching(false);
+        })
+        .catch((err) => {
+          if (err?.name === 'AbortError') {
+            // Cancelled because user clicked another filter; do not alter entries
+            return;
+          }
+          console.error('Failed to fetch filtered directory entries:', err);
+          setIsFetching(false);
+        });
+    }, 350);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [filters, effectiveMode, isLoading, hasActiveFilters, baseEntries]);
+
+  // 3. Supabase Realtime Listener (Auto-sync when new data is added or modified in DB)
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel('directory-realtime-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          // Clear query cache so next filter actions fetch fresh DB data
+          clearDirectoryCache();
+          // Silently re-fetch baseline
+          getDirectoryEntries().then((fresh) => {
+            setBaseEntries(fresh);
+            if (!hasActiveFilters) {
+              setEntries(fresh);
+            }
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'information_requests' },
+        () => {
+          clearDirectoryCache();
+          getDirectoryEntries().then((fresh) => {
+            setBaseEntries(fresh);
+            if (!hasActiveFilters) {
+              setEntries(fresh);
+            }
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [hasActiveFilters]);
 
   // Update an individual filter key
   const handleUpdateFilter = useCallback(
@@ -105,23 +208,27 @@ export function DirectoryClient() {
     setMode('all');
   }, []);
 
-  // Calculate live counts for mode toggle badges
+  // Calculate live counts for mode toggle badges using non-draft base population
   const { allCount, exactCount, similarCount } = useMemo(
-    () => calculateModeCounts(entries, filters),
-    [entries, filters]
+    () => calculateModeCounts(baseEntries.length > 0 ? baseEntries : entries, filters),
+    [baseEntries, entries, filters]
   );
 
   // Filtered results based on effective mode
   const displayedResults = useMemo(() => {
-    return applyFilters(entries, filters, effectiveMode);
-  }, [entries, filters, effectiveMode]);
+    if (effectiveMode === 'similar') {
+      return applyFilters(baseEntries.length > 0 ? baseEntries : entries, filters, 'similar');
+    }
+    return entries;
+  }, [baseEntries, entries, filters, effectiveMode]);
 
   const showingCount = displayedResults.length;
 
   // Map directory entries to RequestItem for the shared RequestDetailsSheet
   const requestItemsMap = useMemo(() => {
     const map = new Map<string, RequestItem>();
-    for (const e of entries) {
+    const pool = baseEntries.length > 0 ? baseEntries : entries;
+    for (const e of pool) {
       map.set(e.id, {
         id: e.id,
         name: e.fullName,
@@ -135,7 +242,7 @@ export function DirectoryClient() {
       });
     }
     return map;
-  }, [entries]);
+  }, [baseEntries, entries]);
 
   const selectedRequestItem = selectedId ? requestItemsMap.get(selectedId) || null : null;
   const allRequestItems = useMemo(() => Array.from(requestItemsMap.values()), [requestItemsMap]);
@@ -193,9 +300,9 @@ export function DirectoryClient() {
         }
       `}</style>
 
-      {/* ── LEFT COLUMN: Filter Cards Stack (296px) ── */}
+      {/* ── LEFT COLUMN: Filter Cards Stack (320px) ── */}
       <FilterColumn
-        entries={entries}
+        entries={baseEntries.length > 0 ? baseEntries : entries}
         filters={filters}
         onUpdateFilter={handleUpdateFilter}
         onClearFilter={handleClearFilter}
@@ -204,7 +311,7 @@ export function DirectoryClient() {
         sheetBottomPadding={sheetBottomPadding}
       />
 
-      {/* ── RIGHT COLUMN: Entered Filters + Results Area ── */}
+      {/* ── RIGHT / MAIN COLUMN: Entered Filters + Results Area ── */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative gap-[14px]">
         {/* Entered filters panel at the top (always visible — top bar with stats/mode) */}
         <EnteredFiltersPanel
@@ -293,7 +400,10 @@ export function DirectoryClient() {
           {/* Results Grid */}
           {effectiveMode === 'similar' ? (
             /* Similar Mode: Exactly 2 columns, gap 12px, equal row height */
-            <div className="grid grid-cols-1 min-[1200px]:grid-cols-2 gap-[12px] auto-rows-fr">
+            <div
+              className="grid grid-cols-1 min-[1200px]:grid-cols-2 gap-[12px] auto-rows-fr"
+              style={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity 0.2s ease' }}
+            >
               {(displayedResults as EntryWithSimilarMatch[]).map((res, idx) => (
                 <EntryCard
                   key={res.entry.id}
@@ -309,7 +419,10 @@ export function DirectoryClient() {
             </div>
           ) : (
             /* All & Exact Mode: Auto-fill grid (min ~236px), gap 14px */
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-[14px]">
+            <div
+              className="grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-[14px]"
+              style={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity 0.2s ease' }}
+            >
               {(displayedResults as DirectoryEntry[]).map((entry, idx) => (
                 <EntryCard
                   key={entry.id}
@@ -337,6 +450,7 @@ export function DirectoryClient() {
         onHeightChange={setSheetHeight}
         matching={matching}
         hideRespondLater={true}
+        rightOffset={isDesktop ? 318 : 0}
       />
 
       {/* Reused Match Profile Panel (if Match Now candidate opened) */}

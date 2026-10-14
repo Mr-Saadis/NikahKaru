@@ -28,6 +28,12 @@ interface EnteredFiltersPanelProps {
   similarCount: number;
 }
 
+const isDarkTint = (tint: string) =>
+  tint === 'darkGreen' || tint === 'navy' || tint === 'orange';
+
+const getLabelColor = (tint: string) =>
+  isDarkTint(tint) ? '#FFFFFF' : DIRECTORY_THEME.text.body;
+
 export function EnteredFiltersPanel({
   mode,
   onChangeMode,
@@ -50,6 +56,8 @@ export function EnteredFiltersPanel({
     if (!cfg) return null;
 
     const val = filters[filterId];
+    const isDark = isDarkTint(cfg.tint);
+    const labelColor = getLabelColor(cfg.tint);
 
     if (cfg.type === 'text') {
       const textVal = (val as string).trim();
@@ -61,12 +69,14 @@ export function EnteredFiltersPanel({
           style={{
             backgroundColor: cfg.tintHex,
             padding: '5px 6px 5px 13px',
-            boxShadow: `inset 0 0 0 1px ${DIRECTORY_THEME.borders.chipRing}`,
+            boxShadow: isDark
+              ? 'inset 0 0 0 1px rgba(255,255,255,0.15)'
+              : `inset 0 0 0 1px ${DIRECTORY_THEME.borders.chipRing}`,
           }}
         >
           <span
             className="text-[12px] font-semibold"
-            style={{ color: DIRECTORY_THEME.text.body }}
+            style={{ color: labelColor }}
           >
             {cfg.label}
           </span>
@@ -110,12 +120,14 @@ export function EnteredFiltersPanel({
           style={{
             backgroundColor: cfg.tintHex,
             padding: '5px 6px 5px 13px',
-            boxShadow: `inset 0 0 0 1px ${DIRECTORY_THEME.borders.chipRing}`,
+            boxShadow: isDark
+              ? 'inset 0 0 0 1px rgba(255,255,255,0.15)'
+              : `inset 0 0 0 1px ${DIRECTORY_THEME.borders.chipRing}`,
           }}
         >
           <span
             className="text-[12px] font-semibold"
-            style={{ color: DIRECTORY_THEME.text.body }}
+            style={{ color: labelColor }}
           >
             {cfg.label}
           </span>
@@ -189,10 +201,10 @@ export function EnteredFiltersPanel({
             <button
               type="button"
               onClick={() => onClearFilter(filterId)}
-              className={`w-[20px] h-[20px] rounded-full bg-transparent ${DIRECTORY_THEME.classes.hoverBrandPrimaryBg} hover:text-white flex items-center justify-center transition-all shrink-0 ml-0.5`}
+              className={`w-[20px] h-[20px] rounded-full bg-transparent ${isDark ? 'hover:bg-white/20 hover:text-white' : `${DIRECTORY_THEME.classes.hoverBrandPrimaryBg} hover:text-white`} flex items-center justify-center transition-all shrink-0 ml-0.5`}
               style={{
-                boxShadow: DIRECTORY_THEME.borders.pillRemoveRing,
-                color: DIRECTORY_THEME.brand.primary,
+                boxShadow: isDark ? 'inset 0 0 0 1px rgba(255,255,255,0.4)' : DIRECTORY_THEME.borders.pillRemoveRing,
+                color: isDark ? '#FFFFFF' : DIRECTORY_THEME.brand.primary,
               }}
               title="Remove filter"
             >
@@ -216,12 +228,14 @@ export function EnteredFiltersPanel({
           style={{
             backgroundColor: cfg.tintHex,
             padding: '5px 6px 5px 13px',
-            boxShadow: `inset 0 0 0 1px ${DIRECTORY_THEME.borders.chipRing}`,
+            boxShadow: isDark
+              ? 'inset 0 0 0 1px rgba(255,255,255,0.15)'
+              : `inset 0 0 0 1px ${DIRECTORY_THEME.borders.chipRing}`,
           }}
         >
           <span
             className="text-[12px] font-semibold"
-            style={{ color: DIRECTORY_THEME.text.body }}
+            style={{ color: labelColor }}
           >
             {cfg.label}
           </span>
@@ -263,10 +277,10 @@ export function EnteredFiltersPanel({
             <button
               type="button"
               onClick={() => onClearFilter(filterId)}
-              className={`w-[20px] h-[20px] rounded-full bg-transparent ${DIRECTORY_THEME.classes.hoverBrandPrimaryBg} hover:text-white flex items-center justify-center transition-all shrink-0 ml-0.5`}
+              className={`w-[20px] h-[20px] rounded-full bg-transparent ${isDark ? 'hover:bg-white/20 hover:text-white' : `${DIRECTORY_THEME.classes.hoverBrandPrimaryBg} hover:text-white`} flex items-center justify-center transition-all shrink-0 ml-0.5`}
               style={{
-                boxShadow: DIRECTORY_THEME.borders.pillRemoveRing,
-                color: DIRECTORY_THEME.brand.primary,
+                boxShadow: isDark ? 'inset 0 0 0 1px rgba(255,255,255,0.4)' : DIRECTORY_THEME.borders.pillRemoveRing,
+                color: isDark ? '#FFFFFF' : DIRECTORY_THEME.brand.primary,
               }}
               title="Remove filter"
             >

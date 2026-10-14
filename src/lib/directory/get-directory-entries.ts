@@ -1,197 +1,112 @@
-import { createClient } from '@/lib/supabase/client';
-import type { DirectoryEntry } from './types';
+import type { DirectoryEntry, ActiveFilterValues, FilterMode } from './types';
 
-/**
- * Computes the board stage key for a profile — mirrors the logic in
- * vw_manager_requests_board so directory card colours match the requests board.
- */
-function computeBoardStage(
-  profileId: string,
-  requestsByProfile: Map<string, { status: string; count: number }>,
-): DirectoryEntry['boardStage'] {
-  const info = requestsByProfile.get(profileId);
-  if (!info) return 'new'; // No requests → New Data
+export function serializeFiltersToParams(
+  filters?: ActiveFilterValues,
+  mode?: FilterMode
+): URLSearchParams {
+  const params = new URLSearchParams();
+  if (!filters) return params;
 
-  const { status, count } = info;
-  if (status === 'PENDING') return count > 1 ? 'second' : 'first';
-  if (status === 'PENDING_OTHER') return 'second';
-  if (status === 'IN_REVIEW') return 'responded';
-  if (status === 'COMPLETED') return 'done';
-  if (status === 'CANCELLED') return 'archive';
-  return 'new';
+  if (mode) params.set('mode', mode);
+
+  if (filters.search?.trim()) {
+    params.set('search', filters.search.trim());
+  }
+
+  if (filters.gender && filters.gender.length > 0) {
+    params.set('gender', filters.gender.join(','));
+  }
+
+  if (filters.maritalStatus && filters.maritalStatus.length > 0) {
+    params.set('maritalStatus', filters.maritalStatus.join(','));
+  }
+
+  if (filters.age) {
+    if (filters.age.min !== null) params.set('minAge', filters.age.min.toString());
+    if (filters.age.max !== null) params.set('maxAge', filters.age.max.toString());
+  }
+
+  if (filters.height) {
+    if (filters.height.min !== null) params.set('minHeight', filters.height.min.toString());
+    if (filters.height.max !== null) params.set('maxHeight', filters.height.max.toString());
+  }
+
+  if (filters.income) {
+    if (filters.income.min !== null) params.set('minIncome', filters.income.min.toString());
+    if (filters.income.max !== null) params.set('maxIncome', filters.income.max.toString());
+  }
+
+  const multiKeys: (keyof ActiveFilterValues)[] = [
+    'country',
+    'city',
+    'sect',
+    'caste',
+    'motherTongue',
+    'complexion',
+    'permanentCity',
+    'familyType',
+    'prayer',
+    'smoking',
+    'beardHijab',
+    'profession',
+    'degree',
+    'institute',
+    'employer',
+    'fatherProfession',
+  ];
+
+  for (const key of multiKeys) {
+    const val = filters[key];
+    if (Array.isArray(val) && val.length > 0) {
+      params.set(key, val.join(','));
+    }
+  }
+
+  return params;
 }
 
+import { getCachedEntries, setCachedEntries } from './directory-cache';
+
 /**
- * Single data-access function for directory entries.
- * Fetches real profiles from Supabase vw_profile_core, vw_profile_nested_arrays,
- * and information_requests (to determine the correct board stage per profile).
+ * Data-access function for directory entries.
+ * Checks session query cache first (Rule 2.1).
+ * Calls /api/directory with serialized active filters and mode on cache miss.
+ * Excludes DRAFT profiles by default.
  */
-export async function getDirectoryEntries(): Promise<DirectoryEntry[]> {
+export async function getDirectoryEntries(
+  filters?: ActiveFilterValues,
+  mode?: FilterMode,
+  signal?: AbortSignal
+): Promise<DirectoryEntry[]> {
   try {
-    const supabase = createClient();
+    const params = serializeFiltersToParams(filters, mode);
+    const queryString = params.toString();
 
-    // Fetch core profile data, nested arrays, and information_requests in parallel
-    const [
-      { data: coreData, error: coreError },
-      { data: nestedData, error: nestedError },
-      { data: requestsData, error: requestsError },
-    ] = await Promise.all([
-      supabase
-        .from('vw_profile_core')
-        .select('*')
-        .order('created_at', { ascending: false }),
-      supabase.from('vw_profile_nested_arrays').select('*'),
-      // Fetch latest request status + count per source profile
-      supabase
-        .from('information_requests')
-        .select('source_profile_id, status, created_at')
-        .order('created_at', { ascending: false }),
-    ]);
-
-    if (requestsError) {
-      console.warn('Warning fetching information_requests:', requestsError);
+    // 1. Check session cache first (Rule 2.1 — zero duplicate calls)
+    const cached = getCachedEntries(queryString);
+    if (cached) {
+      return cached;
     }
 
-    // Build a map: profileId → { status of latest request, total count }
-    const requestsByProfile = new Map<string, { status: string; count: number }>();
-    for (const req of requestsData || []) {
-      const pid = req.source_profile_id;
-      const existing = requestsByProfile.get(pid);
-      if (!existing) {
-        // First row = latest (ordered DESC), so this is the latest status
-        requestsByProfile.set(pid, { status: req.status, count: 1 });
-      } else {
-        // Subsequent rows = older requests, just increment count
-        existing.count += 1;
-      }
+    const url = queryString ? `/api/directory?${queryString}` : '/api/directory';
+
+    const res = await fetch(url, { signal, cache: 'no-store' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch directory entries');
     }
 
-    if (coreError) {
-      console.error('Failed to fetch profiles from vw_profile_core:', coreError);
-      return [];
+    const json = await res.json();
+    const data: DirectoryEntry[] = json.data || [];
+
+    // 2. Cache successful response
+    setCachedEntries(queryString, data);
+
+    return data;
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw err;
     }
-
-    if (nestedError) {
-      console.warn('Warning fetching vw_profile_nested_arrays:', nestedError);
-    }
-
-    const nestedMap = new Map((nestedData || []).map((n: any) => [n.profile_id, n]));
-
-    return (coreData || []).map((p: any) => {
-      const nested = nestedMap.get(p.profile_id);
-
-      // Compute age from date_of_birth
-      let age = 0;
-      if (p.date_of_birth) {
-        const birthDate = new Date(p.date_of_birth);
-        const today = new Date();
-        age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-          age--;
-        }
-      }
-
-      // Height in inches
-      const heightInches = p.height_cm ? Math.round(p.height_cm / 2.54) : 0;
-
-      // Extract highest education
-      const highestEdu =
-        nested?.education_records?.find((e: any) => e.is_highest_qualification) ||
-        nested?.education_records?.[0];
-
-      // Extract current employment
-      const currentEmp =
-        nested?.employment_records?.find((e: any) => e.is_current) ||
-        nested?.employment_records?.[0];
-
-      // Extract father
-      const father = nested?.parents?.find((parent: any) => parent.parent_type === 'FATHER');
-
-      // Qualification string
-      const qualification =
-        highestEdu?.qualification || highestEdu?.education_level_name_en || '';
-
-      // Job title string
-      const jobTitle = currentEmp?.job_title || currentEmp?.occupation_name_en || '';
-
-      // Income in thousands
-      const monthlyIncomeMin = p.monthly_income_min
-        ? Math.round(Number(p.monthly_income_min) / 1000)
-        : 0;
-      const monthlyIncomeMax = p.monthly_income_max
-        ? Math.round(Number(p.monthly_income_max) / 1000)
-        : 0;
-
-      // Compute board stage from information_requests data (mirrors vw_manager_requests_board)
-      const boardStage: DirectoryEntry['boardStage'] =
-        p.status === 'ARCHIVED' ? 'archive' : computeBoardStage(p.profile_id, requestsByProfile);
-
-      return {
-        id: p.profile_id,
-        profileId: p.profile_id,
-        cnic: p.cnic || '',
-        fullName: p.full_name || 'Unnamed',
-        phone: p.phone || '',
-        assignedStaff: p.current_agent_name || 'Unassigned',
-        requestDate: p.created_at || new Date().toISOString(),
-        boardStage,
-        boardStageColor: '#2F3E51',
-        cardBg: boardStage, // EntryCard uses getDirectoryStageCardStyle(boardStage) for actual colour
-
-        age,
-        dob: p.date_of_birth || '',
-        gender: p.gender || 'MALE',
-        maritalStatus: p.marital_status || 'NEVER_MARRIED',
-        numberOfChildren: p.number_of_children || 0,
-        motherTongue: p.mother_tongue_name_en || '',
-
-        heightCm: p.height_cm || 0,
-        heightInches,
-        weightKg: p.weight_kg || 0,
-        complexion: p.complexion || '',
-        hasDisability: !!p.has_disability,
-
-        qualification,
-        institutionName: highestEdu?.institution_name || '',
-        fieldOfStudy: highestEdu?.field_of_study || '',
-
-        jobTitle,
-        organizationName: currentEmp?.organization_name || '',
-
-        monthlyIncomeMin,
-        monthlyIncomeMax,
-
-        religionName: p.religion_name_en || 'Islam',
-        sectName: p.sect_name_en || '',
-        casteName: p.caste_name_en || '',
-
-        currentCountry: p.current_country_name_en || '',
-        currentCity: p.current_city_name_en || '',
-        permanentCity: p.permanent_city_name_en || '',
-
-        familyType: p.family_setup === 'SEPARATE' ? 'Separate' : 'Joint',
-        fatherProfession: father?.profession || p.family_profession_business || '',
-        livingWith: p.living_with || 'Parents',
-        houseStatus: p.house_status || '',
-
-        prayer: p.religious_practice || '',
-        beard: p.beard || '',
-        hijab: p.hijab || '',
-        smoking: p.smoking || '',
-
-        profileData: {
-          ...p,
-          education_records: nested?.education_records || [],
-          employment_records: nested?.employment_records || [],
-          parents: nested?.parents || [],
-          siblings: nested?.siblings || [],
-          children: nested?.children || [],
-          previous_marriages: nested?.previous_marriages || [],
-        },
-      };
-    });
-  } catch (err) {
     console.error('Error in getDirectoryEntries:', err);
     return [];
   }
