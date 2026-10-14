@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { FilterCard } from './FilterCard';
+import { FilterCard, DARK_CARD } from './FilterCard';
 import type { NumericFilterConfig, NumericFilterValue } from '@/lib/directory/types';
 import { DIRECTORY_THEME } from '@/lib/directory/directory-theme';
 import {
@@ -35,10 +35,9 @@ export function NumericFilter({
 }: NumericFilterProps) {
   const { min, max } = value;
   const isActive = min !== null || max !== null;
-  const isWhiteTint = config.tintHex.toUpperCase() === DIRECTORY_THEME.surfaces.white;
-  const controlBg = isWhiteTint
-    ? DIRECTORY_THEME.surfaces.controlBgWhiteCard
-    : DIRECTORY_THEME.surfaces.controlBg;
+  // Dark card frosted control bg
+  const controlBg = isActive ? DARK_CARD.controlBgActive : DARK_CARD.controlBg;
+  const borderColor = isActive ? DARK_CARD.controlBorderActive : DARK_CARD.controlBorder;
 
   const cardContainerRef = useRef<HTMLDivElement>(null);
   const minInputRef = useRef<HTMLInputElement>(null);
@@ -205,20 +204,17 @@ export function NumericFilter({
               onToggleExpand();
             }
           }}
-          className="flex items-center justify-between h-[38px] px-[10px] rounded-[14px] mt-2 cursor-pointer transition-all outline-none hover:bg-white focus:bg-white"
+          className="flex items-center justify-between h-[40px] px-[12px] cursor-pointer transition-all outline-none"
           style={{
-            backgroundColor: isExpanded || isActive ? DIRECTORY_THEME.surfaces.white : controlBg,
-            boxShadow: isExpanded
-              ? `inset 0 0 0 2px ${DIRECTORY_THEME.brand.primary}`
-              : isActive
-              ? `inset 0 0 0 1.5px ${DIRECTORY_THEME.brand.primary}`
-              : undefined,
+            backgroundColor: isExpanded ? DARK_CARD.controlBgExpanded : controlBg,
+            borderRadius: 9999,
+            border: `1px solid ${isExpanded ? DARK_CARD.controlBorderActive : borderColor}`,
           }}
         >
           <span
-            className={`text-[13px] truncate ${isActive ? 'font-bold' : 'font-medium'}`}
+            className={`text-[13px] truncate ${isActive ? 'font-semibold' : 'font-medium'}`}
             style={{
-              color: isActive ? DIRECTORY_THEME.brand.darkestText : DIRECTORY_THEME.text.subtle,
+              color: isActive ? DARK_CARD.textPrimary : DARK_CARD.textMuted,
             }}
           >
             {summary}
@@ -229,36 +225,34 @@ export function NumericFilter({
             className={`shrink-0 transition-transform duration-300 ${
               isExpanded ? 'rotate-180' : ''
             }`}
-            style={{ color: DIRECTORY_THEME.text.muted }}
+            style={{ color: DARK_CARD.iconMuted }}
           />
         </div>
 
-        {/* ── EXPANDING CONTAINER (Strict 3-tier leak-free structure) ── */}
-        {/* Tier 1: Grid wrapper with 0fr -> 1fr animation */}
+        {/* ── EXPANDING CONTAINER ── */}
         <div
           style={{
             display: 'grid',
             gridTemplateRows: isExpanded ? '1fr' : '0fr',
-            transition: 'grid-template-rows 0.4s cubic-bezier(.22,1,.36,1)',
+            transition: 'grid-template-rows 0.35s cubic-bezier(.22,1,.36,1)',
           }}
         >
-          {/* Tier 2: Clip wrapper (overflow:hidden; min-height:0; NO vertical padding/margin) */}
-          <div
-            style={{
-              overflow: 'hidden',
-              minHeight: 0,
-              margin: '0 -8px',
-              padding: '0 8px',
-            }}
-          >
-            {/* Tier 3: Inner wrapper with exact padding-top 10px, padding-bottom 5px */}
-            <div style={{ paddingTop: '10px', paddingBottom: '5px' }}>
+          <div style={{ overflow: 'hidden', minHeight: 0 }}>
+            <div
+              style={{
+                marginTop: 8,
+                borderRadius: 16,
+                backgroundColor: 'rgba(0,0,0,0.22)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                padding: '12px 14px 10px',
+              }}
+            >
               <div className="flex flex-col gap-2">
                 {/* Min Row */}
                 <div className="flex items-center justify-between">
                   <span
                     className="text-[11px] font-bold uppercase"
-                    style={{ letterSpacing: '0.6px', color: DIRECTORY_THEME.text.muted }}
+                    style={{ letterSpacing: '0.6px', color: 'rgba(255,255,255,0.50)' }}
                   >
                     Min
                   </span>
@@ -269,11 +263,10 @@ export function NumericFilter({
                       type="button"
                       onClick={() => handleMinStep(-1)}
                       style={{
-                        backgroundColor: DIRECTORY_THEME.surfaces.stepperCircle,
-                        color: DIRECTORY_THEME.brand.primary,
-                        boxShadow: DIRECTORY_THEME.shadows.stepper,
+                        backgroundColor: 'rgba(255,255,255,0.15)',
+                        color: 'rgba(255,255,255,0.85)',
                       }}
-                      className={`w-[36px] h-[36px] rounded-full ${DIRECTORY_THEME.classes.hoverBrandPrimaryBg} hover:text-white hover:scale-[1.08] active:scale-[0.92] flex items-center justify-center text-[19px] leading-none transition-all focus:outline-none`}
+                      className="w-[34px] h-[34px] rounded-full hover:bg-white/25 active:scale-[0.92] flex items-center justify-center text-[18px] leading-none transition-all focus:outline-none"
                       title="Decrease Min"
                     >
                       −
@@ -292,11 +285,12 @@ export function NumericFilter({
                         if (e.key === 'Escape') onClose();
                       }}
                       style={{
-                        backgroundColor: DIRECTORY_THEME.surfaces.white,
-                        color: DIRECTORY_THEME.text.body,
-                        boxShadow: `inset 0 0 0 1px ${DIRECTORY_THEME.borders.main}`,
+                        backgroundColor: 'rgba(0,0,0,0.22)',
+                        color: 'rgba(255,255,255,0.92)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        caretColor: 'rgba(255,255,255,0.8)',
                       }}
-                      className={`w-[76px] h-[36px] text-center rounded-[12px] text-[14px] font-semibold border-0 outline-none ${DIRECTORY_THEME.classes.focusBrandRing} transition-all ${DIRECTORY_THEME.classes.placeholderSubtle}`}
+                      className="w-[72px] h-[34px] text-center rounded-[10px] text-[14px] font-semibold border-0 outline-none transition-all placeholder:text-[rgba(255,255,255,0.35)]"
                     />
 
                     {/* Stepper + */}
@@ -304,11 +298,10 @@ export function NumericFilter({
                       type="button"
                       onClick={() => handleMinStep(1)}
                       style={{
-                        backgroundColor: DIRECTORY_THEME.surfaces.stepperCircle,
-                        color: DIRECTORY_THEME.brand.primary,
-                        boxShadow: DIRECTORY_THEME.shadows.stepper,
+                        backgroundColor: 'rgba(255,255,255,0.15)',
+                        color: 'rgba(255,255,255,0.85)',
                       }}
-                      className={`w-[36px] h-[36px] rounded-full ${DIRECTORY_THEME.classes.hoverBrandPrimaryBg} hover:text-white hover:scale-[1.08] active:scale-[0.92] flex items-center justify-center text-[19px] leading-none transition-all focus:outline-none`}
+                      className="w-[34px] h-[34px] rounded-full hover:bg-white/25 active:scale-[0.92] flex items-center justify-center text-[18px] leading-none transition-all focus:outline-none"
                       title="Increase Min"
                     >
                       +
@@ -320,7 +313,7 @@ export function NumericFilter({
                 <div className="flex items-center justify-between">
                   <span
                     className="text-[11px] font-bold uppercase"
-                    style={{ letterSpacing: '0.6px', color: DIRECTORY_THEME.text.muted }}
+                    style={{ letterSpacing: '0.6px', color: 'rgba(255,255,255,0.50)' }}
                   >
                     Max
                   </span>
@@ -331,11 +324,10 @@ export function NumericFilter({
                       type="button"
                       onClick={() => handleMaxStep(-1)}
                       style={{
-                        backgroundColor: DIRECTORY_THEME.surfaces.stepperCircle,
-                        color: DIRECTORY_THEME.brand.primary,
-                        boxShadow: DIRECTORY_THEME.shadows.stepper,
+                        backgroundColor: 'rgba(255,255,255,0.15)',
+                        color: 'rgba(255,255,255,0.85)',
                       }}
-                      className={`w-[36px] h-[36px] rounded-full ${DIRECTORY_THEME.classes.hoverBrandPrimaryBg} hover:text-white hover:scale-[1.08] active:scale-[0.92] flex items-center justify-center text-[19px] leading-none transition-all focus:outline-none`}
+                      className="w-[34px] h-[34px] rounded-full hover:bg-white/25 active:scale-[0.92] flex items-center justify-center text-[18px] leading-none transition-all focus:outline-none"
                       title="Decrease Max"
                     >
                       −
@@ -353,11 +345,12 @@ export function NumericFilter({
                         if (e.key === 'Escape') onClose();
                       }}
                       style={{
-                        backgroundColor: DIRECTORY_THEME.surfaces.white,
-                        color: DIRECTORY_THEME.text.body,
-                        boxShadow: `inset 0 0 0 1px ${DIRECTORY_THEME.borders.main}`,
+                        backgroundColor: 'rgba(0,0,0,0.22)',
+                        color: 'rgba(255,255,255,0.92)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        caretColor: 'rgba(255,255,255,0.8)',
                       }}
-                      className={`w-[76px] h-[36px] text-center rounded-[12px] text-[14px] font-semibold border-0 outline-none ${DIRECTORY_THEME.classes.focusBrandRing} transition-all ${DIRECTORY_THEME.classes.placeholderSubtle}`}
+                      className="w-[72px] h-[34px] text-center rounded-[10px] text-[14px] font-semibold border-0 outline-none transition-all placeholder:text-[rgba(255,255,255,0.35)]"
                     />
 
                     {/* Stepper + */}
@@ -365,11 +358,10 @@ export function NumericFilter({
                       type="button"
                       onClick={() => handleMaxStep(1)}
                       style={{
-                        backgroundColor: DIRECTORY_THEME.surfaces.stepperCircle,
-                        color: DIRECTORY_THEME.brand.primary,
-                        boxShadow: DIRECTORY_THEME.shadows.stepper,
+                        backgroundColor: 'rgba(255,255,255,0.15)',
+                        color: 'rgba(255,255,255,0.85)',
                       }}
-                      className={`w-[36px] h-[36px] rounded-full ${DIRECTORY_THEME.classes.hoverBrandPrimaryBg} hover:text-white hover:scale-[1.08] active:scale-[0.92] flex items-center justify-center text-[19px] leading-none transition-all focus:outline-none`}
+                      className="w-[34px] h-[34px] rounded-full hover:bg-white/25 active:scale-[0.92] flex items-center justify-center text-[18px] leading-none transition-all focus:outline-none"
                       title="Increase Max"
                     >
                       +

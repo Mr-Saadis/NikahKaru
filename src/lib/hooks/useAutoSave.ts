@@ -33,8 +33,9 @@ export function useAutoSave<T extends Record<string, any>>({
         try {
           await onSave(data, dirtyKeys);
           setLastSavedData(data); // Update last saved data to prevent re-saving
-        } catch (error) {
-          console.error("Auto-save failed:", error instanceof Error ? error.message : error);
+        } catch (error: any) {
+          const msg = error instanceof Error ? error.message : (error?.message || JSON.stringify(error));
+          console.error("Auto-save failed:", msg, error);
         } finally {
           setIsSaving(false);
         }

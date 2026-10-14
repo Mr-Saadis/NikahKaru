@@ -206,7 +206,7 @@ export function DirectoryClient() {
 
       {/* ── RIGHT COLUMN: Entered Filters + Results Area ── */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative gap-[14px]">
-        {/* Entered filters panel at the top (never scrolls, grows downward) */}
+        {/* Entered filters panel at the top (always visible — top bar with stats/mode) */}
         <EnteredFiltersPanel
           mode={effectiveMode}
           onChangeMode={setMode}
@@ -331,7 +331,7 @@ export function DirectoryClient() {
         isOpen={isSheetOpen}
         columns={COLUMNS}
         onClose={handleCloseSheet}
-        onToggleLater={() => {}}
+        onToggleLater={() => { }}
         containerRef={containerRef}
         onToast={setToastMsg}
         onHeightChange={setSheetHeight}
@@ -346,8 +346,8 @@ export function DirectoryClient() {
         matchProfile={
           matching.openProfile && selectedRequestItem
             ? matching.realMatches[selectedRequestItem.id]?.find(
-                (m: { candidateProfileId: string }) => m.candidateProfileId === matching.openProfile?.candidateId
-              ) || null
+              (m: { candidateProfileId: string }) => m.candidateProfileId === matching.openProfile?.candidateId
+            ) || null
             : null
         }
         chosenKeys={
@@ -358,20 +358,20 @@ export function DirectoryClient() {
         isSent={
           Boolean(
             selectedRequestItem &&
-              matching.openProfile &&
-              (matching.sentExtra[selectedRequestItem.id]?.[matching.openProfile.candidateId] ||
-                (matching.releaseHistory[selectedRequestItem.id] || []).some(
-                  (r: { candidate_profile_id?: string }) => r.candidate_profile_id === matching.openProfile?.candidateId
-                ))
+            matching.openProfile &&
+            (matching.sentExtra[selectedRequestItem.id]?.[matching.openProfile.candidateId] ||
+              (matching.releaseHistory[selectedRequestItem.id] || []).some(
+                (r: { candidate_profile_id?: string }) => r.candidate_profile_id === matching.openProfile?.candidateId
+              ))
           )
         }
         sentDate={
           selectedRequestItem && matching.openProfile
             ? matching.sentExtra[selectedRequestItem.id]?.[matching.openProfile.candidateId] ||
-              (matching.releaseHistory[selectedRequestItem.id] || []).find(
-                (r: { candidate_profile_id?: string; released_at?: string }) =>
-                  r.candidate_profile_id === matching.openProfile?.candidateId
-              )?.released_at
+            (matching.releaseHistory[selectedRequestItem.id] || []).find(
+              (r: { candidate_profile_id?: string; released_at?: string }) =>
+                r.candidate_profile_id === matching.openProfile?.candidateId
+            )?.released_at
             : undefined
         }
         releaseHistory={selectedRequestItem ? matching.releaseHistory[selectedRequestItem.id] || [] : []}

@@ -2,9 +2,8 @@
 
 import React from 'react';
 import { Search } from 'lucide-react';
-import { FilterCard } from './FilterCard';
+import { FilterCard, DARK_CARD } from './FilterCard';
 import type { TextFilterConfig } from '@/lib/directory/types';
-import { DIRECTORY_THEME } from '@/lib/directory/directory-theme';
 
 interface TextFilterProps {
   config: TextFilterConfig;
@@ -32,30 +31,35 @@ export function TextFilter({
       onClear={onClear}
       configIndex={configIndex}
     >
+      {/* Pill-shaped search input — dark frosted */}
       <div
-        className="relative flex items-center h-[38px] px-[10px] rounded-[14px] mt-2 transition-all"
+        className="relative flex items-center h-[40px] px-[12px] transition-all"
         style={{
-          backgroundColor: isActive ? DIRECTORY_THEME.surfaces.white : DIRECTORY_THEME.surfaces.controlBg,
-          boxShadow: isActive
-            ? `inset 0 0 0 1.5px ${DIRECTORY_THEME.brand.primary}`
-            : undefined,
+          backgroundColor: isActive ? DARK_CARD.controlBgActive : DARK_CARD.controlBg,
+          borderRadius: 9999,
+          border: `1px solid ${isActive ? DARK_CARD.controlBorderActive : DARK_CARD.controlBorder}`,
         }}
       >
         <Search
-          size={14}
+          size={13}
           className="shrink-0 mr-2 pointer-events-none"
-          style={{ color: DIRECTORY_THEME.text.subtle }}
+          style={{ color: isActive ? DARK_CARD.textPrimary : DARK_CARD.iconMuted }}
         />
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={config.placeholder}
-          style={{
-            color: DIRECTORY_THEME.text.body,
-          }}
-          className={`w-full h-full bg-transparent text-[13px] font-medium border-0 outline-none ${DIRECTORY_THEME.classes.placeholderSubtle}`}
+          style={{ color: DARK_CARD.textPrimary }}
+          className="w-full h-full bg-transparent text-[13px] font-medium border-0 outline-none"
+          // inline style for placeholder since we can't use tailwind dynamic vars
+          onFocus={(e) => { e.target.style.caretColor = 'rgba(255,255,255,0.8)'; }}
         />
+        <style>{`
+          [data-filter-card="${config.id}"] input::placeholder {
+            color: ${DARK_CARD.textMuted};
+          }
+        `}</style>
       </div>
     </FilterCard>
   );

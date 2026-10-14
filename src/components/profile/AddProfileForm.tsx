@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { ProfileService } from '@/lib/services/profile-service';
@@ -92,6 +92,9 @@ export default function AddProfileForm() {
   const formData = useMemo(() => ({
     step1, step2, step3, step4, step5, step6, step7, step8
   }), [step1, step2, step3, step4, step5, step6, step7, step8]);
+
+  // Ref to expose getStepStats to auto-save callback (defined later in component)
+  const getStepStatsRef = useRef<((stepId: number) => { completed: number; total: number; mandatoryComplete: boolean }) | null>(null);
 
   // Initial load recovery — DB + localStorage merge (localStorage = unsaved changes, takes priority)
   useEffect(() => {
@@ -209,8 +212,8 @@ export default function AddProfileForm() {
             const fi = Array.isArray(profile.family_information) ? profile.family_information[0] : (profile.family_information || {});
             setStep6(prev => ({
               ...prev,
-              parents: (profile.parents || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), age: r.age != null ? String(r.age) : '', country_id: r.country_id?.toString() || '', city_id: r.city_id?.toString() || '' })),
-              siblings: (profile.siblings || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), age: r.age != null ? String(r.age) : '', country_id: r.country_id?.toString() || '', city_id: r.city_id?.toString() || '' })),
+              parents: (profile.parents || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), full_name: r.full_name || '', age: r.age != null ? String(r.age) : '', profession: r.profession || '', education: r.education || '', country_id: r.country_id?.toString() || '', city_id: r.city_id?.toString() || '', living_arrangement: r.living_arrangement || '', social_background: r.social_background || '', additional_details: r.additional_details || '' })),
+              siblings: (profile.siblings || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), full_name: r.full_name || '', age: r.age != null ? String(r.age) : '', marital_status: r.marital_status || '', profession: r.profession || '', education: r.education || '', country_id: r.country_id?.toString() || '', city_id: r.city_id?.toString() || '' })),
               family_profession_business: fi?.family_profession_business || '',
               social_background: fi?.social_background || '',
               family_values: fi?.family_values || '',
@@ -624,7 +627,32 @@ export default function AddProfileForm() {
       }
 
       if (tasks.length > 0) {
-        await Promise.all(tasks);
+        const results = await Promise.allSettled(tasks);
+        const failures = results
+          .map((r, i) => r.status === 'rejected' ? { index: i, reason: r.reason } : null)
+          .filter(Boolean);
+        if (failures.length > 0) {
+          const details = failures.map((f: any) => f.reason?.message || JSON.stringify(f.reason)).join('; ');
+          throw new Error(`Auto-save: ${failures.length} task(s) failed — ${details}`);
+        }
+      }
+
+      // After successful auto-save, update profile status based on mandatory field completion
+      if (profileId && getStepStatsRef.current) {
+        const allMandatoryDone = SIDEBAR_STEPS.every(s => getStepStatsRef.current!(s.id).mandatoryComplete);
+        try {
+          await ProfileService.updateProfileStatus(profileId, allMandatoryDone ? 'ACTIVE' : 'DRAFT');
+          if (allMandatoryDone) {
+            console.log('Auto-save: profile status → ACTIVE');
+            // Refresh MV so profile is available for matching immediately
+            const supabase = createClient();
+            await supabase.rpc('refresh_mv_matching_profiles').then(({ error: rpcErr }) => {
+              if (rpcErr) console.error('Auto-save: MV refresh failed:', rpcErr.message);
+            });
+          }
+        } catch (statusErr: any) {
+          console.error('Auto-save: status update failed:', statusErr?.message || statusErr);
+        }
       }
     }
   });
@@ -920,6 +948,8 @@ export default function AddProfileForm() {
         return { completed: 1, total: 1, mandatoryComplete: true };
     }
   };
+  // Keep ref in sync so auto-save callback can access getStepStats
+  getStepStatsRef.current = getStepStats;
 
   const dynamicSidebarSteps = SIDEBAR_STEPS.map(s => {
     const stats = getStepStats(s.id);
@@ -957,7 +987,7 @@ export default function AddProfileForm() {
         number_of_children: step1.number_of_children ? Number(step1.number_of_children) : 0,
       });
 
-      await Promise.all([
+      const saveResults = await Promise.allSettled([
         ProfileService.savePhysicalInfo(pid, {
           height_cm: step2.height_cm && step2.height_cm >= 80 && step2.height_cm <= 250 ? Number(step2.height_cm) : null,
           weight_kg: step2.weight_kg && step2.weight_kg >= 20 && step2.weight_kg <= 400 ? Number(step2.weight_kg) : null,
@@ -1024,6 +1054,13 @@ export default function AddProfileForm() {
           relocation_details: step7.relocation_details || null,
         }),
       ]);
+      const saveFailures = saveResults
+        .map((r, i) => r.status === 'rejected' ? { index: i, reason: r.reason } : null)
+        .filter(Boolean);
+      if (saveFailures.length > 0) {
+        const details = saveFailures.map((f: any) => f.reason?.message || JSON.stringify(f.reason)).join('; ');
+        throw new Error(`Save failed for ${saveFailures.length} section(s): ${details}`);
+      }
 
       if (step3.monthly_income_min || step3.monthly_income_max) {
         await ProfileService.saveIncomeInfo(pid, {
@@ -1172,9 +1209,9 @@ export default function AddProfileForm() {
       // Navigate to the new profile
       router.push(`/profiles/${pid}`);
     } catch (err: any) {
-      console.error('Full save error:', { message: err?.message, stack: err?.stack, details: err?.details, code: err?.code, hint: err?.hint });
-      const message = err?.message || (typeof err === 'string' ? err : 'Failed to save profile. Check console.');
-      setError(message);
+      const errMsg = err instanceof Error ? err.message : (err?.message || JSON.stringify(err));
+      console.error('Full save error:', errMsg, err);
+      setError(errMsg || 'Failed to save profile. Check console.');
     } finally {
       setIsSaving(false);
     }

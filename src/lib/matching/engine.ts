@@ -34,14 +34,32 @@ export async function runMatching(
   }
 
   // 2. Load source profile data from the materialized view
-  const { data: flatSourceData, error: sourceError } = await supabase
+  let flatSourceData: any;
+  let sourceError: any;
+
+  ({ data: flatSourceData, error: sourceError } = await supabase
     .from('mv_matching_profiles')
     .select('*')
     .eq('profile_id', sourceProfileId)
-    .maybeSingle();
+    .maybeSingle());
+
+  // If not found, try refreshing the MV and retry once
+  if (!flatSourceData && !sourceError) {
+    console.log('Source profile not in MV — refreshing materialized view...');
+    const { error: refreshErr } = await supabase.rpc('refresh_mv_matching_profiles');
+    if (refreshErr) {
+      console.error('MV refresh failed:', refreshErr.message);
+    } else {
+      ({ data: flatSourceData, error: sourceError } = await supabase
+        .from('mv_matching_profiles')
+        .select('*')
+        .eq('profile_id', sourceProfileId)
+        .maybeSingle());
+    }
+  }
 
   if (sourceError || !flatSourceData) {
-    throw new Error(`Profile data is not available for matching yet. Please ensure the profile is fully saved.`);
+    throw new Error(`Profile data is not available for matching yet. Please ensure the profile is fully saved and has ACTIVE status.`);
   }
 
   // 3. Bulk fetch preferences for source AND all candidates

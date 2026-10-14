@@ -2,9 +2,12 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, Search, Check, X } from 'lucide-react';
-import { FilterCard } from './FilterCard';
+import { FilterCard, DARK_CARD } from './FilterCard';
 import type { MultiSelectFilterConfig } from '@/lib/directory/types';
 import { DIRECTORY_THEME } from '@/lib/directory/directory-theme';
+
+// ── How many options before we switch from inline pills → dropdown ──
+const INLINE_THRESHOLD = 6;
 
 interface SelectFilterProps {
   config: MultiSelectFilterConfig;
@@ -34,26 +37,23 @@ export function SelectFilter({
   const cardContainerRef = useRef<HTMLDivElement>(null);
 
   const isActive = values.length > 0;
-  const isWhiteTint = config.tintHex.toUpperCase() === DIRECTORY_THEME.surfaces.white;
 
-  // Control row background from theme
-  const controlBg = isWhiteTint
-    ? DIRECTORY_THEME.surfaces.controlBgWhiteCard
-    : DIRECTORY_THEME.surfaces.controlBg;
+  // If total possible options are small → render inline pills (no dropdown)
+  const isInlineMode = options.length > 0 && options.length <= INLINE_THRESHOLD;
 
-  // Auto-focus search input with preventScroll and smooth scrollIntoView
   useEffect(() => {
-    if (isExpanded) {
+    if (!isInlineMode && isExpanded) {
       cardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       const timer = setTimeout(() => {
         searchInputRef.current?.focus({ preventScroll: true });
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [isExpanded]);
+  }, [isExpanded, isInlineMode]);
 
-  // Filtered options based on search query
-  const effectiveQuery = isExpanded ? searchQuery.trim().toLowerCase() : '';
+  const effectiveQuery = (!isInlineMode && isExpanded)
+    ? searchQuery.trim().toLowerCase()
+    : '';
   const filteredOptions = useMemo(() => {
     if (!effectiveQuery) return options;
     return options.filter((opt) => opt.value.toLowerCase().includes(effectiveQuery));
@@ -67,25 +67,92 @@ export function SelectFilter({
     }
   };
 
-  const removeValue = (val: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    onChange(values.filter((v) => v !== val));
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+    else if (e.key === 'Enter') {
       e.preventDefault();
-      onClose();
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (filteredOptions.length > 0) {
-        toggleOption(filteredOptions[0].value);
-      }
+      if (filteredOptions.length > 0) toggleOption(filteredOptions[0].value);
     } else if (e.key === 'Backspace' && searchQuery === '' && values.length > 0) {
       onChange(values.slice(0, -1));
     }
   };
 
+  // ══════════════════════════════════════════════════════════════
+  // INLINE MODE — show options as a 2-col pill grid, no dropdown
+  // ══════════════════════════════════════════════════════════════
+  if (isInlineMode) {
+    return (
+      <div ref={cardContainerRef}>
+        <FilterCard
+          id={config.id}
+          label={config.label}
+          tintHex={config.tintHex}
+          isActive={isActive}
+          isOpen={false}
+          isExpandable={false}
+          onClear={onClear}
+          configIndex={configIndex}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 7,
+            }}
+          >
+            {options.map((opt) => {
+              const isSelected = values.includes(opt.value);
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => toggleOption(opt.value)}
+                  className="flex items-center justify-between transition-all active:scale-95 focus:outline-none"
+                  style={{
+                    height: 38,
+                    borderRadius: 9999,
+                    padding: '0 12px',
+                    backgroundColor: isSelected
+                      ? 'rgba(255,255,255,0.92)'
+                      : DARK_CARD.controlBg,
+                    border: `1px solid ${
+                      isSelected
+                        ? 'rgba(255,255,255,0.0)'
+                        : DARK_CARD.controlBorder
+                    }`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span
+                    className="text-[13px] font-semibold truncate"
+                    style={{
+                      color: isSelected ? '#2F3E51' : DARK_CARD.textMuted,
+                    }}
+                  >
+                    {opt.value}
+                  </span>
+                  <span
+                    className="text-[11px] font-medium ml-1.5 shrink-0"
+                    style={{
+                      color: isSelected
+                        ? 'rgba(47,62,81,0.55)'
+                        : 'rgba(255,255,255,0.3)',
+                    }}
+                  >
+                    {opt.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </FilterCard>
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // DROPDOWN MODE — pill control row + dark expandable list
+  // ══════════════════════════════════════════════════════════════
   return (
     <div ref={cardContainerRef}>
       <FilterCard
@@ -99,50 +166,50 @@ export function SelectFilter({
         onHeaderClick={onToggleExpand}
         configIndex={configIndex}
       >
-        {/* Control Row: height 38px, radius 14px, padding 0 10px, mt 8px */}
+        {/* ── Pill Control Row ── */}
         <div
           role="button"
           tabIndex={0}
           onClick={onToggleExpand}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onToggleExpand();
-            }
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleExpand(); }
           }}
-          className="flex items-center justify-between h-[38px] px-[10px] rounded-[14px] mt-2 cursor-pointer transition-all outline-none hover:bg-white focus:bg-white"
+          className="flex items-center justify-between h-[40px] px-[12px] cursor-pointer transition-all outline-none"
           style={{
-            backgroundColor: isExpanded || isActive ? DIRECTORY_THEME.surfaces.white : controlBg,
-            boxShadow: isExpanded
-              ? `inset 0 0 0 2px ${DIRECTORY_THEME.brand.primary}`
+            backgroundColor: isExpanded
+              ? DARK_CARD.controlBgExpanded
               : isActive
-              ? `inset 0 0 0 1.5px ${DIRECTORY_THEME.brand.primary}`
-              : undefined,
+              ? DARK_CARD.controlBgActive
+              : DARK_CARD.controlBg,
+            borderRadius: 9999,
+            border: `1px solid ${
+              isActive || isExpanded ? DARK_CARD.controlBorderActive : DARK_CARD.controlBorder
+            }`,
           }}
         >
-          {/* Summary items */}
-          <div className="flex items-center gap-1.5 overflow-hidden pr-1">
+          {/* Summary */}
+          <div className="flex items-center gap-1.5 overflow-hidden pr-1 min-w-0">
             {values.length > 0 ? (
               <>
-                {/* First pill: brand primary, white text, 11.5px, weight 600, padding 3px 10px, max-width 130px */}
                 <span
-                  className="inline-flex items-center h-[24px] px-[10px] rounded-full text-[11.5px] font-semibold truncate max-w-[130px]"
+                  className="inline-flex items-center h-[22px] px-[9px] text-[11.5px] font-semibold truncate max-w-[140px]"
                   style={{
-                    backgroundColor: DIRECTORY_THEME.brand.primary,
-                    color: DIRECTORY_THEME.brand.text,
+                    backgroundColor: 'rgba(255,255,255,0.18)',
+                    color: DARK_CARD.textPrimary,
+                    borderRadius: 9999,
+                    border: `1px solid rgba(255,255,255,0.20)`,
                   }}
                 >
                   {values[0]}
                 </span>
-
-                {/* Amber-accent +N pill */}
                 {values.length > 1 && (
                   <span
-                    className="inline-flex items-center h-[22px] px-2 rounded-full text-[10.5px] font-bold shrink-0"
+                    className="inline-flex items-center h-[20px] px-2 text-[10.5px] font-bold shrink-0"
                     style={{
-                      backgroundColor: DIRECTORY_THEME.amber.bg,
-                      color: DIRECTORY_THEME.amber.text,
-                      border: `1px solid ${DIRECTORY_THEME.amber.border}`,
+                      backgroundColor: 'rgba(255,255,255,0.12)',
+                      color: 'rgba(255,255,255,0.70)',
+                      borderRadius: 9999,
+                      border: `1px solid rgba(255,255,255,0.14)`,
                     }}
                   >
                     +{values.length - 1}
@@ -152,80 +219,83 @@ export function SelectFilter({
             ) : (
               <span
                 className="text-[13px] font-medium"
-                style={{ color: DIRECTORY_THEME.text.subtle }}
+                style={{ color: DARK_CARD.textMuted }}
               >
                 {config.placeholder || 'Select…'}
               </span>
             )}
           </div>
 
-          {/* Chevron (13px) */}
           <ChevronDown
             size={13}
-            className={`shrink-0 transition-transform duration-300 ${
-              isExpanded ? 'rotate-180' : ''
-            }`}
-            style={{ color: DIRECTORY_THEME.text.muted }}
+            className={`shrink-0 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
+            style={{ color: DARK_CARD.iconMuted }}
           />
         </div>
 
-        {/* ── EXPANDING CONTAINER (Strict 3-tier leak-free structure) ── */}
-        {/* Tier 1: Grid wrapper with 0fr -> 1fr animation */}
+        {/* ── Dark Expanding dropdown ── */}
         <div
           style={{
             display: 'grid',
             gridTemplateRows: isExpanded ? '1fr' : '0fr',
-            transition: 'grid-template-rows 0.4s cubic-bezier(.22,1,.36,1)',
+            transition: 'grid-template-rows 0.35s cubic-bezier(.22,1,.36,1)',
           }}
         >
-          {/* Tier 2: Clip wrapper (overflow:hidden; min-height:0; NO vertical padding/margin) */}
-          <div
-            style={{
-              overflow: 'hidden',
-              minHeight: 0,
-              margin: '0 -8px',
-              padding: '0 8px',
-            }}
-          >
-            {/* Tier 3: Inner wrapper with exact padding-top 10px, padding-bottom 5px */}
-            <div style={{ paddingTop: '10px', paddingBottom: '5px' }}>
-              {/* Selected pills row if expanded */}
+          <div style={{ overflow: 'hidden', minHeight: 0 }}>
+            <div
+              style={{
+                marginTop: 8,
+                borderRadius: 18,
+                backgroundColor: 'rgba(0,0,0,0.22)',
+                border: `1px solid rgba(255,255,255,0.10)`,
+                overflow: 'hidden',
+                padding: '8px 8px 6px',
+              }}
+            >
+              {/* Selected pills row */}
               {values.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2.5 max-h-[78px] overflow-y-auto requests-scroll-hidden">
+                <div
+                  className="flex flex-wrap gap-1.5 max-h-[68px] overflow-y-auto requests-scroll-hidden"
+                  style={{ marginBottom: 8 }}
+                >
                   {values.map((val) => (
                     <span
                       key={val}
-                      className="inline-flex items-center gap-1.5 h-[24px] pl-2.5 pr-1.5 rounded-full text-[11px] font-semibold"
+                      className="inline-flex items-center gap-1 h-[22px] pl-2.5 pr-1.5 text-[11px] font-semibold"
                       style={{
-                        backgroundColor: DIRECTORY_THEME.brand.primary,
-                        color: DIRECTORY_THEME.brand.text,
+                        backgroundColor: 'rgba(255,255,255,0.20)',
+                        color: DARK_CARD.textPrimary,
+                        borderRadius: 9999,
+                        border: `1px solid rgba(255,255,255,0.18)`,
                       }}
                     >
-                      <span className="truncate max-w-[130px]">{val}</span>
+                      <span className="truncate max-w-[110px]">{val}</span>
                       <button
                         type="button"
-                        onClick={(e) => removeValue(val, e)}
-                        className="w-3.5 h-3.5 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onChange(values.filter((v) => v !== val));
+                        }}
+                        className="w-3 h-3 rounded-full flex items-center justify-center transition-colors"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.20)' }}
                       >
-                        <X size={10} strokeWidth={2.5} />
+                        <X size={8} strokeWidth={3} color="white" />
                       </button>
                     </span>
                   ))}
                 </div>
               )}
 
-              {/* Type-to-find input: height 36px, radius 12px, white 85%, 14px search icon */}
+              {/* Dark search input */}
               <div
-                className="relative flex items-center h-[36px] rounded-[12px] bg-white px-2.5 transition-all"
+                className="relative flex items-center h-[34px] px-3 mb-1"
                 style={{
-                  boxShadow: `inset 0 0 0 1px ${DIRECTORY_THEME.borders.main}`,
+                  backgroundColor: 'rgba(0,0,0,0.20)',
+                  borderRadius: 9999,
+                  border: `1px solid rgba(255,255,255,0.10)`,
                 }}
               >
-                <Search
-                  size={14}
-                  className="shrink-0 mr-2 pointer-events-none"
-                  style={{ color: DIRECTORY_THEME.text.subtle }}
-                />
+                <Search size={12} className="shrink-0 mr-2" style={{ color: DARK_CARD.iconMuted }} />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -233,24 +303,20 @@ export function SelectFilter({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Type to find…"
-                  style={{ color: DIRECTORY_THEME.text.body }}
-                  className={`w-full h-full bg-transparent text-[13px] font-medium border-0 outline-none ${DIRECTORY_THEME.classes.placeholderSubtle}`}
+                  style={{ color: DARK_CARD.textPrimary, caretColor: 'rgba(255,255,255,0.8)' }}
+                  className="w-full h-full bg-transparent text-[12.5px] font-medium border-0 outline-none placeholder:text-[rgba(255,255,255,0.35)]"
                 />
               </div>
 
-              {/* Option list: max-height 226px, margin 8px -6px 0, padding 0 4px 2px */}
+              {/* Dark option list */}
               <div
-                className="overflow-y-auto requests-scroll-hidden flex flex-col gap-1"
-                style={{
-                  maxHeight: '226px',
-                  margin: '8px -6px 0',
-                  padding: '0 4px 2px',
-                }}
+                className="overflow-y-auto requests-scroll-hidden flex flex-col"
+                style={{ maxHeight: 200, padding: '2px 0' }}
               >
                 {filteredOptions.length === 0 ? (
                   <div
-                    className="py-4 text-center text-[12.5px]"
-                    style={{ color: DIRECTORY_THEME.text.subtle }}
+                    className="py-3 text-center text-[12px]"
+                    style={{ color: DARK_CARD.textMuted }}
                   >
                     No match found
                   </div>
@@ -269,33 +335,30 @@ export function SelectFilter({
                             toggleOption(opt.value);
                           }
                         }}
+                        className="flex items-center justify-between rounded-[10px] px-2.5 py-[7px] gap-2 cursor-pointer text-[12.5px] transition-colors"
                         style={{
-                          backgroundColor: isSelected ? DIRECTORY_THEME.brand.selectedHighlight : undefined,
-                          color: isSelected ? DIRECTORY_THEME.brand.primary : DIRECTORY_THEME.text.body,
+                          backgroundColor: isSelected
+                            ? 'rgba(255,255,255,0.14)'
+                            : undefined,
+                          color: isSelected ? DARK_CARD.textPrimary : 'rgba(255,255,255,0.72)',
+                          fontWeight: isSelected ? 600 : 500,
                         }}
-                        className={`flex items-center justify-between rounded-[12px] p-[8px_10px] gap-[10px] cursor-pointer text-[13px] font-medium transition-colors ${
-                          isSelected ? 'font-semibold' : 'hover:bg-white/75'
-                        }`}
                       >
-                        <div className="flex items-center gap-[10px] min-w-0 pr-1">
-                          {/* Checkbox: 20px, radius 7px, 1.6px border */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          {/* Dot indicator instead of checkbox */}
                           <div
-                            className="w-[20px] h-[20px] rounded-[7px] border-[1.6px] flex items-center justify-center shrink-0 transition-all"
+                            className="w-[7px] h-[7px] rounded-full shrink-0 transition-all"
                             style={{
-                              backgroundColor: isSelected ? DIRECTORY_THEME.brand.primary : DIRECTORY_THEME.surfaces.white,
-                              borderColor: isSelected ? DIRECTORY_THEME.brand.primary : DIRECTORY_THEME.borders.main,
-                              color: DIRECTORY_THEME.brand.text,
+                              backgroundColor: isSelected
+                                ? DARK_CARD.textPrimary
+                                : 'rgba(255,255,255,0.20)',
                             }}
-                          >
-                            {isSelected && <Check size={12} strokeWidth={3} />}
-                          </div>
+                          />
                           <span className="truncate">{opt.value}</span>
                         </div>
-
-                        {/* Entry count: 11px muted */}
                         <span
-                          className="text-[11px] font-medium shrink-0"
-                          style={{ color: DIRECTORY_THEME.text.subtle }}
+                          className="text-[11px] shrink-0"
+                          style={{ color: 'rgba(255,255,255,0.35)' }}
                         >
                           {opt.count}
                         </span>

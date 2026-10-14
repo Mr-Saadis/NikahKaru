@@ -8,6 +8,56 @@ import type {
 } from './types';
 import { FILTER_CONFIGS } from './config';
 
+// Normalization helper for resilient value matching
+export const norm = (s: string) => (s || '').toLowerCase().replace(/[\s_\-]/g, '');
+
+export const STATUS_MAP: Record<string, string> = {
+  NEVER_MARRIED: 'Never Married',
+  MARRIED: 'Married',
+  DIVORCED: 'Divorced',
+  WIDOWED: 'Widowed',
+  SEPARATED: 'Separated',
+  ANNULLED: 'Annulled',
+};
+
+export const PRAYER_MAP: Record<string, string> = {
+  HIGHLY_PRACTICING: 'Highly Practicing',
+  PRACTICING: 'Practicing',
+  MODERATE: 'Moderate',
+  OTHER: 'Other',
+};
+
+export const SMOKING_MAP: Record<string, string> = {
+  NO: 'No',
+  YES: 'Yes',
+  OCCASIONALLY: 'Occasionally',
+};
+
+export const FAMILY_MAP: Record<string, string> = {
+  JOINT: 'Joint',
+  SEPARATE: 'Separate',
+};
+
+export const ENUM_OPTIONS: Record<string, string[]> = {
+  gender: ['Male', 'Female'],
+  maritalStatus: ['Never Married', 'Married', 'Divorced', 'Widowed', 'Separated'],
+  complexion: ['Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark Brown', 'Dark'],
+  prayer: ['Highly Practicing', 'Practicing', 'Moderate', 'Other'],
+  beardHijab: ['Yes', 'No'],
+  smoking: ['No', 'Yes', 'Occasionally'],
+  familyType: ['Joint', 'Separate'],
+};
+
+export interface FilterReferenceData {
+  countries?: { id: number; name_en: string }[];
+  cities?: { id: number; country_id?: number | null; name_en: string }[];
+  sects?: { id: number; name_en: string }[];
+  castes?: { id: number; name_en: string }[];
+  motherTongues?: { id: number; name_en: string }[];
+  educationLevels?: { id: number; name_en: string }[];
+  occupations?: { id: number; name_en: string }[];
+}
+
 /**
  * Format height inches to standard "5′ 9″" display string
  */
@@ -165,7 +215,7 @@ export function matchSingleFilter(
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
       const entryGenderDisplay = entry.gender === 'MALE' ? 'Male' : 'Female';
-      const ok = list.some((g) => g.toLowerCase() === entryGenderDisplay.toLowerCase());
+      const ok = list.some((g) => norm(g) === norm(entry.gender) || norm(g) === norm(entryGenderDisplay));
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Gender', valueDisplay: entryGenderDisplay } : undefined,
@@ -175,14 +225,8 @@ export function matchSingleFilter(
     case 'maritalStatus': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const statusMap: Record<string, string> = {
-        NEVER_MARRIED: 'Never Married',
-        DIVORCED: 'Divorced',
-        WIDOWED: 'Widowed',
-        ANNULLED: 'Annulled',
-      };
-      const displayStatus = statusMap[entry.maritalStatus] || entry.maritalStatus;
-      const ok = list.some((s) => s.toLowerCase() === displayStatus.toLowerCase());
+      const displayStatus = STATUS_MAP[entry.maritalStatus] || entry.maritalStatus;
+      const ok = list.some((s) => norm(s) === norm(entry.maritalStatus) || norm(s) === norm(displayStatus));
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Marital status', valueDisplay: displayStatus } : undefined,
@@ -192,7 +236,11 @@ export function matchSingleFilter(
     case 'profession': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((p) => p.toLowerCase() === entry.jobTitle.toLowerCase());
+      const ok = list.some((p) => {
+        const np = norm(p);
+        const nj = norm(entry.jobTitle);
+        return nj.includes(np) || np.includes(nj);
+      });
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Profession', valueDisplay: entry.jobTitle } : undefined,
@@ -202,7 +250,7 @@ export function matchSingleFilter(
     case 'caste': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((c) => c.toLowerCase() === entry.casteName.toLowerCase());
+      const ok = list.some((c) => norm(c) === norm(entry.casteName));
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Caste', valueDisplay: entry.casteName } : undefined,
@@ -212,7 +260,7 @@ export function matchSingleFilter(
     case 'country': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((c) => c.toLowerCase() === entry.currentCountry.toLowerCase());
+      const ok = list.some((c) => norm(c) === norm(entry.currentCountry));
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Country', valueDisplay: entry.currentCountry } : undefined,
@@ -222,7 +270,7 @@ export function matchSingleFilter(
     case 'city': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((c) => c.toLowerCase() === entry.currentCity.toLowerCase());
+      const ok = list.some((c) => norm(c) === norm(entry.currentCity));
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'City', valueDisplay: entry.currentCity } : undefined,
@@ -232,7 +280,11 @@ export function matchSingleFilter(
     case 'degree': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((d) => d.toLowerCase() === entry.qualification.toLowerCase());
+      const ok = list.some((d) => {
+        const nd = norm(d);
+        const nq = norm(entry.qualification);
+        return nq.includes(nd) || nd.includes(nq);
+      });
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Degree', valueDisplay: entry.qualification } : undefined,
@@ -272,7 +324,7 @@ export function matchSingleFilter(
     case 'sect': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((s) => s.toLowerCase() === entry.sectName.toLowerCase());
+      const ok = list.some((s) => norm(s) === norm(entry.sectName));
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Sect', valueDisplay: entry.sectName } : undefined,
@@ -282,17 +334,18 @@ export function matchSingleFilter(
     case 'prayer': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((p) => p.toLowerCase() === entry.prayer.toLowerCase());
+      const displayPrayer = PRAYER_MAP[entry.prayer] || entry.prayer;
+      const ok = list.some((p) => norm(p) === norm(entry.prayer) || norm(p) === norm(displayPrayer));
       return {
         matches: ok,
-        detail: ok ? { filterId, filterLabel: 'Prayer', valueDisplay: entry.prayer } : undefined,
+        detail: ok ? { filterId, filterLabel: 'Prayer', valueDisplay: displayPrayer } : undefined,
       };
     }
 
     case 'motherTongue': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((m) => m.toLowerCase() === entry.motherTongue.toLowerCase());
+      const ok = list.some((m) => norm(m) === norm(entry.motherTongue));
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Mother tongue', valueDisplay: entry.motherTongue } : undefined,
@@ -302,7 +355,7 @@ export function matchSingleFilter(
     case 'complexion': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((c) => c.toLowerCase() === entry.complexion.toLowerCase());
+      const ok = list.some((c) => norm(c) === norm(entry.complexion));
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Complexion', valueDisplay: entry.complexion } : undefined,
@@ -312,7 +365,11 @@ export function matchSingleFilter(
     case 'institute': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((i) => i.toLowerCase() === entry.institutionName.toLowerCase());
+      const ok = list.some((i) => {
+        const ni = norm(i);
+        const nInst = norm(entry.institutionName);
+        return nInst.includes(ni) || ni.includes(nInst);
+      });
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Institute', valueDisplay: entry.institutionName } : undefined,
@@ -322,7 +379,11 @@ export function matchSingleFilter(
     case 'employer': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((e) => e.toLowerCase() === entry.organizationName.toLowerCase());
+      const ok = list.some((e) => {
+        const ne = norm(e);
+        const nEmp = norm(entry.organizationName);
+        return nEmp.includes(ne) || ne.includes(nEmp);
+      });
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Employer', valueDisplay: entry.organizationName } : undefined,
@@ -332,7 +393,7 @@ export function matchSingleFilter(
     case 'permanentCity': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((c) => c.toLowerCase() === entry.permanentCity.toLowerCase());
+      const ok = list.some((c) => norm(c) === norm(entry.permanentCity));
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: 'Permanent city', valueDisplay: entry.permanentCity } : undefined,
@@ -342,17 +403,22 @@ export function matchSingleFilter(
     case 'familyType': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((f) => f.toLowerCase() === entry.familyType.toLowerCase());
+      const displayFam = FAMILY_MAP[entry.familyType] || entry.familyType;
+      const ok = list.some((f) => norm(f) === norm(entry.familyType) || norm(f) === norm(displayFam));
       return {
         matches: ok,
-        detail: ok ? { filterId, filterLabel: 'Family type', valueDisplay: entry.familyType } : undefined,
+        detail: ok ? { filterId, filterLabel: 'Family type', valueDisplay: displayFam } : undefined,
       };
     }
 
     case 'fatherProfession': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((f) => f.toLowerCase() === entry.fatherProfession.toLowerCase());
+      const ok = list.some((f) => {
+        const nf = norm(f);
+        const nProf = norm(entry.fatherProfession);
+        return nProf.includes(nf) || nf.includes(nProf);
+      });
       return {
         matches: ok,
         detail: ok ? { filterId, filterLabel: "Father's profession", valueDisplay: entry.fatherProfession } : undefined,
@@ -363,20 +429,22 @@ export function matchSingleFilter(
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
       const checkVal = entry.gender === 'MALE' ? entry.beard : entry.hijab;
-      const ok = list.some((b) => b.toLowerCase() === checkVal.toLowerCase());
+      const displayVal = checkVal === 'YES' ? 'Yes' : checkVal === 'NO' ? 'No' : checkVal;
+      const ok = list.some((b) => norm(b) === norm(checkVal) || norm(b) === norm(displayVal));
       return {
         matches: ok,
-        detail: ok ? { filterId, filterLabel: 'Beard / Hijab', valueDisplay: checkVal } : undefined,
+        detail: ok ? { filterId, filterLabel: 'Beard / Hijab', valueDisplay: displayVal } : undefined,
       };
     }
 
     case 'smoking': {
       const list = val as string[];
       if (!list || list.length === 0) return { matches: true };
-      const ok = list.some((s) => s.toLowerCase() === entry.smoking.toLowerCase());
+      const displaySmoking = SMOKING_MAP[entry.smoking] || entry.smoking;
+      const ok = list.some((s) => norm(s) === norm(entry.smoking) || norm(s) === norm(displaySmoking));
       return {
         matches: ok,
-        detail: ok ? { filterId, filterLabel: 'Smoking', valueDisplay: entry.smoking } : undefined,
+        detail: ok ? { filterId, filterLabel: 'Smoking', valueDisplay: displaySmoking } : undefined,
       };
     }
 
@@ -386,20 +454,76 @@ export function matchSingleFilter(
 }
 
 /**
- * Get distinct options with entry counts for a multi-select filter
+ * Get distinct options with entry counts for a multi-select filter.
+ * Combines reference data / enums from add-profile with real entry counts.
  */
 export function getFilterOptionCounts(
   entries: DirectoryEntry[],
   filterId: keyof ActiveFilterValues,
-  activeFilters?: ActiveFilterValues
+  activeFilters?: ActiveFilterValues,
+  referenceData?: FilterReferenceData
 ): { value: string; count: number }[] {
   const countsMap = new Map<string, number>();
 
-  // If filter has dependsOn (e.g. city depends on country), filter entries first
+  // Helper to initialize an option in the map with 0 count
+  const initOption = (val: string) => {
+    if (val && val.trim().length > 0 && !countsMap.has(val)) {
+      countsMap.set(val, 0);
+    }
+  };
+
+  // 1. Prepopulate options from enums or reference tables (from add-profile schema)
+  if (ENUM_OPTIONS[filterId]) {
+    for (const opt of ENUM_OPTIONS[filterId]) {
+      initOption(opt);
+    }
+  } else if (referenceData) {
+    switch (filterId) {
+      case 'country':
+        referenceData.countries?.forEach((c) => initOption(c.name_en));
+        break;
+      case 'city': {
+        if (activeFilters && activeFilters.country && activeFilters.country.length > 0) {
+          const selectedCountryNames = activeFilters.country.map((c) => norm(c));
+          const matchingCountryIds = new Set(
+            referenceData.countries
+              ?.filter((c) => selectedCountryNames.includes(norm(c.name_en)))
+              .map((c) => c.id) || []
+          );
+          referenceData.cities
+            ?.filter((ct) => ct.country_id != null && matchingCountryIds.has(ct.country_id))
+            .forEach((ct) => initOption(ct.name_en));
+        } else {
+          referenceData.cities?.forEach((ct) => initOption(ct.name_en));
+        }
+        break;
+      }
+      case 'permanentCity':
+        referenceData.cities?.forEach((ct) => initOption(ct.name_en));
+        break;
+      case 'sect':
+        referenceData.sects?.forEach((s) => initOption(s.name_en));
+        break;
+      case 'caste':
+        referenceData.castes?.forEach((c) => initOption(c.name_en));
+        break;
+      case 'motherTongue':
+        referenceData.motherTongues?.forEach((m) => initOption(m.name_en));
+        break;
+      case 'degree':
+        referenceData.educationLevels?.forEach((e) => initOption(e.name_en));
+        break;
+      case 'profession':
+        referenceData.occupations?.forEach((o) => initOption(o.name_en));
+        break;
+    }
+  }
+
+  // 2. Count matching entries
   let targetEntries = entries;
   if (filterId === 'city' && activeFilters && activeFilters.country.length > 0) {
     targetEntries = entries.filter((e) =>
-      activeFilters.country.some((c) => c.toLowerCase() === e.currentCountry.toLowerCase())
+      activeFilters.country.some((c) => norm(c) === norm(e.currentCountry))
     );
   }
 
@@ -410,14 +534,7 @@ export function getFilterOptionCounts(
         val = entry.gender === 'MALE' ? 'Male' : 'Female';
         break;
       case 'maritalStatus':
-        val =
-          entry.maritalStatus === 'NEVER_MARRIED'
-            ? 'Never Married'
-            : entry.maritalStatus === 'DIVORCED'
-            ? 'Divorced'
-            : entry.maritalStatus === 'WIDOWED'
-            ? 'Widowed'
-            : entry.maritalStatus;
+        val = STATUS_MAP[entry.maritalStatus] || entry.maritalStatus;
         break;
       case 'profession':
         val = entry.jobTitle;
@@ -438,7 +555,7 @@ export function getFilterOptionCounts(
         val = entry.sectName;
         break;
       case 'prayer':
-        val = entry.prayer;
+        val = PRAYER_MAP[entry.prayer] || entry.prayer;
         break;
       case 'motherTongue':
         val = entry.motherTongue;
@@ -456,24 +573,36 @@ export function getFilterOptionCounts(
         val = entry.permanentCity;
         break;
       case 'familyType':
-        val = entry.familyType;
+        val = FAMILY_MAP[entry.familyType] || entry.familyType;
         break;
       case 'fatherProfession':
         val = entry.fatherProfession;
         break;
-      case 'beardHijab':
-        val = entry.gender === 'MALE' ? entry.beard : entry.hijab;
-        if (val === 'N/A') val = null;
+      case 'beardHijab': {
+        const raw = entry.gender === 'MALE' ? entry.beard : entry.hijab;
+        val = raw === 'YES' ? 'Yes' : raw === 'NO' ? 'No' : raw;
+        if (val === 'N/A' || !val) val = null;
         break;
+      }
       case 'smoking':
-        val = entry.smoking;
+        val = SMOKING_MAP[entry.smoking] || entry.smoking;
         break;
       default:
         break;
     }
 
     if (val && val.trim().length > 0 && val !== 'N/A') {
-      countsMap.set(val, (countsMap.get(val) || 0) + 1);
+      const cleanVal = val.trim();
+      // Look for case-insensitive match in existing keys
+      let foundKey: string | null = null;
+      for (const k of countsMap.keys()) {
+        if (norm(k) === norm(cleanVal)) {
+          foundKey = k;
+          break;
+        }
+      }
+      const keyToUse = foundKey || cleanVal;
+      countsMap.set(keyToUse, (countsMap.get(keyToUse) || 0) + 1);
     }
   }
 
@@ -482,8 +611,11 @@ export function getFilterOptionCounts(
     result.push({ value, count });
   }
 
-  // Sort by count descending, then A to Z
+  // Sort: Options with entries (count > 0) first sorted by count descending,
+  // then options with 0 entries sorted alphabetically A-Z
   result.sort((a, b) => {
+    if (a.count > 0 && b.count === 0) return -1;
+    if (a.count === 0 && b.count > 0) return 1;
     if (b.count !== a.count) return b.count - a.count;
     return a.value.localeCompare(b.value);
   });
@@ -501,9 +633,23 @@ export function applyFilters(
 ): DirectoryEntry[] | EntryWithSimilarMatch[] {
   const activeCount = countActiveFilters(filters);
 
-  // In All mode: return all entries unmodified
-  if (mode === 'all' || activeCount === 0) {
+  // No active filters: show everything
+  if (activeCount === 0) {
     return entries;
+  }
+
+  // In All mode: OR logic — show anyone matching AT LEAST ONE active filter
+  // (same population as Similar, but without ranking/match indicators)
+  if (mode === 'all') {
+    const activeConfigs = FILTER_CONFIGS.filter((cfg) =>
+      isFilterActive(cfg.id as keyof ActiveFilterValues, filters)
+    );
+    return entries.filter((entry) =>
+      activeConfigs.some((cfg) => {
+        const { matches } = matchSingleFilter(entry, cfg.id as keyof ActiveFilterValues, filters);
+        return matches;
+      })
+    );
   }
 
   const activeConfigs = FILTER_CONFIGS.filter((cfg) =>
@@ -566,17 +712,18 @@ export function calculateModeCounts(
   filters: ActiveFilterValues
 ): { allCount: number; exactCount: number; similarCount: number } {
   const activeCount = countActiveFilters(filters);
-  const allCount = entries.length;
 
+  // No filters active → all counts are the full list (Exact/Similar are 0)
   if (activeCount === 0) {
-    return { allCount, exactCount: 0, similarCount: 0 };
+    return { allCount: entries.length, exactCount: 0, similarCount: 0 };
   }
 
+  const all = applyFilters(entries, filters, 'all') as DirectoryEntry[];
   const exact = applyFilters(entries, filters, 'exact') as DirectoryEntry[];
   const similar = applyFilters(entries, filters, 'similar') as EntryWithSimilarMatch[];
 
   return {
-    allCount,
+    allCount: all.length,
     exactCount: exact.length,
     similarCount: similar.length,
   };

@@ -22,13 +22,13 @@ export const DIRECTORY_FILTER_TINTS: Record<
   CardTintKey,
   { bg: string; text: string; border: string }
 > = {
-  orange:    { bg: '#C86A4A', text: '#FFFFFF', border: '#B55A3C' },
-  navy:      { bg: '#2F3E51', text: '#FFFFFF', border: '#243142' },
+  orange: { bg: '#C86A4A', text: '#FFFFFF', border: '#B55A3C' },
+  navy: { bg: '#2F3E51', text: '#FFFFFF', border: '#243142' },
   darkGreen: { bg: '#1F3B34', text: '#FFFFFF', border: '#172E29' },
-  golden:    { bg: '#ECC066', text: '#1E2022', border: '#D4AF37' },
-  pink:      { bg: '#FCE2DF', text: '#1E2022', border: '#F7C6C1' },
-  green:     { bg: '#E5EFE9', text: '#1E2022', border: '#D1E3DC' },
-  beige:     { bg: '#FDF0D8', text: '#8B6122', border: '#ECC066' },
+  golden: { bg: '#ECC066', text: '#1E2022', border: '#D4AF37' },
+  pink: { bg: '#FCE2DF', text: '#1E2022', border: '#F7C6C1' },
+  green: { bg: '#E5EFE9', text: '#1E2022', border: '#D1E3DC' },
+  beige: { bg: '#FDF0D8', text: '#8B6122', border: '#ECC066' },
 };
 
 export const DIRECTORY_TINT_CYCLE: CardTintKey[] = [

@@ -2,13 +2,31 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
-import { DIRECTORY_THEME } from '@/lib/directory/directory-theme';
+
+// ── Dark card design tokens (#2F3E51 navy card) ──────────────────
+export const DARK_CARD = {
+  // Controls — clearly darker than the #2F3E51 card (matches notification panel)
+  controlBg: 'rgba(0,0,0,0.28)',           // collapsed row — visibly sunken
+  controlBgActive: 'rgba(0,0,0,0.38)',     // value selected — even deeper
+  controlBgExpanded: 'rgba(0,0,0,0.38)',   // expanded — same as active
+  controlBorder: 'rgba(255,255,255,0.0)',  // no border — depth from bg only
+  controlBorderActive: 'rgba(255,255,255,0.0)',
+  textPrimary: 'rgba(255,255,255,0.90)',   // strong white — selected / filled value
+  textMuted: 'rgba(255,255,255,0.42)',     // dim white — placeholder / label
+  textLabel: 'rgba(255,255,255,0.58)',     // field label (slightly brighter when active)
+  iconMuted: 'rgba(255,255,255,0.35)',     // icons in collapsed state
+  clearBtn: 'rgba(255,255,255,0.18)',      // X clear button bg
+  divider: 'rgba(255,255,255,0.07)',       // thin divider between rows
+  // Expanded dropdown — also dark
+  dropdownBg: 'rgba(0,0,0,0.28)',
+  dropdownBorder: 'rgba(255,255,255,0.0)',
+} as const;
 
 interface FilterCardProps {
   id: string;
   label: string;
   unit?: string;
-  tintHex: string;
+  tintHex: string;        // kept for API compat — not used for bg
   isActive: boolean;
   isOpen?: boolean;
   isExpandable?: boolean;
@@ -23,74 +41,47 @@ export function FilterCard({
   id,
   label,
   unit,
-  tintHex,
   isActive,
   isOpen = false,
   isExpandable = false,
   onClear,
   onHeaderClick,
   children,
-  configIndex,
   className = '',
 }: FilterCardProps) {
-  const isEven = configIndex % 2 === 0;
-
-  // Box shadow states as per spec
-  let currentShadow: string = DIRECTORY_THEME.shadows.cardBase;
-  if (isOpen) {
-    currentShadow = DIRECTORY_THEME.shadows.cardOpen;
-  } else if (isActive) {
-    currentShadow = DIRECTORY_THEME.shadows.cardActive;
-  }
-
-  // Detect dark background matching RequestCard.tsx logic
-  const isDark = ['#2F3E51', '#1F3B34', '#C86A4A'].includes(tintHex);
-
   return (
     <div
       data-filter-card={id}
-      className={`group relative select-none transition-all duration-200 motion-reduce:transition-none hover:-translate-y-[2px] motion-reduce:hover:translate-y-0 ${className}`}
-      style={{
-        backgroundColor: tintHex,
-        minHeight: '94px',
-        borderRadius: '26px',
-        padding: '13px 15px 15px',
-        boxShadow: currentShadow,
-        // Exact horizontal stagger: Even -> margin-right 18px; Odd -> margin-left 18px
-        marginRight: isEven ? '18px' : '0px',
-        marginLeft: !isEven ? '18px' : '0px',
-        width: 'calc(100% - 18px)',
-        animation: 'cardFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both',
-      }}
+      className={`select-none transition-all duration-200 ${className}`}
+      style={{ padding: '10px 14px 12px' }}
     >
-      {/* Card Header row: height 20px, label 10.5px / weight 700 / letter-spacing .7px / uppercase */}
+      {/* ── Label row ── */}
       <div
-        className={`flex items-center justify-between h-[20px] mb-2 ${
+        className={`flex items-center justify-between mb-[8px] ${
           isExpandable ? 'cursor-pointer' : ''
         }`}
         onClick={isExpandable ? onHeaderClick : undefined}
       >
-        <div className="flex items-center truncate pr-1">
+        <div className="flex items-center gap-1 truncate pr-1">
           <span
-            className="text-[10.5px] font-bold uppercase"
+            className="text-[10px] font-bold uppercase tracking-[0.8px]"
             style={{
-              letterSpacing: '0.7px',
-              color: isDark ? '#FFFFFF' : DIRECTORY_THEME.text.muted,
+              color: isActive ? DARK_CARD.textLabel : DARK_CARD.textMuted,
             }}
           >
             {label}
           </span>
           {unit && (
             <span
-              className="text-[10px] font-medium tracking-normal ml-1 normal-case"
-              style={{ color: isDark ? 'rgba(255,255,255,0.75)' : DIRECTORY_THEME.text.subtle }}
+              className="text-[10px] font-medium normal-case"
+              style={{ color: DARK_CARD.textMuted }}
             >
               · {unit}
             </span>
           )}
         </div>
 
-        {/* Clear button */}
+        {/* Clear X */}
         {isActive && (
           <button
             type="button"
@@ -99,19 +90,19 @@ export function FilterCard({
               e.stopPropagation();
               onClear();
             }}
-            className="w-[18px] h-[18px] rounded-full flex items-center justify-center shrink-0 hover:scale-105 active:scale-95 transition-all focus:outline-none"
+            className="w-[17px] h-[17px] rounded-full flex items-center justify-center shrink-0 hover:scale-110 active:scale-90 transition-all focus:outline-none"
             style={{
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.25)' : DIRECTORY_THEME.brand.primary,
-              color: '#FFFFFF',
+              backgroundColor: DARK_CARD.clearBtn,
+              color: DARK_CARD.textPrimary,
             }}
             title="Clear filter"
           >
-            <X size={10} strokeWidth={3} />
+            <X size={9} strokeWidth={3} />
           </button>
         )}
       </div>
 
-      {/* Filter Body */}
+      {/* ── Body ── */}
       <div>{children}</div>
     </div>
   );

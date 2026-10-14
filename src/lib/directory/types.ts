@@ -18,7 +18,7 @@ export interface DirectoryEntry {
   age: number;
   dob: string;
   gender: 'MALE' | 'FEMALE';
-  maritalStatus: 'NEVER_MARRIED' | 'DIVORCED' | 'WIDOWED' | 'ANNULLED';
+  maritalStatus: 'NEVER_MARRIED' | 'MARRIED' | 'DIVORCED' | 'WIDOWED' | 'SEPARATED' | 'ANNULLED' | string;
   numberOfChildren: number;
   motherTongue: string;
 
@@ -53,7 +53,7 @@ export interface DirectoryEntry {
   permanentCity: string;
 
   // Residency & Family
-  familyType: 'Nuclear' | 'Joint' | 'Extended';
+  familyType: 'Joint' | 'Separate' | 'Nuclear' | 'Extended' | string;
   fatherProfession: string;
   livingWith: string;
   houseStatus: string;

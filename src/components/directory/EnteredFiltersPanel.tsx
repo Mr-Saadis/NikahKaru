@@ -134,8 +134,8 @@ export function EnteredFiltersPanel({
                 {cfg.isHeight
                   ? `From ${formatHeight(numVal.min)}`
                   : cfg.isIncome
-                  ? `From Rs ${numVal.min}k`
-                  : `From ${numVal.min} ${cfg.unit}`}
+                    ? `From Rs ${numVal.min}k`
+                    : `From ${numVal.min} ${cfg.unit}`}
               </span>
               <button
                 type="button"
@@ -166,8 +166,8 @@ export function EnteredFiltersPanel({
                 {cfg.isHeight
                   ? `To ${formatHeight(numVal.max)}`
                   : cfg.isIncome
-                  ? `To Rs ${numVal.max}k`
-                  : `To ${numVal.max} ${cfg.unit}`}
+                    ? `To Rs ${numVal.max}k`
+                    : `To ${numVal.max} ${cfg.unit}`}
               </span>
               <button
                 type="button"
@@ -361,50 +361,37 @@ export function EnteredFiltersPanel({
         </div>
       </div>
 
-      {/* Divider block: margin-top:18px; padding-top:16px; border-top:1px solid light warm grey */}
-      <div
-        className="flex items-center justify-between mb-3"
-        style={{
-          marginTop: '18px',
-          paddingTop: '16px',
-          borderTop: `1px solid ${DIRECTORY_THEME.borders.divider}`,
-        }}
-      >
-        <h2
-          className="text-[13px] font-bold tracking-tight"
-          style={{ color: DIRECTORY_THEME.text.body }}
-        >
-          Entered filters
-        </h2>
-
-        {hasActiveFilters && (
-          <button
-            type="button"
-            onClick={onClearAll}
-            className="text-[12px] font-bold underline cursor-pointer hover:opacity-80 transition-opacity"
-            style={{ color: DIRECTORY_THEME.brand.primary }}
+      {/* Lower section: divider + chips — only when filters are active */}
+      {hasActiveFilters && (
+        <>
+          {/* Divider block */}
+          <div
+            className="flex items-center justify-between mb-3"
+            style={{
+              marginTop: '18px',
+              paddingTop: '16px',
+              borderTop: `1px solid ${DIRECTORY_THEME.borders.divider}`,
+            }}
           >
-            Clear all
-          </button>
-        )}
-      </div>
+            <h2
+              className="text-[13px] font-bold tracking-tight"
+              style={{ color: DIRECTORY_THEME.text.body }}
+            >
+              Entered filters
+            </h2>
 
-      {/* Chips Area: min-height 60px, NO scroll, grows downward */}
-      <div
-        className="flex items-center"
-        style={{
-          minHeight: '60px',
-        }}
-      >
-        {!hasActiveFilters ? (
-          <p
-            className="text-[12.5px] font-medium"
-            style={{ color: DIRECTORY_THEME.text.subtle }}
-          >
-            No filters entered yet. Fill any card on the left and it shows up here.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2 items-center">
+            <button
+              type="button"
+              onClick={onClearAll}
+              className="text-[12px] font-bold underline cursor-pointer hover:opacity-80 transition-opacity"
+              style={{ color: DIRECTORY_THEME.brand.primary }}
+            >
+              Clear all
+            </button>
+          </div>
+
+          {/* Chips Area */}
+          <div className="flex flex-wrap gap-2 items-center" style={{ minHeight: '40px' }}>
             {FILTER_CONFIGS.map((cfg) => {
               if (isFilterActive(cfg.id as keyof ActiveFilterValues, filters)) {
                 return renderChipContent(cfg.id as keyof ActiveFilterValues);
@@ -412,8 +399,8 @@ export function EnteredFiltersPanel({
               return null;
             })}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
