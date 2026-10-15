@@ -45,7 +45,6 @@ export default function DirectoryPage() {
       className="h-full overflow-hidden"
       style={{
         background: DIRECTORY_THEME.surfaces.app,
-        borderRadius: 26,
       }}
     >
       <DirectoryClient />

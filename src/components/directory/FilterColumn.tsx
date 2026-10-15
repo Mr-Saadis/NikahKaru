@@ -20,7 +20,7 @@ import { NumericFilter } from './NumericFilter';
 
 // Brand card colour — Deep Slate Navy
 const CARD_BG = '#2F3E51';
-const CARD_RADIUS = 26;
+const CARD_RADIUS = 28;
 
 // Useful keyword aliases for natural search in English & Roman Urdu
 const FILTER_ALIASES: Record<string, string[]> = {

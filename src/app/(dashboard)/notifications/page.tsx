@@ -336,16 +336,12 @@ export default function NotificationsPage() {
         className="h-full overflow-hidden"
         style={{
           background: 'var(--bg-app)',
-          borderRadius: 26,
         }}
       >
-        <div className="block w-full h-full">
-      {/* Restored left padding so it doesn't touch the global sidebar directly, allowing the page bg to show */}
-      <div className="w-full max-w-[1500px] mx-auto min-h-full flex flex-col lg:flex-row justify-between gap-6 lg:gap-8 pt-2 pb-2 pl-4 pr-4 lg:pl-8 lg:pr-6">
+        <div className="w-full h-full flex flex-col lg:flex-row gap-6 p-2 md:py-2 md:pr-4 md:pl-0 overflow-hidden relative">
 
-        {/* ── Left floating dark panel ── */}
-        {/* CHANGED: width 460 → 450, padding p-8 → p-6, min-w-0, hidden on mobile when a notification is open */}
-        <div className={`${selectedNotificationId ? 'hidden lg:flex' : 'flex'} bg-[#2F3E51] rounded-[32px] lg:sticky lg:top-6 overflow-hidden p-6 shadow-2xl w-full lg:w-[450px] shrink-0 min-w-0 h-[calc(100vh-48px)] flex-col self-start`}>
+          {/* ── Left floating dark panel ── */}
+          <div className={`${selectedNotificationId ? 'hidden lg:flex' : 'flex'} bg-[#2F3E51] rounded-[28px] overflow-hidden p-6 shadow-2xl w-full lg:w-[450px] shrink-0 min-w-0 h-full flex-col`}>
 
           {/* GREEN BOX: Filters */}
           <div className="shrink-0 flex flex-col gap-5">
@@ -544,8 +540,8 @@ export default function NotificationsPage() {
         </div>
 
         {/* ── Right: Detail View ── */}
-        <div className={`${selectedNotificationId ? 'flex' : 'hidden lg:flex'} flex-1 flex-col min-w-0 lg:max-w-[1000px] mx-auto lg:mx-0 lg:mt-2 h-[calc(100vh-48px)]`}>
-          <div className="flex-1 bg-transparent p-0 lg:p-6 flex flex-col overflow-hidden">
+        <div className={`${selectedNotificationId ? 'flex' : 'hidden lg:flex'} flex-1 flex-col min-w-0 h-full overflow-hidden`}>
+          <div className="flex-1 bg-transparent p-0 lg:p-4 flex flex-col overflow-hidden h-full">
 
             {!selectedNotification ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[#7D766C]">
@@ -556,12 +552,12 @@ export default function NotificationsPage() {
                 <p className="text-[14px] max-w-sm">Select any notification from the left panel to read its complete details and take actions.</p>
               </div>
             ) : isLoadingDetails ? (
-              <div className="flex-1 rounded-[32px] border border-[#EFE9DF]/80 p-8 lg:p-12 flex flex-col items-center justify-center shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+              <div className="flex-1 rounded-[28px] border border-[#EFE9DF]/80 p-8 lg:p-12 flex flex-col items-center justify-center shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1F3B34] mb-4"></div>
                 <span className="text-[13px] font-semibold text-[#7D766C]">Fetching request details...</span>
               </div>
             ) : (
-              <div key={selectedNotification.id} className="flex-1 rounded-[32px] border border-[#EFE9DF]/80 p-8 lg:p-12 flex flex-col overflow-y-auto hide-scrollbar relative shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+              <div key={selectedNotification.id} className="flex-1 rounded-[28px] border border-[#EFE9DF]/80 p-8 lg:p-12 flex flex-col overflow-y-auto hide-scrollbar relative shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
 
                 {/* Back button for mobile */}
                 <button
@@ -795,7 +791,6 @@ export default function NotificationsPage() {
         </div>
 
       </div>
-        </div>
       </div>
     </>
   );

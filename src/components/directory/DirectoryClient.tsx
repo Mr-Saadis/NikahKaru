@@ -274,7 +274,7 @@ export function DirectoryClient() {
   return (
     <div
       ref={containerRef}
-      className="flex-1 flex flex-col min-[900px]:flex-row gap-6 h-full p-4 md:p-6 overflow-hidden relative"
+      className="flex-1 flex flex-col min-[900px]:flex-row gap-4 h-full p-2 md:py-2 md:pr-3 md:pl-0 overflow-hidden relative"
       style={{
         background: DIRECTORY_THEME.surfaces.app,
         color: DIRECTORY_THEME.text.body,
