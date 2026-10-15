@@ -204,13 +204,27 @@ export async function fetchSentProfilesForRequest(
 
   const candidateIds = history.map((h: any) => h.candidate_profile_id);
 
-  // 2. Fetch profiles from database
-  const { data: profilesData } = await supabase
-    .from('vw_profile_core')
-    .select('*')
-    .in('profile_id', candidateIds);
+  // 2. Fetch profiles from database (both core and nested arrays)
+  const [profilesRes, nestedRes] = await Promise.all([
+    supabase.from('vw_profile_core').select('*').in('profile_id', candidateIds),
+    supabase.from('vw_profile_nested_arrays').select('*').in('profile_id', candidateIds)
+  ]);
 
-  let fullProfiles = profilesData || [];
+  const nestedMap = new Map((nestedRes.data || []).map((n: any) => [n.profile_id, n]));
+  let fullProfiles = (profilesRes.data || []).map((core: any) => {
+    const nested = nestedMap.get(core.profile_id);
+    const highestEdu = nested?.education_records?.[0];
+    const currentEmp = nested?.employment_records?.[0];
+    return {
+      ...core,
+      ...nested,
+      qualification: highestEdu?.qualification || highestEdu?.education_level_name_en || null,
+      education_level_name_en: highestEdu?.education_level_name_en || null,
+      field_of_study: highestEdu?.field_of_study || null,
+      job_title: currentEmp?.job_title || currentEmp?.occupation_name_en || null,
+      occupation_name_en: currentEmp?.occupation_name_en || null,
+    };
+  });
 
   // 3. Fetch scores if sourceProfileId provided
   let viewResults: any[] = [];

@@ -46,8 +46,9 @@ export function MatchProfilePanel({
   const isOpen = !!openProfile && openProfile.requestId === item?.id && !!matchProfile;
   const isSelected = chosenKeys.size > 0;
   
-  const historyRecord = releaseHistory.find(r => r.candidate_profile_id === matchProfile?.candidateProfileId);
-  const allowedFields = new Set<string>(historyRecord?.selected_fields || []);
+  const candidateReleases = releaseHistory.filter(r => r.candidate_profile_id === matchProfile?.candidateProfileId);
+  const historyRecord = candidateReleases[0];
+  const allowedFields = new Set<string>(candidateReleases.flatMap(r => r.selected_fields || []));
 
   const p = (matchProfile as any)?.fullProfile || matchProfile?.candidateData;
   const cName = p?.full_name || p?.personal_information?.full_name || 'Candidate';
@@ -180,9 +181,14 @@ export function MatchProfilePanel({
               </span>
             </div>
           ) : isSent ? (
-            <div className="flex gap-[8px] m-[2px_4px_8px] p-[10px_12px] rounded-[14px] bg-[#e3f4e8] text-[#2d7a4b] text-[12px] font-[600]">
-              <CheckIcon size={14} strokeWidth={3} />
-              Already sent to {item.name} on {sentDate ? formatDate(sentDate) : 'previously'}
+            <div className="flex items-center justify-between m-[2px_4px_8px] p-[10px_12px] rounded-[14px] bg-[#e3f4e8] text-[#2d7a4b] text-[12px] font-[600]">
+              <div className="flex items-center gap-[8px] min-w-0">
+                <CheckIcon size={14} strokeWidth={3} className="shrink-0" />
+                <span className="truncate">Already sent to {item.name} on {sentDate ? formatDate(sentDate) : 'previously'}</span>
+              </div>
+              <span className="text-[11px] font-[700] text-[#236b3f] bg-[#d2edd9] px-2 py-0.5 rounded-full shrink-0 ml-2">
+                {groups.flatMap(g => g[1]).filter(r => r[2] && allowedFields.has(r[2])).length}/{totalKeys}
+              </span>
             </div>
           ) : (
             <div className="flex items-center gap-[8px] flex-wrap p-[6px_4px_10px]">
@@ -251,7 +257,9 @@ export function MatchProfilePanel({
             <div className={`transition-opacity duration-250 ${isSent ? 'pointer-events-none' : ''}`}>
               {groups.map((g, i) => {
                 const groupKeys = g[1].map((_, j) => `${i}:${j}`);
-                const allChecked = groupKeys.length > 0 && groupKeys.every(k => chosenKeys.has(k));
+                const allChecked = isSent
+                  ? g[1].length > 0 && g[1].every(r => r[2] && allowedFields.has(r[2]))
+                  : groupKeys.length > 0 && groupKeys.every(k => chosenKeys.has(k));
 
                 return (
                   <div key={g[0]} className="p-[10px_4px] border-t border-[#f1f0ea] first:border-t-0">
@@ -277,7 +285,8 @@ export function MatchProfilePanel({
                     
                     {g[1].map((r, j) => {
                       const key = `${i}:${j}`;
-                      const checked = chosenKeys.has(key);
+                      const isFieldSent = r[2] ? allowedFields.has(r[2]) : false;
+                      const checked = isSent ? isFieldSent : chosenKeys.has(key);
                       
                       return (
                         <div key={r[0]} className="flex items-start gap-[8px] p-[5px_0] text-[12.5px]">

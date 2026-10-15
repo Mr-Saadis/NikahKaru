@@ -199,16 +199,33 @@ export function useMatching() {
 
       if (results && results.length > 0) {
         const ids = results.map(r => r.candidateProfileId);
-        const { data: fullProfiles } = await supabase
-          .from('vw_profile_core')
-          .select('*')
-          .in('profile_id', ids);
+        const [coreRes, nestedRes] = await Promise.all([
+          supabase.from('vw_profile_core').select('*').in('profile_id', ids),
+          supabase.from('vw_profile_nested_arrays').select('*').in('profile_id', ids)
+        ]);
+        
+        const fullProfiles = coreRes.data || [];
+        const nestedProfiles = nestedRes.data || [];
+        const nestedMap = new Map(nestedProfiles.map((n: any) => [n.profile_id, n]));
           
-        if (fullProfiles) {
-          results.forEach(r => {
-            (r as any).fullProfile = fullProfiles.find((p: any) => p.profile_id === r.candidateProfileId);
-          });
-        }
+        results.forEach(r => {
+          const core = fullProfiles.find((p: any) => p.profile_id === r.candidateProfileId);
+          const nested = nestedMap.get(r.candidateProfileId);
+          const highestEdu = nested?.education_records?.[0];
+          const currentEmp = nested?.employment_records?.[0];
+
+          if (core) {
+            (r as any).fullProfile = {
+              ...core,
+              ...nested,
+              qualification: highestEdu?.qualification || highestEdu?.education_level_name_en || null,
+              education_level_name_en: highestEdu?.education_level_name_en || null,
+              field_of_study: highestEdu?.field_of_study || null,
+              job_title: currentEmp?.job_title || currentEmp?.occupation_name_en || null,
+              occupation_name_en: currentEmp?.occupation_name_en || null,
+            };
+          }
+        });
       }
 
       const { data: ledgerData, error: ledgerError } = await supabase
@@ -291,7 +308,7 @@ export function useMatching() {
       if (!reqChosen || reqChosen.size === 0) return;
 
       const results = realMatches[item.id] || [];
-      const releasesData = [];
+      const releasesData: any[] = [];
       
       for (const [candidateId, set] of reqChosen.entries()) {
         const isAlreadySentLocal = sentExtra[item.id]?.[candidateId];
@@ -453,6 +470,22 @@ export function useMatching() {
           }
           newSentExtra[item.id] = reqSentExtra;
           return newSentExtra;
+        });
+
+        setReleaseHistory((prev) => {
+          const currentHist = prev[item.id] || [];
+          const newEntries = releasesData.map(rd => ({
+            candidate_profile_id: rd.candidate_profile_id,
+            released_at: new Date().toISOString(),
+            selected_fields: rd.fields_data.map((f: any) => f.field_path)
+          }));
+          return {
+            ...prev,
+            [item.id]: [
+              ...currentHist.filter(h => !releasesData.some(rd => rd.candidate_profile_id === h.candidate_profile_id)),
+              ...newEntries
+            ]
+          };
         });
 
         setChosen((prev) => {

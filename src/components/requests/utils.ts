@@ -8,52 +8,73 @@ export function getMatchProfileGroups(match: any): ProfileGroup[] {
   const d = match.fullProfile || match.candidateData;
   if (!d) return [];
 
+  const highestEdu = d.education_records?.[0];
+  const currentEmp = d.employment_records?.[0];
+
+  const qualification = d.qualification || d.education_level_name_en || highestEdu?.qualification || highestEdu?.education_level_name_en || 'N/A';
+  const fieldOfStudy = d.field_of_study || highestEdu?.field_of_study || 'N/A';
+  const jobTitle = d.job_title || d.occupation_name_en || currentEmp?.job_title || currentEmp?.occupation_name_en || 'N/A';
+
+  const hasDisability = d.has_disability ?? d.physical_information?.has_disability;
+  const disabilityDetails = d.disability_details || d.physical_information?.disability_details;
+  const disabilityText = hasDisability ? (disabilityDetails ? `Yes - ${disabilityDetails}` : "Yes") : "No";
+
+  const minInc = d.monthly_income_min || d.income_information?.monthly_income_min;
+  const maxInc = d.monthly_income_max || d.income_information?.monthly_income_max;
+  const incomeText = minInc ? (maxInc ? `Rs ${Number(minInc).toLocaleString()} - ${Number(maxInc).toLocaleString()}` : `Rs ${Number(minInc).toLocaleString()}+`) : 'N/A';
+
+  const dobVal = d.date_of_birth || d.personal_information?.date_of_birth;
+  const maritalVal = d.marital_status || d.personal_information?.marital_status;
+  const childrenVal = d.number_of_children !== null && d.number_of_children !== undefined 
+    ? d.number_of_children 
+    : d.personal_information?.number_of_children;
+
   return [
     ["Basic Information", [
       ["Profile picture", "Include", "personal_information.profile_picture"],
-      ["Full name", d.full_name || 'N/A', "personal_information.full_name"], 
-      ...(d.gender ? [["Gender", d.gender, "profiles.gender"] as ProfileField] : []),
-      ["Phone", d.phone || d.primary_phone || 'N/A', "personal_information.phone"], 
-      ["CNIC", d.cnic || 'N/A', "personal_information.cnic"],
-      ["DOB", d.date_of_birth ? new Date(d.date_of_birth).toLocaleDateString() : 'N/A', "personal_information.date_of_birth"], 
-      ["Marital status", d.marital_status || 'N/A', "personal_information.marital_status"],
-      ...(d.marital_status !== 'NEVER_MARRIED' ? [["Children", d.number_of_children !== null && d.number_of_children !== undefined ? String(d.number_of_children) : 'N/A', "personal_information.number_of_children"] as ProfileField] : [])
+      ["Full name", d.full_name || d.personal_information?.full_name || 'N/A', "personal_information.full_name"], 
+      ...(d.gender || d.personal_information?.gender ? [["Gender", (d.gender || d.personal_information?.gender), "profiles.gender"] as ProfileField] : []),
+      ["Phone", d.phone || d.primary_phone || d.personal_information?.phone || 'N/A', "personal_information.phone"], 
+      ["CNIC", d.cnic || d.personal_information?.cnic || 'N/A', "personal_information.cnic"],
+      ["DOB", dobVal ? new Date(dobVal).toLocaleDateString() : 'N/A', "personal_information.date_of_birth"], 
+      ["Marital status", maritalVal ? maritalVal.replace(/_/g, ' ') : 'N/A', "personal_information.marital_status"],
+      ...(maritalVal !== 'NEVER_MARRIED' ? [["Children", childrenVal !== null && childrenVal !== undefined ? String(childrenVal) : 'N/A', "personal_information.number_of_children"] as ProfileField] : [])
     ]],
     ["Physical Attributes", [
-      ["Height", d.height_cm ? `${d.height_cm} cm` : 'N/A', "physical_information.height_cm"], 
-      ["Weight", d.weight_kg ? `${d.weight_kg} kg` : 'N/A', "physical_information.weight_kg"], 
-      ["Complexion", d.complexion || 'N/A', "physical_information.complexion"],
-      ["Disability", d.has_disability ? `Yes - ${d.disability_details}` : "No", "physical_information.has_disability"]
+      ["Height", (d.height_cm || d.physical_information?.height_cm) ? `${d.height_cm || d.physical_information?.height_cm} cm` : 'N/A', "physical_information.height_cm"], 
+      ["Weight", (d.weight_kg || d.physical_information?.weight_kg) ? `${d.weight_kg || d.physical_information?.weight_kg} kg` : 'N/A', "physical_information.weight_kg"], 
+      ["Complexion", d.complexion || d.physical_information?.complexion || 'N/A', "physical_information.complexion"],
+      ["Disability", disabilityText, "physical_information.has_disability"]
     ]],
     ["Education & Profession", [
-      ["Education Level", d.qualification || 'N/A', "education_records"], 
-      ["Field of Study", d.field_of_study || 'N/A', "education_records"], 
-      ["Job Title", d.job_title || 'N/A', "employment_records"], 
-      ["Income", d.monthly_income_min ? `Rs ${d.monthly_income_min} - ${d.monthly_income_max}` : 'N/A', "income_information.monthly_income_min"]
+      ["Education Level", qualification, "education_records"], 
+      ["Field of Study", fieldOfStudy, "education_records"], 
+      ["Job Title", jobTitle, "employment_records"], 
+      ["Income", incomeText, "income_information.monthly_income_min"]
     ]],
     ["Religion & Culture", [
-      ["Religion", d.religion_name_en || 'Islam', "religion_information.religion_id"], 
-      ["Sect", d.sect_name_en || 'N/A', "religion_information.sect_id"], 
-      ["Caste", d.caste_name_en || 'N/A', "religion_information.caste_id"], 
-      ["Mother tongue", d.mother_tongue_name_en || 'N/A', "personal_information.mother_tongue_id"]
+      ["Religion", d.religion_name_en || d.religion || d.religion_information?.religion_name_en || 'Islam', "religion_information.religion_id"], 
+      ["Sect", d.sect_name_en || d.sect || d.religion_information?.sect_name_en || 'N/A', "religion_information.sect_id"], 
+      ["Caste", d.caste_name_en || d.caste || d.other_caste_text || d.religion_information?.caste_name_en || 'N/A', "religion_information.caste_id"], 
+      ["Mother tongue", d.mother_tongue_name_en || d.mother_tongue || d.personal_information?.mother_tongue_name_en || 'N/A', "personal_information.mother_tongue_id"]
     ]],
     ["Location & Residency", [
-      ...(d.current_country_name_en || d.current_country ? [["Current country", d.current_country_name_en || d.current_country, "profile_locations.current_country_id"] as ProfileField] : []),
-      ["Current city", d.current_city_name_en || d.current_location_text || 'N/A', "profile_locations.current_city_id"], 
-      ["Permanent city", d.permanent_city_name_en || d.permanent_location_text || 'N/A', "profile_locations.permanent_city_id"], 
-      ["Residency", d.nationality_country_name_en || 'N/A', "residency_information.house_status"]
+      ...(d.current_country_name_en || d.current_country || d.profile_locations?.current_country_name_en ? [["Current country", d.current_country_name_en || d.current_country || d.profile_locations?.current_country_name_en, "profile_locations.current_country_id"] as ProfileField] : []),
+      ["Current city", d.current_city_name_en || d.current_location_text || d.profile_locations?.current_city_name_en || 'N/A', "profile_locations.current_city_id"], 
+      ["Permanent city", d.permanent_city_name_en || d.permanent_location_text || d.profile_locations?.permanent_city_name_en || 'N/A', "profile_locations.permanent_city_id"], 
+      ["Residency", d.nationality_country_name_en || d.residency_information?.house_status || d.house_status || 'N/A', "residency_information.house_status"]
     ]],
     ["Family Details", [
-      ["Profession", d.family_profession_business || 'N/A', "family_information.family_profession_business"], 
-      ["Social Background", d.social_background || 'N/A', "family_information.social_background"], 
-      ["Family Setup", d.family_setup || 'N/A', "residency_information.family_setup"], 
-      ["Living With", d.living_with || 'N/A', "residency_information.living_with"]
+      ["Profession", d.family_profession_business || d.family_information?.family_profession_business || 'N/A', "family_information.family_profession_business"], 
+      ["Social Background", d.social_background || d.family_information?.social_background || 'N/A', "family_information.social_background"], 
+      ["Family Setup", d.family_setup || d.residency_information?.family_setup || 'N/A', "residency_information.family_setup"], 
+      ["Living With", d.living_with || d.residency_information?.living_with || 'N/A', "residency_information.living_with"]
     ]],
     ["Lifestyle", [
-      ["Prayer", d.religious_practice || 'N/A', "lifestyle_information.religious_practice"], 
-      ...(d.gender !== 'FEMALE' ? [["Beard", d.beard || 'N/A', "lifestyle_information.beard"] as ProfileField] : []), 
-      ...(d.gender !== 'MALE' ? [["Hijab", d.hijab || 'N/A', "lifestyle_information.hijab"] as ProfileField] : []), 
-      ["Smoking", d.smoking || 'N/A', "lifestyle_information.smoking"]
+      ["Prayer", d.religious_practice || d.lifestyle_information?.religious_practice || 'N/A', "lifestyle_information.religious_practice"], 
+      ...(d.gender !== 'FEMALE' && d.personal_information?.gender !== 'FEMALE' ? [["Beard", d.beard || d.lifestyle_information?.beard || 'N/A', "lifestyle_information.beard"] as ProfileField] : []), 
+      ...(d.gender !== 'MALE' && d.personal_information?.gender !== 'MALE' ? [["Hijab", d.hijab || d.lifestyle_information?.hijab || 'N/A', "lifestyle_information.hijab"] as ProfileField] : []), 
+      ["Smoking", d.smoking || d.lifestyle_information?.smoking || 'N/A', "lifestyle_information.smoking"]
     ]]
   ];
 }
@@ -279,10 +300,10 @@ export function getProfileGroups(item: RequestItem, preferences?: any, isLoading
       ["Disability", d.has_disability ? `Yes - ${d.disability_details}` : "No"]
     ]],
     ["Education & Profession", [
-      ["Education Level", d.qualification || 'N/A'], 
-      ["Field of Study", d.field_of_study || 'N/A'], 
-      ["Job Title", d.job_title || 'N/A'], 
-      ["Income", d.monthly_income_min ? `Rs ${d.monthly_income_min} - ${d.monthly_income_max}` : 'N/A']
+      ["Education Level", d.qualification || d.education_level_name_en || d.education_records?.[0]?.qualification || d.education_records?.[0]?.education_level_name_en || 'N/A'], 
+      ["Field of Study", d.field_of_study || d.education_records?.[0]?.field_of_study || 'N/A'], 
+      ["Job Title", d.job_title || d.occupation_name_en || d.employment_records?.[0]?.job_title || d.employment_records?.[0]?.occupation_name_en || 'N/A'], 
+      ["Income", d.monthly_income_min ? `Rs ${Number(d.monthly_income_min).toLocaleString()} - ${Number(d.monthly_income_max).toLocaleString()}` : 'N/A']
     ]],
     ["Religion & Culture", [
       ["Religion", d.religion_name_en || 'Islam'], 
