@@ -314,6 +314,7 @@ export default function ProfilesListPage() {
   const BREAKDOWN_TABS = ['All', 'Age & Marital Status', 'Physical', 'Religion & Culture', 'Income & Career', 'Location', 'Lifestyle'];
 
   const [realMatchResultsMap, setRealMatchResultsMap] = useState<Record<string, any>>({});
+  const realMatchResultsMapRef = useRef<Record<string, any>>({});
   const [prefetchedProfiles, setPrefetchedProfiles] = useState<Record<string, FullProfile>>({});
 
   // ── Match request state (demo) ────────────────────────────────
@@ -423,7 +424,7 @@ export default function ProfilesListPage() {
       const res = await fetch('/api/matching/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceProfileId: currentId }),
+        body: JSON.stringify({ sourceProfileId: currentId, userRole: role }),
       });
 
       if (!res.ok) {
@@ -498,15 +499,13 @@ export default function ProfilesListPage() {
       });
       setProfiles(res.data);
       setTotalCount(res.count);
-      if (res.data.length > 0 && !selectedId) {
-        setSelectedId(res.data[0].id);
-      }
+      setSelectedId((prev) => prev || (res.data.length > 0 ? res.data[0].id : null));
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }, [filters, isInitialized, role, selectedId]);
+  }, [filters, isInitialized, role]);
 
   useEffect(() => {
     loadProfiles();
@@ -526,7 +525,7 @@ export default function ProfilesListPage() {
 
     // Helper to fetch matches
     const fetchMatches = async (id: string) => {
-      if (realMatchResultsMap[id]) return; // already fetched
+      if (realMatchResultsMapRef.current[id]) return; // already fetched
       try {
         const matches = await ProfileService.getProfileMatches(id);
         if (matches.results && matches.results.length > 0 && !cancelled) {
@@ -558,6 +557,7 @@ export default function ProfilesListPage() {
               },
             };
           });
+          realMatchResultsMapRef.current[id] = formattedResults;
           setRealMatchResultsMap(prev => ({ ...prev, [id]: formattedResults }));
         }
       } catch (e) {
@@ -595,7 +595,7 @@ export default function ProfilesListPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedId, realMatchResultsMap]);
+  }, [selectedId]);
 
 
   // ── Handlers ──────────────────────────────────────────────────

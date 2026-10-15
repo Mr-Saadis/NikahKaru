@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   try {
-    const { sourceProfileId } = await req.json();
+    const { sourceProfileId, userRole } = await req.json();
 
     if (!sourceProfileId) {
       return NextResponse.json({ error: 'sourceProfileId is required' }, { status: 400 });
@@ -29,6 +29,10 @@ export async function POST(req: NextRequest) {
     if (userError || !userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Role check: use role provided from client's session store (0 extra DB queries).
+    // If not provided, default to AGENT to strictly prevent any data leakage.
+    const isManagerOrAdmin = userRole === 'MANAGER' || userRole === 'HIGH_LEVEL_ADMIN';
 
     // Run preview matching on server side using admin client (evaluates traits safely without exposing them)
     const adminSupabase = createAdminClient();
@@ -85,9 +89,12 @@ export async function POST(req: NextRequest) {
         sourceToCandidateScore: r.sourceToCandidateScore,
         candidateToSourceScore: r.candidateToSourceScore,
         rank: r.rank,
-        candidateData: r.candidateData,
-        candidatePrefs: r.candidatePrefs,
         breakdowns: r.breakdowns,
+        // Sensitive raw candidate data ONLY released to Manager/Admin
+        ...(isManagerOrAdmin ? {
+          candidateData: r.candidateData,
+          candidatePrefs: r.candidatePrefs,
+        } : {}),
       };
     });
 

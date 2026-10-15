@@ -81,8 +81,8 @@ export default function MatchingPage() {
     try {
       const endpoint = mode === 'PREVIEW' ? '/api/matching/preview' : '/api/matching/run';
       const body = mode === 'PREVIEW' 
-        ? { sourceProfileId: selectedProfile.id }
-        : { sourceProfileId: selectedProfile.id, candidateLimit: 10 };
+        ? { sourceProfileId: selectedProfile.id, userRole: role }
+        : { sourceProfileId: selectedProfile.id, candidateLimit: 10, userRole: role };
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -263,7 +263,7 @@ export default function MatchingPage() {
                                 </div>
                                 <div>
                                   <h4 className="text-[15px] font-bold text-[#16382E]">Profile ID: {result.candidateProfileId.substring(0,8).toUpperCase()}</h4>
-                                  <p className="text-[13px] text-[#7D766C]">{getFullName(result.candidateData)} • Candidate</p>
+                                  <p className="text-[13px] text-[#7D766C]">{result.candidateName || getFullName(result.candidateData)} • Candidate</p>
                                 </div>
                               </div>
 
@@ -286,8 +286,14 @@ export default function MatchingPage() {
                               <div className="px-5 pb-5 border-t border-[#F5F2EC] pt-4 bg-[#FAF8F5] flex flex-col gap-6">
                                 <ScoreBreakdown result={result} />
                                 
-                                {/* Display Candidate Raw Data and Preferences */}
-                                <ProfileDataView data={result.candidateData} prefs={result.candidatePrefs} />
+                                {/* Display Candidate Raw Data and Preferences (Only if allowed) */}
+                                {result.candidateData ? (
+                                  <ProfileDataView data={result.candidateData} prefs={result.candidatePrefs} />
+                                ) : (
+                                  <div className="p-4 bg-amber-50/70 rounded-xl border border-amber-200/60 text-xs text-amber-800">
+                                    Candidate detailed profile is protected. Full information is only released by the Manager upon request.
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

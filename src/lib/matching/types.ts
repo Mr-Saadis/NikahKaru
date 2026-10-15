@@ -22,6 +22,7 @@ export interface ScoreBreakdownDetail {
 
 export interface MatchResult {
   candidateProfileId: string;
+  candidateName?: string;
   sourceToCandidateScore: number;
   candidateToSourceScore: number;
   finalScore: number;
