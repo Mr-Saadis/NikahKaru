@@ -53,7 +53,7 @@ function LocationRow({
   isMandatory?: boolean;
 }) {
   const { countries } = useReferenceData();
-  const isPakistan = countryVal === 131;
+  const isPakistan = Number(countryVal) === 131;
 
   return (
     <div className="space-y-3 p-4 rounded-xl bg-[#FAF8F5] border border-[#E9E4DC]">

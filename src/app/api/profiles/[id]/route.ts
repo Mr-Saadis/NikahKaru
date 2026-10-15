@@ -66,7 +66,7 @@ export async function GET(
         other_caste_text: coreData.other_caste_text,
       } : null,
       
-      profile_locations: coreData.current_country_id ? {
+      profile_locations: (coreData.current_country_id || coreData.permanent_country_id || coreData.current_location_text || coreData.permanent_location_text || coreData.current_city_id) ? {
         current_country_id: coreData.current_country_id,
         current_province_id: coreData.current_province_id,
         current_city_id: coreData.current_city_id,

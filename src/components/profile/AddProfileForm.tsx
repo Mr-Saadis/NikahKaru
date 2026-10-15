@@ -17,7 +17,7 @@ import Step6FamilyDetails, { type Step6Data } from './steps/Step6FamilyDetails';
 import Step7Lifestyle, { type Step7Data } from './steps/Step7Lifestyle';
 import Step8Preferences, { type Step8Data } from './steps/Step8Preferences';
 import Step9Review from './steps/Step9Review';
-import { ArrowLeft, ArrowRight, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Loader2, AlertTriangle, X } from 'lucide-react';
 
 // ── Step config ────────────────────────────────────────────────
 const STEPS = [
@@ -78,6 +78,8 @@ export default function AddProfileForm() {
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [missingFieldsList, setMissingFieldsList] = useState<{ stepId: number; stepName: string; missingFields: string[] }[]>([]);
 
   // Step data states
   const [step1, setStep1] = useState<Step1Data>(defaultStep1);
@@ -191,12 +193,12 @@ export default function AddProfileForm() {
             const res = Array.isArray(profile.residency_information) ? profile.residency_information[0] : (profile.residency_information || {});
             setStep5(prev => ({
               ...prev,
-              current_country_id: pl?.current_country_id?.toString() || '',
-              current_province_id: pl?.current_province_id?.toString() || '',
-              current_city_id: pl?.current_city_id?.toString() || '',
-              permanent_country_id: pl?.permanent_country_id?.toString() || '',
-              permanent_province_id: pl?.permanent_province_id?.toString() || '',
-              permanent_city_id: pl?.permanent_city_id?.toString() || '',
+              current_country_id: pl?.current_country_id ? Number(pl.current_country_id) : '',
+              current_province_id: pl?.current_province_id ? Number(pl.current_province_id) : '',
+              current_city_id: pl?.current_city_id ? Number(pl.current_city_id) : '',
+              permanent_country_id: pl?.permanent_country_id ? Number(pl.permanent_country_id) : '',
+              permanent_province_id: pl?.permanent_province_id ? Number(pl.permanent_province_id) : '',
+              permanent_city_id: pl?.permanent_city_id ? Number(pl.permanent_city_id) : '',
               current_location_text: pl?.current_location_text || '',
               permanent_location_text: pl?.permanent_location_text || '',
               house_status: res?.house_status || '',
@@ -451,15 +453,17 @@ export default function AddProfileForm() {
       }
 
       if (dirtyKeys.includes('step5')) {
+        const isCurrentPak = Number(data.step5.current_country_id) === 131;
+        const isPermPak = Number(data.step5.permanent_country_id) === 131;
         tasks.push(ProfileService.saveLocations(pid, {
           current_country_id: data.step5.current_country_id ? Number(data.step5.current_country_id) : null,
-          current_province_id: data.step5.current_country_id === 131 && data.step5.current_province_id ? Number(data.step5.current_province_id) : null,
-          current_city_id: data.step5.current_country_id === 131 && data.step5.current_city_id ? Number(data.step5.current_city_id) : null,
+          current_province_id: isCurrentPak && data.step5.current_province_id ? Number(data.step5.current_province_id) : null,
+          current_city_id: isCurrentPak && data.step5.current_city_id ? Number(data.step5.current_city_id) : null,
           permanent_country_id: data.step5.permanent_country_id ? Number(data.step5.permanent_country_id) : null,
-          permanent_province_id: data.step5.permanent_country_id === 131 && data.step5.permanent_province_id ? Number(data.step5.permanent_province_id) : null,
-          permanent_city_id: data.step5.permanent_country_id === 131 && data.step5.permanent_city_id ? Number(data.step5.permanent_city_id) : null,
-          current_location_text: (data.step5.current_country_id !== 131 ? [data.step5.current_city_text, data.step5.current_province_text, data.step5.current_location_text].filter(Boolean).join(', ') : data.step5.current_location_text) || null,
-          permanent_location_text: (data.step5.permanent_country_id !== 131 ? [data.step5.permanent_city_text, data.step5.permanent_province_text, data.step5.permanent_location_text].filter(Boolean).join(', ') : data.step5.permanent_location_text) || null,
+          permanent_province_id: isPermPak && data.step5.permanent_province_id ? Number(data.step5.permanent_province_id) : null,
+          permanent_city_id: isPermPak && data.step5.permanent_city_id ? Number(data.step5.permanent_city_id) : null,
+          current_location_text: (!isCurrentPak ? [data.step5.current_city_text, data.step5.current_province_text, data.step5.current_location_text].filter(Boolean).join(', ') : data.step5.current_location_text) || null,
+          permanent_location_text: (!isPermPak ? [data.step5.permanent_city_text, data.step5.permanent_province_text, data.step5.permanent_location_text].filter(Boolean).join(', ') : data.step5.permanent_location_text) || null,
         }));
         tasks.push(ProfileService.saveResidencyInfo(pid, {
           house_status: data.step5.house_status || null,
@@ -855,7 +859,8 @@ export default function AddProfileForm() {
         if (step5.property_type) completed++;
         if (step5.family_setup) completed++;
         if (step5.living_with) completed++;
-        const mandatoryComplete = !!(step5.current_country_id && (step5.current_country_id === 131 ? (step5.current_province_id && step5.current_city_id) : step5.current_location_text));
+        const isCurrentPak = Number(step5.current_country_id) === 131;
+        const mandatoryComplete = !!(step5.current_country_id && (isCurrentPak ? (step5.current_province_id && step5.current_city_id) : step5.current_location_text));
         return { completed, total, mandatoryComplete };
       }
       case 6: {
@@ -961,9 +966,91 @@ export default function AddProfileForm() {
     };
   });
 
-  // ── Final save ─────────────────────────────────────────────
-  const handleSave = async () => {
+  // ── Missing mandatory details helper ───────────────────────
+  const getMissingMandatoryDetails = () => {
+    const missing: { stepId: number; stepName: string; missingFields: string[] }[] = [];
+
+    // Step 1
+    const s1: string[] = [];
+    if (!step1.full_name?.trim()) s1.push('Full Name');
+    if (!step1.gender) s1.push('Gender');
+    if (!step1.date_of_birth) s1.push('Date of Birth');
+    if (!step1.marital_status) s1.push('Marital Status');
+    if (s1.length > 0) missing.push({ stepId: 1, stepName: 'Basic Information', missingFields: s1 });
+
+    // Step 2
+    const s2: string[] = [];
+    if (!step2.height_cm) s2.push('Height');
+    if (!step2.weight_kg) s2.push('Weight');
+    if (s2.length > 0) missing.push({ stepId: 2, stepName: 'Physical Information', missingFields: s2 });
+
+    // Step 3
+    const s3: string[] = [];
+    if (!step3.education_records.some(r => !!r.education_level_id)) s3.push('Education Record (Level)');
+    if (!step3.employment_records.some(r => !!(r.occupation_id && r.employment_type))) s3.push('Employment Record (Occupation & Type)');
+    if (s3.length > 0) missing.push({ stepId: 3, stepName: 'Education & Profession', missingFields: s3 });
+
+    // Step 4
+    const s4: string[] = [];
+    if (!step4.religion_id) s4.push('Religion');
+    if (!step4.sect_id) s4.push('Sect');
+    if (!step4.caste_id && !step4.other_caste_text?.trim()) s4.push('Caste');
+    if (s4.length > 0) missing.push({ stepId: 4, stepName: 'Religion & Culture', missingFields: s4 });
+
+    // Step 5
+    const s5: string[] = [];
+    if (!step5.current_country_id) {
+      s5.push('Current Country');
+    } else if (Number(step5.current_country_id) === 131) {
+      if (!step5.current_province_id) s5.push('Current Province');
+      if (!step5.current_city_id) s5.push('Current City');
+    } else {
+      if (!step5.current_location_text?.trim()) s5.push('Address / Location Details');
+    }
+    if (s5.length > 0) missing.push({ stepId: 5, stepName: 'Location & Residency', missingFields: s5 });
+
+    // Step 6
+    const s6: string[] = [];
+    const hasFather = step6.parents.some(p => p.parent_type === 'FATHER');
+    const hasMother = step6.parents.some(p => p.parent_type === 'MOTHER');
+    if (!hasFather) s6.push('Father Info');
+    if (!hasMother) s6.push('Mother Info');
+    const incompleteParents = step6.parents.some(p => p.status !== 'DECEASED' && (!p.full_name?.trim() || !p.profession?.trim() || !p.education?.trim()));
+    if (incompleteParents) s6.push('Living Parents Details (Name, Profession, Education)');
+    if (s6.length > 0) missing.push({ stepId: 6, stepName: 'Family Details', missingFields: s6 });
+
+    // Step 7
+    const s7: string[] = [];
+    if (!step7.religious_practice) s7.push('Religious Practice');
+    if (!step7.smoking) s7.push('Smoking Status');
+    if (s7.length > 0) missing.push({ stepId: 7, stepName: 'Lifestyle', missingFields: s7 });
+
+    // Step 8
+    const s8: string[] = [];
+    const reqBasic = step8.pref_age_importance === 'DOES_NOT_MATTER' ? true : !!(step8.pref_min_age && step8.pref_max_age && step8.pref_age_importance);
+    const reqPhys = step8.pref_height_importance === 'DOES_NOT_MATTER' ? true : !!(step8.pref_min_height && step8.pref_max_height && step8.pref_height_importance);
+    if (!reqBasic) s8.push('Desired Age Range');
+    if (!reqPhys) s8.push('Desired Height Range');
+    if (s8.length > 0) missing.push({ stepId: 8, stepName: 'Partner Preferences', missingFields: s8 });
+
+    return missing;
+  };
+
+  // ── Trigger save: if mandatory fields are missing, prompt confirmation modal ──
+  const handleSaveClick = () => {
+    const missing = getMissingMandatoryDetails();
+    if (missing.length > 0) {
+      setMissingFieldsList(missing);
+      setShowDraftModal(true);
+      return;
+    }
+    performSave(false);
+  };
+
+  // ── Execute save to DB ─────────────────────────────────────
+  const performSave = async (forceDraft: boolean = false) => {
     if (!user) return;
+    setShowDraftModal(false);
     setIsSaving(true);
     setError(null);
 
@@ -980,12 +1067,38 @@ export default function AddProfileForm() {
       // 2. Save each section in parallel where possible
       await ProfileService.savePersonalInfo(pid, {
         full_name: step1.full_name,
+        cnic: step1.cnic || null,
         date_of_birth: step1.date_of_birth || null,
         marital_status: step1.marital_status || 'NEVER_MARRIED',
         nationality_country_id: step1.nationality_country_id ? Number(step1.nationality_country_id) : null,
         mother_tongue_id: step1.mother_tongue_id ? Number(step1.mother_tongue_id) : null,
         number_of_children: step1.number_of_children ? Number(step1.number_of_children) : 0,
       });
+
+      if (step1.children?.length) {
+        await ProfileService.saveChildren(pid, step1.children.map(({ _tempId, ...rest }: any) => ({
+          ...rest,
+          age: rest.age ? Number(rest.age) : null,
+          living_with_profile: rest.living_with_profile === 'YES'
+        })));
+      } else if (step1.marital_status === 'NEVER_MARRIED') {
+        await ProfileService.saveChildren(pid, []);
+      }
+
+      if (step1.previous_marriages?.length) {
+        await ProfileService.savePreviousMarriages(pid, step1.previous_marriages.map(({ _tempId, ...rest }: any) => ({
+          ...rest,
+          marriage_year: rest.marriage_year ? Number(rest.marriage_year) : null,
+          end_year: rest.end_year ? Number(rest.end_year) : null,
+          children_count: rest.children_count ? Number(rest.children_count) : 0,
+          children_live_with_profile: rest.children_live_with_profile === 'YES'
+        })));
+      } else if (step1.marital_status === 'NEVER_MARRIED') {
+        await ProfileService.savePreviousMarriages(pid, []);
+      }
+
+      const isCurrentPak = Number(step5.current_country_id) === 131;
+      const isPermPak = Number(step5.permanent_country_id) === 131;
 
       const saveResults = await Promise.allSettled([
         ProfileService.savePhysicalInfo(pid, {
@@ -995,8 +1108,8 @@ export default function AddProfileForm() {
           has_disability: step2.has_disability,
           disability_details: step2.has_disability ? step2.disability_details : null,
         }),
-        ProfileService.saveEducationRecords(pid, step3.education_records.filter(e => e.education_level_id).map(({ _tempId, ...rest }) => rest)),
-        ProfileService.saveEmploymentRecords(pid, step3.employment_records.filter(e => e.occupation_id && e.employment_type).map(({ _tempId, ...rest }) => rest)),
+        ProfileService.saveEducationRecords(pid, step3.education_records.filter(e => e.education_level_id).map(({ _tempId, ...rest }: any) => rest)),
+        ProfileService.saveEmploymentRecords(pid, step3.employment_records.filter(e => e.occupation_id && e.employment_type).map(({ _tempId, ...rest }: any) => rest)),
         ProfileService.saveReligionInfo(pid, {
           religion_id: step4.religion_id ? Number(step4.religion_id) : null,
           sect_id: step4.sect_id ? Number(step4.sect_id) : null,
@@ -1005,13 +1118,13 @@ export default function AddProfileForm() {
         }),
         ProfileService.saveLocations(pid, {
           current_country_id: step5.current_country_id ? Number(step5.current_country_id) : null,
-          current_province_id: step5.current_country_id === 131 && step5.current_province_id ? Number(step5.current_province_id) : null,
-          current_city_id: step5.current_country_id === 131 && step5.current_city_id ? Number(step5.current_city_id) : null,
+          current_province_id: isCurrentPak && step5.current_province_id ? Number(step5.current_province_id) : null,
+          current_city_id: isCurrentPak && step5.current_city_id ? Number(step5.current_city_id) : null,
           permanent_country_id: step5.permanent_country_id ? Number(step5.permanent_country_id) : null,
-          permanent_province_id: step5.permanent_country_id === 131 && step5.permanent_province_id ? Number(step5.permanent_province_id) : null,
-          permanent_city_id: step5.permanent_country_id === 131 && step5.permanent_city_id ? Number(step5.permanent_city_id) : null,
-          current_location_text: (step5.current_country_id !== 131 ? [step5.current_city_text, step5.current_province_text, step5.current_location_text].filter(Boolean).join(', ') : step5.current_location_text) || null,
-          permanent_location_text: (step5.permanent_country_id !== 131 ? [step5.permanent_city_text, step5.permanent_province_text, step5.permanent_location_text].filter(Boolean).join(', ') : step5.permanent_location_text) || null,
+          permanent_province_id: isPermPak && step5.permanent_province_id ? Number(step5.permanent_province_id) : null,
+          permanent_city_id: isPermPak && step5.permanent_city_id ? Number(step5.permanent_city_id) : null,
+          current_location_text: (!isCurrentPak ? [step5.current_city_text, step5.current_province_text, step5.current_location_text].filter(Boolean).join(', ') : step5.current_location_text) || null,
+          permanent_location_text: (!isPermPak ? [step5.permanent_city_text, step5.permanent_province_text, step5.permanent_location_text].filter(Boolean).join(', ') : step5.permanent_location_text) || null,
         }),
         ProfileService.saveResidencyInfo(pid, {
           house_status: step5.house_status || null,
@@ -1019,13 +1132,13 @@ export default function AddProfileForm() {
           family_setup: step5.family_setup || null,
           living_with: step5.living_with || null,
         }),
-        ProfileService.saveParents(pid, step6.parents.map(({ _tempId, ...rest }) => ({
+        ProfileService.saveParents(pid, step6.parents.map(({ _tempId, ...rest }: any) => ({
           ...rest,
           age: rest.age ? Number(rest.age) : null,
           country_id: rest.country_id || null,
           city_id: rest.city_id || null,
         }))),
-        ProfileService.saveSiblings(pid, step6.siblings.map(({ _tempId, ...rest }) => ({
+        ProfileService.saveSiblings(pid, step6.siblings.map(({ _tempId, ...rest }: any) => ({
           ...rest,
           gender: rest.gender || 'MALE',
           age: rest.age ? Number(rest.age) : null,
@@ -1184,11 +1297,11 @@ export default function AddProfileForm() {
       }, user.id);
 
       // 4. Update profile status based on whether all mandatory fields across all steps are filled
-      const missingMandatorySteps = SIDEBAR_STEPS.filter(s => !getStepStats(s.id).mandatoryComplete);
-      if (missingMandatorySteps.length > 0) {
-        console.warn('Profile remains DRAFT. Missing mandatory fields in steps:', missingMandatorySteps.map(s => s.name));
+      const missingDetails = getMissingMandatoryDetails();
+      if (missingDetails.length > 0 || forceDraft) {
+        console.warn('Profile saved as DRAFT. Missing mandatory fields:', missingDetails);
       }
-      const allMandatoryCompleted = missingMandatorySteps.length === 0;
+      const allMandatoryCompleted = !forceDraft && missingDetails.length === 0;
       await ProfileService.updateProfileStatus(pid, allMandatoryCompleted ? 'ACTIVE' : 'DRAFT');
 
       // Refresh the materialized view for matching if it became active
@@ -1285,7 +1398,7 @@ export default function AddProfileForm() {
               ) : (
                 <button
                   type="button"
-                  onClick={handleSave}
+                  onClick={handleSaveClick}
                   disabled={isSaving || isUploadingImage || !step1.full_name || !step1.gender}
                   className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-8 py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                 >
@@ -1313,6 +1426,99 @@ export default function AddProfileForm() {
           />
         </div>
       </div>
+
+      {/* ── Incomplete Mandatory Fields (Draft Confirmation) Modal ── */}
+      {showDraftModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+            onClick={() => setShowDraftModal(false)}
+          />
+          <div className="relative bg-[#FAF8F5] border border-[#E5DFD3] rounded-[28px] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col p-6 sm:p-8 animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100/90 text-amber-700 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={24} />
+                </div>
+                <div>
+                  <h3 className="text-[18px] font-bold text-[#1E1F22]">Incomplete Mandatory Fields</h3>
+                  <p className="text-[12px] text-[#7D766C]">Required information is missing</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDraftModal(false)}
+                className="p-1.5 rounded-full hover:bg-[#EAE4D9] text-[#7D766C] transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Missing fields list */}
+            <p className="text-[13px] text-[#4E473D] mb-3 leading-relaxed">
+              Currently, the following mandatory fields are not entered:
+            </p>
+
+            <div className="max-h-[220px] overflow-y-auto space-y-2 p-3 rounded-2xl bg-white border border-[#E9E4DC] mb-4 custom-scrollbar">
+              {missingFieldsList.map((item) => (
+                <div
+                  key={item.stepId}
+                  className="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EFE9DF]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#064e3b] block mb-0.5">
+                      Step {item.stepId}: {item.stepName}
+                    </span>
+                    <span className="text-[13px] text-[#2F3E51] font-semibold block">
+                      {item.missingFields.join(', ')}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDraftModal(false);
+                      goToStep(item.stepId);
+                    }}
+                    className="text-[11px] font-bold text-[#C86A4A] hover:text-[#b05a3e] px-2 py-1 shrink-0 rounded-lg hover:bg-amber-50 transition-colors"
+                  >
+                    Fill now →
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Note & Confirmation Question */}
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/60 text-amber-900 text-[12.5px] leading-relaxed mb-6 font-medium">
+              Because mandatory fields remain incomplete, this profile will be saved as a <strong>DRAFT</strong>.
+              <span className="block mt-1 font-semibold text-[#1E1F22]">Do you want to continue?</span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#EFE9DF]/80">
+              <button
+                type="button"
+                onClick={() => setShowDraftModal(false)}
+                className="px-6 py-2.5 rounded-full text-[13px] font-bold bg-[#EAE4D9] text-[#2F3E51] hover:bg-[#DED5C5] transition-all"
+              >
+                No, Go Back
+              </button>
+              <button
+                type="button"
+                onClick={() => performSave(true)}
+                disabled={isSaving}
+                className="px-6 py-2.5 rounded-full text-[13px] font-bold bg-[#C86A4A] text-white hover:bg-[#b05a3e] shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <><Loader2 size={16} className="animate-spin" /> Saving...</>
+                ) : (
+                  <><Save size={16} /> Yes, Save as Draft</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

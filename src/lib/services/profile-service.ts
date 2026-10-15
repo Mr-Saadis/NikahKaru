@@ -125,13 +125,23 @@ export class ProfileService {
     // Check if exists
     const { data: existing } = await supabase.from('personal_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     
+    const sanitized = {
+      full_name: data.full_name,
+      cnic: data.cnic || null,
+      date_of_birth: data.date_of_birth || null,
+      marital_status: data.marital_status || 'NEVER_MARRIED',
+      number_of_children: data.number_of_children ? Number(data.number_of_children) : 0,
+      nationality_country_id: data.nationality_country_id ? Number(data.nationality_country_id) : null,
+      mother_tongue_id: data.mother_tongue_id ? Number(data.mother_tongue_id) : null,
+    };
+
     let result;
     if (existing) {
-      const { data: updated, error } = await supabase.from('personal_information').update(data).eq('profile_id', profileId).select().single();
+      const { data: updated, error } = await supabase.from('personal_information').update(sanitized).eq('profile_id', profileId).select().single();
       if (error) throw error;
       result = updated;
     } else {
-      const { data: inserted, error } = await supabase.from('personal_information').insert({ ...data, profile_id: profileId }).select().single();
+      const { data: inserted, error } = await supabase.from('personal_information').insert({ ...sanitized, profile_id: profileId }).select().single();
       if (error) throw error;
       result = inserted;
     }
@@ -164,16 +174,21 @@ export class ProfileService {
   static async saveEducationRecords(profileId: string, records: Partial<EducationRecord>[]): Promise<void> {
     const supabase = createClient();
     
-    // For arrays, simplest approach is delete all and re-insert, or upsert.
-    // Assuming upsert based on ID if provided, otherwise insert.
-    // To keep it clean for a multi-step form, we can delete existing and insert new ones
-    // if we want to replace the whole list. Let's do a replace-all for simplicity.
     await supabase.from('education_records').delete().eq('profile_id', profileId);
     
     if (records.length > 0) {
-      const { error } = await supabase.from('education_records').insert(
-        records.map(r => ({ ...r, profile_id: profileId }))
-      );
+      const sanitized = records.map(r => ({
+        profile_id: profileId,
+        education_level_id: r.education_level_id ? Number(r.education_level_id) : null,
+        qualification: r.qualification || null,
+        institution_name: r.institution_name || null,
+        field_of_study: r.field_of_study || null,
+        start_year: r.start_year ? Number(r.start_year) : null,
+        end_year: r.end_year ? Number(r.end_year) : null,
+        is_highest_qualification: Boolean(r.is_highest_qualification),
+        details: r.details || null,
+      }));
+      const { error } = await supabase.from('education_records').insert(sanitized);
       if (error) throw error;
     }
   }
@@ -185,9 +200,18 @@ export class ProfileService {
     const supabase = createClient();
     await supabase.from('employment_records').delete().eq('profile_id', profileId);
     if (records.length > 0) {
-      const { error } = await supabase.from('employment_records').insert(
-        records.map(r => ({ ...r, profile_id: profileId }))
-      );
+      const sanitized = records.map(r => ({
+        profile_id: profileId,
+        occupation_id: r.occupation_id ? Number(r.occupation_id) : null,
+        job_title: r.job_title || null,
+        organization_name: r.organization_name || null,
+        employment_type: r.employment_type || null,
+        start_date: r.start_date || null,
+        end_date: r.is_current ? null : (r.end_date || null),
+        is_current: Boolean(r.is_current),
+        details: r.details || null,
+      }));
+      const { error } = await supabase.from('employment_records').insert(sanitized);
       if (error) throw error;
     }
   }
@@ -275,9 +299,21 @@ export class ProfileService {
     const supabase = createClient();
     await supabase.from('parents').delete().eq('profile_id', profileId);
     if (records.length > 0) {
-      const { error } = await supabase.from('parents').insert(
-        records.map(r => ({ ...r, profile_id: profileId }))
-      );
+      const sanitized = records.map(r => ({
+        profile_id: profileId,
+        parent_type: r.parent_type as 'FATHER' | 'MOTHER',
+        status: (r.status || 'ALIVE') as 'ALIVE' | 'DECEASED',
+        full_name: r.full_name || null,
+        age: r.age ? Number(r.age) : null,
+        profession: r.profession || null,
+        education: r.education || null,
+        country_id: r.country_id ? Number(r.country_id) : null,
+        city_id: r.city_id ? Number(r.city_id) : null,
+        living_arrangement: r.living_arrangement || null,
+        social_background: r.social_background || null,
+        additional_details: r.additional_details || null,
+      }));
+      const { error } = await supabase.from('parents').insert(sanitized);
       if (error) throw error;
     }
   }
@@ -289,9 +325,18 @@ export class ProfileService {
     const supabase = createClient();
     await supabase.from('siblings').delete().eq('profile_id', profileId);
     if (records.length > 0) {
-      const { error } = await supabase.from('siblings').insert(
-        records.map(r => ({ ...r, profile_id: profileId }))
-      );
+      const sanitized = records.map(r => ({
+        profile_id: profileId,
+        gender: (r.gender || 'MALE') as 'MALE' | 'FEMALE',
+        full_name: r.full_name || null,
+        age: r.age ? Number(r.age) : null,
+        marital_status: r.marital_status || null,
+        profession: r.profession || null,
+        education: r.education || null,
+        country_id: r.country_id ? Number(r.country_id) : null,
+        city_id: r.city_id ? Number(r.city_id) : null,
+      }));
+      const { error } = await supabase.from('siblings').insert(sanitized);
       if (error) throw error;
     }
   }
@@ -431,9 +476,14 @@ export class ProfileService {
     const supabase = createClient();
     await supabase.from('children').delete().eq('profile_id', profileId);
     if (data.length > 0) {
-      const { error } = await supabase.from('children').insert(
-        data.map(d => ({ ...d, profile_id: profileId }))
-      );
+      const sanitized = data.map(d => ({
+        profile_id: profileId,
+        gender: d.gender || null,
+        age: d.age ? Number(d.age) : null,
+        living_with_profile: d.living_with_profile != null ? Boolean(d.living_with_profile) : null,
+        additional_details: d.additional_details || null,
+      }));
+      const { error } = await supabase.from('children').insert(sanitized);
       if (error) throw error;
     }
   }
@@ -442,9 +492,20 @@ export class ProfileService {
     const supabase = createClient();
     await supabase.from('previous_marriages').delete().eq('profile_id', profileId);
     if (data.length > 0) {
-      const { error } = await supabase.from('previous_marriages').insert(
-        data.map((d, index) => ({ ...d, profile_id: profileId, marriage_number: index + 1 }))
-      );
+      const sanitized = data.map((d, index) => ({
+        profile_id: profileId,
+        marriage_number: index + 1,
+        marriage_status: d.marriage_status || null,
+        marriage_year: d.marriage_year ? Number(d.marriage_year) : null,
+        end_year: d.end_year ? Number(d.end_year) : null,
+        reason_for_end: d.reason_for_end || null,
+        children_count: d.children_count ? Number(d.children_count) : 0,
+        sons_count: d.sons_count ? Number(d.sons_count) : 0,
+        daughters_count: d.daughters_count ? Number(d.daughters_count) : 0,
+        children_live_with_profile: d.children_live_with_profile != null ? Boolean(d.children_live_with_profile) : null,
+        additional_details: d.additional_details || null,
+      }));
+      const { error } = await supabase.from('previous_marriages').insert(sanitized);
       if (error) throw error;
     }
   }

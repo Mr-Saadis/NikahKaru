@@ -16,6 +16,16 @@ export function useAutoSave<T extends Record<string, any>>({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedData, setLastSavedData] = useState<T>(data);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const wasEnabledRef = useRef(enabled);
+
+  // When enabled transitions from false to true (initial DB load completes),
+  // initialize lastSavedData with current data so loaded data is not treated as dirty
+  useEffect(() => {
+    if (!wasEnabledRef.current && enabled) {
+      setLastSavedData(data);
+    }
+    wasEnabledRef.current = enabled;
+  }, [enabled, data]);
 
   useEffect(() => {
     if (!enabled) return;

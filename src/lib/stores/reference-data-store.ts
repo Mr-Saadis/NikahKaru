@@ -212,31 +212,31 @@ export const useReferenceDataStore = create<ReferenceDataState>((set, get) => ({
   // ============================================================
 
   // Country
-  getCountryById: (id) => get().countries.find((c) => c.id === id),
+  getCountryById: (id) => get().countries.find((c) => Number(c.id) === Number(id)),
   getActiveCountries: () => get().countries,
 
   // Province — cascade from country
-  getProvinceById: (id) => get().provinces.find((p) => p.id === id),
+  getProvinceById: (id) => get().provinces.find((p) => Number(p.id) === Number(id)),
   getProvincesByCountry: (countryId) =>
-    get().provinces.filter((p) => p.country_id === countryId),
+    get().provinces.filter((p) => Number(p.country_id) === Number(countryId)),
 
   // City — cascade from province or country
-  getCityById: (id) => get().cities.find((c) => c.id === id),
+  getCityById: (id) => get().cities.find((c) => Number(c.id) === Number(id)),
   getCitiesByProvince: (provinceId) =>
-    get().cities.filter((c) => c.province_id === provinceId),
+    get().cities.filter((c) => Number(c.province_id) === Number(provinceId)),
   getCitiesByCountry: (countryId) =>
-    get().cities.filter((c) => c.country_id === countryId),
+    get().cities.filter((c) => Number(c.country_id) === Number(countryId)),
 
   // Religion
-  getReligionById: (id) => get().religions.find((r) => r.id === id),
+  getReligionById: (id) => get().religions.find((r) => Number(r.id) === Number(id)),
 
   // Sect — cascade from religion
-  getSectById: (id) => get().sects.find((s) => s.id === id),
+  getSectById: (id) => get().sects.find((s) => Number(s.id) === Number(id)),
   getSectsByReligion: (religionId) =>
-    get().sects.filter((s) => s.religion_id === religionId),
+    get().sects.filter((s) => Number(s.religion_id) === Number(religionId)),
 
   // Caste
-  getCasteById: (id) => get().castes.find((c) => c.id === id),
+  getCasteById: (id) => get().castes.find((c) => Number(c.id) === Number(id)),
 
   // Mother tongue
   getMotherTongueById: (id) => get().motherTongues.find((m) => m.id === id),
