@@ -146,27 +146,43 @@ function getInitials(name: string): string {
   return (name || 'U').slice(0, 2).toUpperCase();
 }
 
+const auditLogCache = new Map<string, ProfileAuditLogItem[]>();
+const inFlightAuditFetches = new Set<string>();
+
 export function ProfileAuditLogsSection({ profileId, profileName }: ProfileAuditLogsSectionProps) {
-  const [logs, setLogs] = useState<ProfileAuditLogItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [logs, setLogs] = useState<ProfileAuditLogItem[]>(() => (profileId && auditLogCache.get(profileId)) || []);
+  const [loading, setLoading] = useState(() => !profileId || !auditLogCache.has(profileId));
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const loadLogs = useCallback(async (silent = false) => {
+  const loadLogs = useCallback(async (silent = false, forceRefresh = false) => {
     if (!profileId) {
       setLogs([]);
       setLoading(false);
       return;
     }
+
+    if (!forceRefresh && auditLogCache.has(profileId)) {
+      setLogs(auditLogCache.get(profileId)!);
+      setLoading(false);
+      return;
+    }
+
+    if (inFlightAuditFetches.has(profileId)) return;
+    inFlightAuditFetches.add(profileId);
+
     if (!silent) setLoading(true);
     else setIsRefreshing(true);
 
     try {
       const data = await fetchProfileAuditLogs(profileId);
-      setLogs(data || []);
+      const safeData = data || [];
+      auditLogCache.set(profileId, safeData);
+      setLogs(safeData);
     } catch (err) {
       console.error('Error fetching profile audit logs:', err);
     } finally {
+      inFlightAuditFetches.delete(profileId);
       setLoading(false);
       setIsRefreshing(false);
     }

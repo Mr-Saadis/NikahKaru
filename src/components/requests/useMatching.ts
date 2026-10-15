@@ -24,13 +24,16 @@ export function useMatching() {
   // Release history state
   const [releaseHistory, setReleaseHistory] = useState<Record<string, any[]>>({});
 
-  const loadSentProfiles = useCallback(async (item: RequestItem, history: any[]) => {
-    if (!history || history.length === 0 || !item) return;
+  const loadSentProfiles = useCallback(async (item: RequestItem, explicitHistory?: any[]) => {
+    if (!item) return [];
     const requestId = item.id;
     try {
-      const sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id;
-      const { fullProfiles, viewResults } = await fetchSentProfilesForRequest(requestId, sourceProfileId);
-        
+      const sourceProfileId = item.profileData?.profile_id || item.profileData?.source_profile_id || item.profileData?.id || item.id;
+      const { history: fetchedHistory, fullProfiles, viewResults } = await fetchSentProfilesForRequest(requestId, sourceProfileId);
+      const history = explicitHistory || fetchedHistory || [];
+      
+      setReleaseHistory(p => ({ ...p, [requestId]: history }));
+
       if (fullProfiles && fullProfiles.length > 0) {
         const historyMatches: MatchResult[] = history.map(h => {
           const r = viewResults?.find((vr: any) => vr.candidate_profile_id === h.candidate_profile_id);
@@ -49,9 +52,15 @@ export function useMatching() {
           };
         });
         setRealMatches(p => ({ ...p, [requestId]: historyMatches }));
+      } else {
+        setRealMatches(p => ({ ...p, [requestId]: [] }));
       }
+      return history;
     } catch (err) {
       console.error("Error loading sent profiles:", err);
+      setRealMatches(p => ({ ...p, [requestId]: [] }));
+      setReleaseHistory(p => ({ ...p, [requestId]: [] }));
+      return [];
     }
   }, []);
 

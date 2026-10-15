@@ -565,3 +565,23 @@ export async function fetchProfileAuditLogs(profileId: string): Promise<ProfileA
   });
 }
 
+// =======================================================================
+// Fetch Profile Active Preferences
+// =======================================================================
+export async function fetchProfileActivePreferences(profileId: string): Promise<any | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('vw_profile_active_preferences')
+    .select('*')
+    .eq('profile_id', profileId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching profile preferences from view:', error);
+    return null;
+  }
+
+  return data || null;
+}
+

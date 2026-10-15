@@ -10,6 +10,7 @@ import {
   fetchSentProfilesForRequest as apiFetchSentProfilesForRequest,
   fetchProfileCompleteReleaseHistory as apiFetchProfileCompleteReleaseHistory,
   fetchProfileAuditLogs as apiFetchProfileAuditLogs,
+  fetchProfileActivePreferences as apiFetchProfileActivePreferences,
   type ProfileAuditLogItem,
 } from '@/api/requests';
 
@@ -53,5 +54,9 @@ export async function fetchProfileCompleteReleaseHistory(profileId: string): Pro
 
 export async function fetchProfileAuditLogs(profileId: string): Promise<ProfileAuditLogItem[]> {
   return apiFetchProfileAuditLogs(profileId);
+}
+
+export async function fetchProfileActivePreferences(profileId: string): Promise<any | null> {
+  return apiFetchProfileActivePreferences(profileId);
 }
 

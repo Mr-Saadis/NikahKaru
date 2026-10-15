@@ -10,10 +10,14 @@ import { ProfileNav } from './ProfileNav';
 import { ProfileSection } from './ProfileSection';
 import { useScrollSpy } from './useScrollSpy';
 import { useNavigationLock } from '@/lib/stores/navigation-lock-store';
-import { fetchRequestReleaseHistory } from '@/lib/actions/requests';
+import { fetchRequestReleaseHistory, fetchProfileActivePreferences } from '@/lib/actions/requests';
 import { ProfileAuditLogsSection } from './ProfileAuditLogsSection';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { submitMatchRequest } from '@/lib/actions/agent-requests';
+
+// Session-level memory cache for profile active preferences (Rule 2.1)
+const preferencesCache = new Map<string, any>();
+const inFlightPreferencesFetches = new Set<string>();
 
 interface RequestDetailsSheetProps {
   item: RequestItem | null;
@@ -84,30 +88,124 @@ export default function RequestDetailsSheet({
 
   const [notesMap, setNotesMap] = useState<Record<string, string>>({});
   const [stickyVisible, setStickyVisible] = useState(false);
-  const prevIdRef = useRef<string | null>(null);
+  const [isLoadingReleaseData, setIsLoadingReleaseData] = useState(false);
+  const prevItemIdRef = useRef<string | null>(null);
 
   const releaseHistory = item ? (matching.releaseHistory[item.id] || []) : [];
+
+  // For new data, first time request, and second time request, no profiles have been released yet
+  const canHaveReleases = item ? !['new', 'first', 'second', 'logged'].includes(item.status) : false;
+
+  const isReleaseCached = !!(
+    item &&
+    (!canHaveReleases || (
+      matching.releaseHistory[item.id] !== undefined &&
+      (matching.releaseHistory[item.id].length === 0 ||
+        (matching.realMatches[item.id] && matching.realMatches[item.id].length > 0))
+    ))
+  );
+
+  const isActuallyLoading = canHaveReleases && (isLoadingReleaseData || (!isReleaseCached && isOpen && !!item));
+
+  const matchingRef = useRef(matching);
+  matchingRef.current = matching;
+  const inFlightFetchRef = useRef<string | null>(null);
+
+  const profileId = item?.profileData?.profile_id || item?.profileData?.source_profile_id || (item?.profileData?.request_id && item?.profileData?.request_id === item?.id ? undefined : item?.id) || item?.profileData?.id;
+
+  const [preferences, setPreferences] = useState<any | null>(() => {
+    return profileId ? (preferencesCache.get(profileId) || null) : null;
+  });
+  const [isLoadingPrefs, setIsLoadingPrefs] = useState(() => {
+    return profileId ? !preferencesCache.has(profileId) : false;
+  });
+
+  useEffect(() => {
+    if (!profileId || !isOpen) {
+      setPreferences(null);
+      setIsLoadingPrefs(false);
+      return;
+    }
+
+    if (preferencesCache.has(profileId)) {
+      setPreferences(preferencesCache.get(profileId));
+      setIsLoadingPrefs(false);
+      return;
+    }
+
+    // Reset previous preferences while loading fresh profile preferences
+    setPreferences(null);
+    setIsLoadingPrefs(true);
+
+    if (inFlightPreferencesFetches.has(profileId)) return;
+    inFlightPreferencesFetches.add(profileId);
+
+    fetchProfileActivePreferences(profileId)
+      .then((data) => {
+        preferencesCache.set(profileId, data || null);
+        setPreferences(data || null);
+      })
+      .catch((err) => {
+        console.error('Failed to load profile preferences:', err);
+      })
+      .finally(() => {
+        inFlightPreferencesFetches.delete(profileId);
+        setIsLoadingPrefs(false);
+      });
+  }, [profileId, isOpen]);
 
   useEffect(() => {
     onHeightChange?.(height);
   }, [height, onHeightChange]);
 
   useEffect(() => {
-    if (item && item.id !== prevIdRef.current) {
-      prevIdRef.current = item.id;
-      setStickyVisible(false);
-      
-      if (scrollRef.current) scrollRef.current.scrollTop = 0;
-      
-      // Fetch release history if item is responded or completed
-      fetchRequestReleaseHistory(item.id).then((history) => {
-        matching.setReleaseHistory((prev: any) => ({ ...prev, [item.id]: history }));
-        if (history && history.length > 0) {
-          matching.loadSentProfiles(item, history);
-        }
-      });
+    if (!item || !isOpen) return;
+
+    if (!canHaveReleases) {
+      setIsLoadingReleaseData(false);
+      return;
     }
-  }, [item, scrollRef, matching]);
+
+    const currentMatching = matchingRef.current;
+    const cachedHistory = currentMatching.releaseHistory[item.id];
+    const cachedMatches = currentMatching.realMatches[item.id];
+
+    // Already cached: do not re-fetch
+    if (cachedHistory !== undefined && (cachedHistory.length === 0 || (cachedMatches && cachedMatches.length > 0))) {
+      setIsLoadingReleaseData(false);
+      return;
+    }
+
+    // Already in-flight for this item: avoid concurrent duplicate requests
+    if (inFlightFetchRef.current === item.id) return;
+
+    if (item.id !== prevItemIdRef.current) {
+      prevItemIdRef.current = item.id;
+      setStickyVisible(false);
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    }
+
+    inFlightFetchRef.current = item.id;
+    setIsLoadingReleaseData(true);
+    let isMounted = true;
+
+    (async () => {
+      try {
+        await currentMatching.loadSentProfiles(item);
+      } catch (err) {
+        console.error('Error loading release history/profiles:', err);
+      } finally {
+        inFlightFetchRef.current = null;
+        if (isMounted) {
+          setIsLoadingReleaseData(false);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [item?.id, isOpen, canHaveReleases]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -177,7 +275,7 @@ export default function RequestDetailsSheet({
     if (!item) return;
     const isTurningOn = !matching.matchesOn[item.id];
     matching.toggleMatches(item, isTurningOn);
-    
+
     // Scroll logic if turned on
     if (isTurningOn) {
       setTimeout(() => {
@@ -243,12 +341,12 @@ export default function RequestDetailsSheet({
   const page = matching.matchPage[item.id] || 0;
   const reqChosen = matching.chosen[item.id];
   let M = matching.realMatches[item.id] || [];
-  
+
   if (isAgent || (!isMatchesOn && releaseHistory.length > 0)) {
     // For AGENT: only show profiles released by manager from history
     M = M.filter((m: any) => releaseHistory.some((r: any) => r.candidate_profile_id === m.candidateProfileId));
   }
-  
+
   const S = M.filter((m: any) => matching.sentExtra[item.id]?.[m.candidateProfileId]);
 
   return (
@@ -443,10 +541,17 @@ export default function RequestDetailsSheet({
                       <span>⏳ Awaiting Manager Review</span>
                     </div>
                   )}
-                  {(item.status === 'responded' || item.status === 'done') && (
-                    <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#E8F5E9] border border-[#A5D6A7] text-[#1B5E20] text-[13px] font-[600]">
-                      <span>✓ Matches Released ({releaseHistory.length})</span>
-                    </div>
+                  {(item.status === 'responded' || item.status === 'done' || releaseHistory.length > 0) && (
+                    isActuallyLoading ? (
+                      <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#F2EDE1] border border-[#E5DFD3] text-[#2F3E51] text-[13px] font-[600]">
+                        <SparkIcon size={16} className="text-[#C86A4A] animate-[sheet-spin_1s_linear_infinite]" />
+                        <span>Loading released matches…</span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#E8F5E9] border border-[#A5D6A7] text-[#1B5E20] text-[13px] font-[600]">
+                        <span>✓ Matches Released ({releaseHistory.length})</span>
+                      </div>
+                    )
                   )}
                 </div>
               ) : (
@@ -454,19 +559,29 @@ export default function RequestDetailsSheet({
                   {isMatchesOn && (
                     <button
                       type="button"
+                      disabled={isActuallyLoading || isMatchingLoading}
                       onClick={handleRematch}
-                      className="inline-flex items-center justify-center h-[48px] px-[20px] border-0 rounded-full bg-[rgba(255,255,255,.72)] backdrop-blur-[8px] text-[#111] font-inherit text-[13px] font-[600] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,.08)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(0,0,0,.15)]"
+                      className="inline-flex items-center justify-center h-[48px] px-[20px] border-0 rounded-full bg-[rgba(255,255,255,.72)] backdrop-blur-[8px] text-[#111] font-inherit text-[13px] font-[600] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,.08)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(0,0,0,.15)] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                     >
                       Rematch
                     </button>
                   )}
                   <button
                     type="button"
+                    disabled={isActuallyLoading || isMatchingLoading}
                     onClick={handleMatchNow}
-                    className="inline-flex items-center gap-[9px] h-[48px] px-[26px] border-0 rounded-full bg-[#111] text-white font-inherit text-[14px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(0,0,0,.25)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_14px_30px_rgba(0,0,0,.32)]"
+                    className="inline-flex items-center gap-[9px] h-[48px] px-[26px] border-0 rounded-full bg-[#111] text-white font-inherit text-[14px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(0,0,0,.25)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_14px_30px_rgba(0,0,0,.32)] disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
                   >
-                    <SparkIcon size={17} className={`text-[#eddd02] ${isMatchingLoading ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
-                    <span>{isMatchesOn ? 'Hide Matches' : isMatchingLoading ? 'Finding matches…' : (releaseHistory.length > 0 ? 'Rematch' : 'Match Now')}</span>
+                    <SparkIcon size={17} className={`text-[#eddd02] ${(isActuallyLoading || isMatchingLoading) ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
+                    <span>
+                      {isActuallyLoading
+                        ? 'Loading matches…'
+                        : isMatchesOn
+                          ? 'Hide Matches'
+                          : isMatchingLoading
+                            ? 'Finding matches…'
+                            : (releaseHistory.length > 0 ? 'Rematch' : 'Match Now')}
+                    </span>
                   </button>
                 </div>
               )}
@@ -474,7 +589,7 @@ export default function RequestDetailsSheet({
           </div>
 
           <div id="mt" ref={matchesRef}>
-            {(isMatchesOn || releaseHistory.length > 0) && (
+            {!isActuallyLoading && (isMatchesOn || releaseHistory.length > 0) && (
               <MatchesSection
                 item={item}
                 matches={M}
@@ -497,7 +612,11 @@ export default function RequestDetailsSheet({
               activeIndex={activeSectionIndex}
               onNavClick={handleNavClick}
             />
-            <ProfileSection item={item} />
+            <ProfileSection 
+              item={item}
+              preferences={preferences}
+              isLoadingPrefs={isLoadingPrefs}
+            />
           </div>
 
           {!isAgent && (
@@ -513,7 +632,7 @@ export default function RequestDetailsSheet({
           )}
 
 
-          {/* Profile Audit Logs (kb kia, kisny kia, kia kiaa) */}
+          {/* Profile Audit Logs () */}
           <ProfileAuditLogsSection
             profileId={item?.profileData?.profile_id || item?.profileData?.id || item?.id}
             profileName={item?.name}
