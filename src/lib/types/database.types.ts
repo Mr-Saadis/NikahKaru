@@ -71,7 +71,7 @@ export type MatchRelationshipStatus =
   | 'CLOSED'
   | 'REOPENED';
 
-export type RequestStatus = 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'CANCELLED';
+export type RequestStatus = 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'CANCELLED' | 'PENDING_OTHER' | 'DOWNLOADED';
 
 export type AssignmentStatus = 'ACTIVE' | 'ENDED';
 

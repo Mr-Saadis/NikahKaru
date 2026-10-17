@@ -180,50 +180,53 @@ export function MatchProfilePanel({
                 {groups.reduce((acc, g) => acc + g[1].length, 0)} fields
               </span>
             </div>
-          ) : isSent ? (
-            <div className="flex items-center justify-between m-[2px_4px_8px] p-[10px_12px] rounded-[14px] bg-[#e3f4e8] text-[#2d7a4b] text-[12px] font-[600]">
-              <div className="flex items-center gap-[8px] min-w-0">
-                <CheckIcon size={14} strokeWidth={3} className="shrink-0" />
-                <span className="truncate">Already sent to {item.name} on {sentDate ? formatDate(sentDate) : 'previously'}</span>
-              </div>
-              <span className="text-[11px] font-[700] text-[#236b3f] bg-[#d2edd9] px-2 py-0.5 rounded-full shrink-0 ml-2">
-                {groups.flatMap(g => g[1]).filter(r => r[2] && allowedFields.has(r[2])).length}/{totalKeys}
-              </span>
-            </div>
           ) : (
-            <div className="flex items-center gap-[8px] flex-wrap p-[6px_4px_10px]">
-              <button
-                type="button"
-                onClick={() => {
-                  const validKeys = Array.from(chosenKeys).filter(k => k !== 'All');
-                  if (validKeys.length === totalKeys) {
-                    updateSelectionKeys(new Set());
-                  } else {
-                    const allKeys = groups.flatMap((g, i) => g[1].map((_, j) => `${i}:${j}`));
-                    updateSelectionKeys(new Set(allKeys));
-                  }
-                }}
-                className={`h-[34px] px-[14px] rounded-full font-inherit text-[12px] font-[600] cursor-pointer transition-all duration-200 hover:-translate-y-[1px]
-                  ${Array.from(chosenKeys).filter(k => k !== 'All').length === totalKeys ? 'bg-[#111] text-white' : 'bg-[#f1f0ea] text-[#111] hover:bg-[#e4e3dc]'}
-                `}
-              >
-                {Array.from(chosenKeys).filter(k => k !== 'All').length === totalKeys ? 'Clear all fields' : 'Select all fields'}
-              </button>
-              
-              {Array.from(chosenKeys).filter(k => k !== 'All').length > 0 && Array.from(chosenKeys).filter(k => k !== 'All').length < totalKeys && (
+            <>
+              {isSent && (
+                <div className="flex items-center justify-between m-[2px_4px_8px] p-[10px_12px] rounded-[14px] bg-[#eaf5ed] border border-[#c4e3cc] text-[#1b5e20] text-[12px] font-[600]">
+                  <div className="flex items-center gap-[8px] min-w-0">
+                    <CheckIcon size={14} strokeWidth={3} className="shrink-0 text-[#2d7a4b]" />
+                    <span className="truncate">Sent {sentDate ? `on ${formatDate(sentDate)}` : 'previously'} · Select or deselect to update</span>
+                  </div>
+                  <span className="text-[11px] font-[700] text-[#1b5e20] bg-[#d2edd9] px-2 py-0.5 rounded-full shrink-0 ml-2">
+                    {Array.from(chosenKeys).filter(k => k !== 'All').length}/{totalKeys}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center gap-[8px] flex-wrap p-[6px_4px_10px]">
                 <button
                   type="button"
-                  onClick={() => updateSelectionKeys(new Set())}
-                  className="border-0 bg-transparent font-inherit text-[11.5px] font-[600] text-[#8d8c86] hover:text-[#111] underline cursor-pointer p-0 ml-1"
+                  onClick={() => {
+                    const validKeys = Array.from(chosenKeys).filter(k => k !== 'All');
+                    if (validKeys.length === totalKeys) {
+                      updateSelectionKeys(new Set());
+                    } else {
+                      const allKeys = groups.flatMap((g, i) => g[1].map((_, j) => `${i}:${j}`));
+                      updateSelectionKeys(new Set(allKeys));
+                    }
+                  }}
+                  className={`h-[34px] px-[14px] rounded-full font-inherit text-[12px] font-[600] cursor-pointer transition-all duration-200 hover:-translate-y-[1px]
+                    ${Array.from(chosenKeys).filter(k => k !== 'All').length === totalKeys ? 'bg-[#111] text-white' : 'bg-[#f1f0ea] text-[#111] hover:bg-[#e4e3dc]'}
+                  `}
                 >
-                  Clear all
+                  {Array.from(chosenKeys).filter(k => k !== 'All').length === totalKeys ? 'Clear all fields' : 'Select all fields'}
                 </button>
-              )}
+                
+                {Array.from(chosenKeys).filter(k => k !== 'All').length > 0 && Array.from(chosenKeys).filter(k => k !== 'All').length < totalKeys && (
+                  <button
+                    type="button"
+                    onClick={() => updateSelectionKeys(new Set())}
+                    className="border-0 bg-transparent font-inherit text-[11.5px] font-[600] text-[#8d8c86] hover:text-[#111] underline cursor-pointer p-0 ml-1"
+                  >
+                    Clear all
+                  </button>
+                )}
 
-              <small className="ml-auto text-[11px] text-[#8d8c86] self-center font-[600]">
-                {Array.from(chosenKeys).filter(k => k !== 'All').length}/{totalKeys} details
-              </small>
-            </div>
+                <small className="ml-auto text-[11px] text-[#8d8c86] self-center font-[600]">
+                  {Array.from(chosenKeys).filter(k => k !== 'All').length}/{totalKeys} details
+                </small>
+              </div>
+            </>
           )}
 
           {isAgent ? (
@@ -254,22 +257,18 @@ export function MatchProfilePanel({
               )}
             </div>
           ) : (
-            <div className={`transition-opacity duration-250 ${isSent ? 'pointer-events-none' : ''}`}>
+            <div className="transition-opacity duration-250">
               {groups.map((g, i) => {
                 const groupKeys = g[1].map((_, j) => `${i}:${j}`);
-                const allChecked = isSent
-                  ? g[1].length > 0 && g[1].every(r => r[2] && allowedFields.has(r[2]))
-                  : groupKeys.length > 0 && groupKeys.every(k => chosenKeys.has(k));
+                const allChecked = groupKeys.length > 0 && groupKeys.every(k => chosenKeys.has(k));
 
                 return (
                   <div key={g[0]} className="p-[10px_4px] border-t border-[#f1f0ea] first:border-t-0">
                     <h5 className="m-[0_0_6px] flex items-center gap-[8px] text-[10.5px] font-[700] tracking-[0.7px] uppercase text-[#8d8c86]">
                       <CheckBox
                         checked={allChecked}
-                        disabled={isSent}
                         className="w-[18px] h-[18px] rounded-[6px] [&>svg]:w-[10px] [&>svg]:h-[10px]"
                         onClick={() => {
-                          if (isSent) return;
                           const next = new Set(chosenKeys);
                           next.delete('All');
                           if (allChecked) {
@@ -285,17 +284,14 @@ export function MatchProfilePanel({
                     
                     {g[1].map((r, j) => {
                       const key = `${i}:${j}`;
-                      const isFieldSent = r[2] ? allowedFields.has(r[2]) : false;
-                      const checked = isSent ? isFieldSent : chosenKeys.has(key);
+                      const checked = chosenKeys.has(key);
                       
                       return (
                         <div key={r[0]} className="flex items-start gap-[8px] p-[5px_0] text-[12.5px]">
                           <CheckBox
                             checked={checked}
-                            disabled={isSent}
                             className="w-[18px] h-[18px] rounded-[6px] mt-[1px] [&>svg]:w-[10px] [&>svg]:h-[10px]"
                             onClick={() => {
-                              if (isSent) return;
                               const next = new Set(chosenKeys);
                               next.delete('All');
                               if (checked) next.delete(key);

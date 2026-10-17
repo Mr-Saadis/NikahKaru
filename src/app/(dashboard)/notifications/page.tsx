@@ -11,6 +11,7 @@ import type { Notification } from '@/lib/types/database.types';
 import { createBrowserClient } from '@supabase/ssr';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { markRequestAsDownloaded } from '@/lib/actions/requests';
 import Header from '@/components/layout/Header';
 
 type UINotif = Notification & {
@@ -70,6 +71,13 @@ export default function NotificationsPage() {
         requestId: selectedNotification?.entity_id || undefined
       });
       toast.success('PDF downloaded successfully');
+
+      // Track download status and log to audit_logs
+      if (selectedNotification?.entity_id) {
+        markRequestAsDownloaded(selectedNotification.entity_id).catch(err => {
+          console.error('Failed to mark request as downloaded:', err);
+        });
+      }
     } catch (err) {
       console.error('PDF download error:', err);
       toast.error('Failed to download PDF');

@@ -311,19 +311,6 @@ export function useMatching() {
       const releasesData: any[] = [];
       
       for (const [candidateId, set] of reqChosen.entries()) {
-        const isAlreadySentLocal = sentExtra[item.id]?.[candidateId];
-        const isAlreadySentHistory = releaseHistory[item.id]?.some((r: any) => r.candidate_profile_id === candidateId);
-        if (isAlreadySentLocal || isAlreadySentHistory) {
-          continue; // Skip if already sent
-        }
-
-        if (set.size === 0) {
-          const profile = results.find((x) => x.candidateProfileId === candidateId);
-          onToast(`Select at least one detail for ${profile?.candidateData?.personal_information?.full_name || 'candidate'}`);
-          openPanel(candidateId, item.id);
-          return;
-        }
-
         const profile = results.find((x) => x.candidateProfileId === candidateId);
         if (!profile) continue;
 
@@ -342,7 +329,7 @@ export function useMatching() {
           }
         }
 
-        // 2. Only fall back to all fields if user selected 'All' and selected no specific keys
+        // 2. Fall back to all fields if user selected 'All' and selected no specific keys
         if (rawPaths.length === 0 && set.has('All')) {
           groups.forEach(g => {
             g[1].forEach(f => {
@@ -353,9 +340,26 @@ export function useMatching() {
 
         // Deduplicate field paths to satisfy database constraints
         const uniquePaths = Array.from(new Set(rawPaths));
-        if (uniquePaths.length === 0) {
-          uniquePaths.push('personal_information.full_name');
+
+        // 3. Compare with baseline in releaseHistory to ensure changes exist
+        const releaseData = releaseHistory[item.id]?.find((r: any) => r.candidate_profile_id === candidateId);
+        const baselineFields: string[] = releaseData?.selected_fields || [];
+
+        const isChanged =
+          uniquePaths.length !== baselineFields.length ||
+          uniquePaths.some(fp => !baselineFields.includes(fp));
+
+        // Skip candidate if no fields were changed
+        if (!isChanged) {
+          continue;
         }
+
+        if (uniquePaths.length === 0) {
+          onToast(`Select at least one detail for ${(profile as any)?.fullProfile?.full_name || profile?.candidateData?.personal_information?.full_name || 'candidate'}`);
+          openPanel(candidateId, item.id);
+          return;
+        }
+
         const fields_data = uniquePaths.map(fp => ({ field_path: fp }));
 
         // Prepare score_breakdowns with required PostgreSQL row types
@@ -445,6 +449,11 @@ export function useMatching() {
         });
       }
 
+      if (releasesData.length === 0) {
+        onToast('No changes detected to send.');
+        return;
+      }
+
       onToast('Sending matches...');
 
       try {
@@ -459,7 +468,7 @@ export function useMatching() {
           throw new Error(errData.error || 'API failed');
         }
 
-        const n = reqChosen.size;
+        const n = releasesData.length;
         const t = new Date().toISOString().slice(0, 10);
         
         setSentExtra((prev) => {

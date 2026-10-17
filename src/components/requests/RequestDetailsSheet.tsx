@@ -541,7 +541,7 @@ export default function RequestDetailsSheet({
                       <span>⏳ Awaiting Manager Review</span>
                     </div>
                   )}
-                  {(item.status === 'responded' || item.status === 'done' || releaseHistory.length > 0) && (
+                  {(item.status === 'responded' || item.status === 'downloaded' || item.status === 'done' || releaseHistory.length > 0) && (
                     isActuallyLoading ? (
                       <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#F2EDE1] border border-[#E5DFD3] text-[#2F3E51] text-[13px] font-[600]">
                         <SparkIcon size={16} className="text-[#C86A4A] animate-[sheet-spin_1s_linear_infinite]" />

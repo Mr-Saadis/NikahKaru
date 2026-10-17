@@ -153,6 +153,46 @@ export async function markRequestAsRead(requestId: string): Promise<void> {
 }
 
 // =======================================================================
+// Mark Request as Downloaded (Agent downloaded matching release PDF)
+// =======================================================================
+export async function markRequestAsDownloaded(requestId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('mark_request_pdf_downloaded', {
+    p_request_id: requestId,
+  });
+
+  if (error) {
+    console.warn('RPC mark_request_pdf_downloaded error, using direct update fallback:', error);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error: updateErr } = await supabase
+      .from('information_requests')
+      .update({ status: 'DOWNLOADED', updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+
+    if (updateErr) {
+      return { success: false, error: updateErr.message };
+    }
+
+    if (user?.id) {
+      await supabase.from('audit_logs').insert({
+        actor_user_id: user.id,
+        action: 'STATUS_CHANGE',
+        entity_type: 'information_request',
+        entity_id: requestId,
+        old_data: { status: 'IN_REVIEW' },
+        new_data: { status: 'DOWNLOADED' },
+        metadata: { event: 'PDF_DOWNLOAD', description: 'Agent downloaded match release PDF' }
+      });
+    }
+
+    return { success: true };
+  }
+
+  return { success: true, data };
+}
+
+// =======================================================================
 // Fetch Request Release History (Manager Only)
 // =======================================================================
 export async function fetchRequestReleaseHistory(requestId: string): Promise<any[]> {

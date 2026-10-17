@@ -6,6 +6,7 @@ import {
   fetchColumnRequests as apiFetchColumnRequests,
   fetchAgentNames as apiFetchAgentNames, 
   markRequestAsRead as apiMarkRequestAsRead,
+  markRequestAsDownloaded as apiMarkRequestAsDownloaded,
   fetchRequestReleaseHistory as apiFetchRequestReleaseHistory,
   fetchSentProfilesForRequest as apiFetchSentProfilesForRequest,
   fetchProfileCompleteReleaseHistory as apiFetchProfileCompleteReleaseHistory,
@@ -35,6 +36,10 @@ export async function fetchAgentNames(): Promise<string[]> {
 
 export async function markRequestAsRead(requestId: string): Promise<void> {
   return apiMarkRequestAsRead(requestId);
+}
+
+export async function markRequestAsDownloaded(requestId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  return apiMarkRequestAsDownloaded(requestId);
 }
 
 export async function fetchRequestReleaseHistory(requestId: string): Promise<any[]> {

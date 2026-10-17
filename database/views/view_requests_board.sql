@@ -44,6 +44,7 @@ SELECT
             CASE WHEN rc.req_count > 1 THEN 'second' ELSE 'first' END
         WHEN lr.req_status = 'PENDING_OTHER' THEN 'second'
         WHEN lr.req_status = 'IN_REVIEW' THEN 'responded'
+        WHEN lr.req_status = 'DOWNLOADED' THEN 'downloaded'
         WHEN lr.req_status = 'COMPLETED' THEN 'done'
         WHEN lr.req_status = 'CANCELLED' THEN 'archive'
         ELSE 'new'

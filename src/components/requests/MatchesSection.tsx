@@ -76,16 +76,49 @@ export function MatchesSection({
   const a = page * 5;
   const pageMatches = useMemo(() => matches.slice(a, a + 5), [matches, a]);
   const rem = Math.min(5, matches.length - a - 5);
-  let n = 0;
-  if (chosen) {
-    for (const [candidateId, keysSet] of chosen.entries()) {
-      const releaseData = releaseHistory.find(r => r.candidate_profile_id === candidateId);
-      const isAlreadySent = sent.some(s => s.candidateProfileId === candidateId) || !!releaseData;
-      if (!isAlreadySent && keysSet && keysSet.size > 0) {
-        n++;
+
+  const changedCandidates = useMemo(() => {
+    if (!chosen) return [];
+    const list: { match: MatchResult; fields: string[] }[] = [];
+    for (const m of matches) {
+      const keysSet = chosen.get(m.candidateProfileId);
+      if (!keysSet) continue;
+
+      const releaseData = releaseHistory.find(r => r.candidate_profile_id === m.candidateProfileId);
+      const baselineFields: string[] = releaseData?.selected_fields || [];
+
+      // Extract current selected field paths
+      const groups = getMatchProfileGroups(m);
+      const paths: string[] = [];
+      for (const k of keysSet) {
+        if (k === 'All') continue;
+        const [gIdx, fIdx] = k.split(':').map(Number);
+        if (!isNaN(gIdx) && !isNaN(fIdx) && groups[gIdx]?.[1]?.[fIdx]?.[2]) {
+          paths.push(groups[gIdx][1][fIdx][2]!);
+        }
+      }
+      if (paths.length === 0 && keysSet.has('All')) {
+        groups.forEach(g => {
+          g[1].forEach(f => {
+            if (f[2]) paths.push(f[2]);
+          });
+        });
+      }
+      const uniqueCurrent = Array.from(new Set(paths));
+
+      // Check if current fields differ from baseline
+      const isDifferent =
+        uniqueCurrent.length !== baselineFields.length ||
+        uniqueCurrent.some(f => !baselineFields.includes(f));
+
+      if (isDifferent && uniqueCurrent.length > 0) {
+        list.push({ match: m, fields: uniqueCurrent });
       }
     }
-  }
+    return list;
+  }, [chosen, matches, releaseHistory]);
+
+  const n = changedCandidates.length;
 
   const formatDate = (iso: string) => {
     if (!iso) return '';
@@ -110,10 +143,10 @@ export function MatchesSection({
               type="button"
               disabled={n === 0}
               onClick={() => sendSelected(item)}
-              title={`Send selected profiles to ${item.name}`}
+              title={n === 0 ? 'No field changes to send' : `Send updated profile details (${n} candidate${n > 1 ? 's' : ''})`}
               className={`inline-flex items-center gap-2 h-[38px] px-[18px] border-0 rounded-full font-inherit text-[12.5px] font-[600] whitespace-nowrap transition-all duration-220
                 ${n === 0
-                  ? 'bg-[#e4e3dc] text-[#9a9992] cursor-default'
+                  ? 'bg-[#e4e3dc] text-[#9a9992] cursor-not-allowed opacity-60'
                   : 'bg-[#111] text-white cursor-pointer hover:-translate-y-[2px] hover:shadow-[0_10px_20px_rgba(0,0,0,.22)]'
                 }`}
             >
@@ -124,10 +157,13 @@ export function MatchesSection({
         </div>
 
         {pageMatches.map((m, i) => {
-          const isChosen = (chosen?.get(m.candidateProfileId)?.size || 0) > 0;
           const isOpen = openProfile?.requestId === item.id && openProfile.candidateId === m.candidateProfileId;
           const releaseData = releaseHistory.find(r => r.candidate_profile_id === m.candidateProfileId);
           const isSent = sent.some(s => s.candidateProfileId === m.candidateProfileId) || !!releaseData;
+          const hasUserChosen = chosen?.has(m.candidateProfileId);
+          const isChosen = hasUserChosen
+            ? (chosen?.get(m.candidateProfileId)?.size || 0) > 0
+            : isSent;
           const allowedFields = new Set<string>(releaseData?.selected_fields || []);
 
           const p = (m as any).fullProfile || m.candidateData;
@@ -173,8 +209,7 @@ export function MatchesSection({
             >
               {!isAgent && (
                 <CheckBox
-                  checked={isChosen || isSent}
-                  disabled={isSent}
+                  checked={isChosen}
                   className="-mr-[2px]"
                   aria-label={`Select ${cName}`}
                   onClick={(e) => {

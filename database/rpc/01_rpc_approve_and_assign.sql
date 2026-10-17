@@ -89,22 +89,27 @@ BEGIN
     ----------------------------------------------------------------
     SELECT
         ir.source_profile_id,
-        ir.requested_by,
+        COALESCE(
+            (SELECT ira.assigned_to FROM public.information_request_assignments ira WHERE ira.request_id = ir.id AND ira.status = 'ACTIVE' LIMIT 1),
+            p.current_agent_id,
+            ir.requested_by
+        ),
         ir.status::TEXT
     INTO
         v_source_profile_id,
         v_agent_id,
         v_request_status
     FROM public.information_requests ir
+    LEFT JOIN public.profiles p ON p.id = ir.source_profile_id
     WHERE ir.id = p_request_id
-    FOR UPDATE;
+    FOR UPDATE OF ir;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Information request not found';
     END IF;
 
-    -- This RPC accepts a request that has not yet been reviewed.
-    IF v_request_status <> 'PENDING' THEN
+    -- This RPC accepts a request that is either pending, in review, or downloaded (re-release).
+    IF v_request_status NOT IN ('PENDING', 'IN_REVIEW', 'DOWNLOADED') THEN
         RAISE EXCEPTION
             'Request cannot be released from status %',
             v_request_status;
@@ -394,8 +399,13 @@ BEGIN
         END LOOP;
 
         ------------------------------------------------------------
-        -- 7D. Create information release for this candidate
+        -- 7D. Delete previous release for this candidate to save space
+        -- and ensure only the latest active release snapshot is preserved
         ------------------------------------------------------------
+        DELETE FROM public.information_releases
+        WHERE request_id = p_request_id
+          AND candidate_profile_id = v_candidate_id;
+
         INSERT INTO public.information_releases (
             request_id,
             match_run_result_id,
@@ -638,5 +648,64 @@ BEGIN
         'information_request',
         p_request_id
     );
+END;
+$$;
+
+
+-- =========================================================================
+-- RPC 3: Mark Request PDF Downloaded (Agent downloaded matching release PDF)
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.mark_request_pdf_downloaded(
+    p_request_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, auth
+AS $$
+DECLARE
+    v_user_id UUID := auth.uid();
+    v_old_status public.request_status;
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Authentication required';
+    END IF;
+
+    SELECT status INTO v_old_status
+    FROM public.information_requests
+    WHERE id = p_request_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Request not found';
+    END IF;
+
+    -- Only transition if currently IN_REVIEW
+    IF v_old_status = 'IN_REVIEW' THEN
+        UPDATE public.information_requests
+        SET status = 'DOWNLOADED',
+            updated_at = NOW()
+        WHERE id = p_request_id;
+
+        INSERT INTO public.audit_logs (
+            actor_user_id,
+            action,
+            entity_type,
+            entity_id,
+            old_data,
+            new_data,
+            metadata
+        )
+        VALUES (
+            v_user_id,
+            'STATUS_CHANGE'::public.audit_action,
+            'information_request',
+            p_request_id,
+            jsonb_build_object('status', v_old_status),
+            jsonb_build_object('status', 'DOWNLOADED'),
+            jsonb_build_object('event', 'PDF_DOWNLOAD', 'description', 'Agent downloaded matching release PDF')
+        );
+    END IF;
+
+    RETURN jsonb_build_object('success', true, 'status', 'DOWNLOADED');
 END;
 $$;
