@@ -193,6 +193,68 @@ export async function markRequestAsDownloaded(requestId: string): Promise<{ succ
 }
 
 // =======================================================================
+// Delete/Revoke Sent Profiles for a Request (Manager/Admin Only)
+// =======================================================================
+export async function deleteSentProfiles(
+  requestId: string,
+  candidateProfileIds: string[]
+): Promise<{ success: boolean; error?: string; remainingCount?: number }> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('revoke_or_delete_information_releases', {
+    p_request_id: requestId,
+    p_candidate_ids: candidateProfileIds,
+  });
+
+  if (error) {
+    console.warn('RPC revoke_or_delete_information_releases error, using direct delete fallback:', error);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Direct deletion from information_releases
+    const { error: delErr } = await supabase
+      .from('information_releases')
+      .delete()
+      .eq('request_id', requestId)
+      .in('candidate_profile_id', candidateProfileIds);
+
+    if (delErr) {
+      return { success: false, error: delErr.message };
+    }
+
+    // Check remaining releases
+    const { count } = await supabase
+      .from('information_releases')
+      .select('*', { count: 'exact', head: true })
+      .eq('request_id', requestId);
+
+    if (count === 0 || count === null) {
+      await supabase
+        .from('information_requests')
+        .update({ status: 'PENDING', updated_at: new Date().toISOString() })
+        .eq('id', requestId);
+    }
+
+    if (user?.id) {
+      await supabase.from('audit_logs').insert({
+        actor_user_id: user.id,
+        action: 'DELETE',
+        entity_type: 'information_releases',
+        entity_id: requestId,
+        metadata: {
+          event: 'RELEASE_REVOKED',
+          deleted_candidates: candidateProfileIds,
+          remaining_count: count ?? 0
+        }
+      });
+    }
+
+    return { success: true, remainingCount: count ?? 0 };
+  }
+
+  return { success: true, remainingCount: data?.remaining_count ?? 0 };
+}
+
+// =======================================================================
 // Fetch Request Release History (Manager Only)
 // =======================================================================
 export async function fetchRequestReleaseHistory(requestId: string): Promise<any[]> {

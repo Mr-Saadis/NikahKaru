@@ -42,9 +42,10 @@ export function MatchProfilePanel({
 }: MatchProfilePanelProps) {
   const { role } = useAuth();
   const isAgent = role === 'AGENT';
+  const isNewData = item?.status === 'new';
 
   const isOpen = !!openProfile && openProfile.requestId === item?.id && !!matchProfile;
-  const isSelected = chosenKeys.size > 0;
+  const isSelected = !isNewData && chosenKeys.size > 0;
   
   const candidateReleases = releaseHistory.filter(r => r.candidate_profile_id === matchProfile?.candidateProfileId);
   const historyRecord = candidateReleases[0];
@@ -98,6 +99,7 @@ export function MatchProfilePanel({
   const prevId = useRef<string | null>(null);
 
   useEffect(() => {
+    if (isNewData) return;
     if (isOpen && matchProfile?.candidateProfileId !== prevId.current) {
       prevId.current = matchProfile?.candidateProfileId || null;
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -118,7 +120,7 @@ export function MatchProfilePanel({
         }
       }
     }
-  }, [isOpen, matchProfile, historyRecord, groups, updateSelectionKeys]);
+  }, [isOpen, matchProfile, historyRecord, groups, updateSelectionKeys, isNewData]);
 
   const formatDate = (iso: string) => {
     if (!iso) return '';
@@ -180,6 +182,13 @@ export function MatchProfilePanel({
                 {groups.reduce((acc, g) => acc + g[1].length, 0)} fields
               </span>
             </div>
+          ) : isNewData ? (
+            <div className="flex items-center justify-between p-[8px_12px] rounded-[16px] bg-[#f8f7f2] border border-[#eeede6] mb-3">
+              <span className="text-[11.5px] font-[600] text-[#111]">Candidate Profile Details</span>
+              <span className="text-[11px] text-[#8d8c86] font-[600]">
+                {groups.reduce((acc, g) => acc + g[1].length, 0)} details
+              </span>
+            </div>
           ) : (
             <>
               {isSent && (
@@ -229,11 +238,11 @@ export function MatchProfilePanel({
             </>
           )}
 
-          {isAgent ? (
+          {isAgent || isNewData ? (
             <div className="space-y-3">
               {groups.length === 0 ? (
                 <div className="text-center py-6 text-[#8d8c86] text-[12px]">
-                  No field information was released for this candidate.
+                  {isAgent ? 'No field information was released for this candidate.' : 'No profile details available.'}
                 </div>
               ) : (
                 groups.map((g) => (

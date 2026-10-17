@@ -3,6 +3,7 @@ import type { MatchResult } from '@/lib/matching/types';
 import { CheckBox } from './CheckBox';
 import { MatchRing } from './MatchRing';
 import { CheckIcon, SendIcon, ChevronRightIcon } from './icons';
+import { Trash2 } from 'lucide-react';
 import type { RequestItem } from './types';
 import { fetchProfileCompleteReleaseHistory } from '@/lib/actions/requests';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -27,6 +28,7 @@ interface MatchesSectionProps {
   setOpenProfile: (p: { candidateId: string; requestId: string } | null) => void;
   toggleSelection: (reqId: string, candidateId: string, keys: string[]) => void;
   sendSelected: (item: RequestItem) => void;
+  deleteSentProfiles?: (item: RequestItem, candidateProfileIds: string[]) => Promise<void>;
   releaseHistory?: any[];
   keysOf?: any; // Mock keys no longer needed
 }
@@ -42,6 +44,7 @@ export function MatchesSection({
   setOpenProfile,
   toggleSelection,
   sendSelected,
+  deleteSentProfiles,
   releaseHistory = [],
 }: MatchesSectionProps) {
   const { role } = useAuth();
@@ -120,6 +123,27 @@ export function MatchesSection({
 
   const n = changedCandidates.length;
 
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const sentCandidateIds = useMemo(() => {
+    const set = new Set<string>();
+    releaseHistory.forEach(r => {
+      if (r?.candidate_profile_id) set.add(r.candidate_profile_id);
+    });
+    sent.forEach(s => {
+      if (s?.candidateProfileId) set.add(s.candidateProfileId);
+    });
+    return set;
+  }, [releaseHistory, sent]);
+
+  useEffect(() => {
+    setIsDeleteMode(false);
+    setSelectedForDeletion(new Set());
+    setIsDeleting(false);
+  }, [item.id]);
+
   const formatDate = (iso: string) => {
     if (!iso) return '';
     const datePart = iso.split('T')[0];
@@ -138,32 +162,122 @@ export function MatchesSection({
               {matches.length} {isAgent ? 'released' : 'found · highest match first'}
             </small>
           </h4>
-          {!isAgent && (
-            <button
-              type="button"
-              disabled={n === 0}
-              onClick={() => sendSelected(item)}
-              title={n === 0 ? 'No field changes to send' : `Send updated profile details (${n} candidate${n > 1 ? 's' : ''})`}
-              className={`inline-flex items-center gap-2 h-[38px] px-[18px] border-0 rounded-full font-inherit text-[12.5px] font-[600] whitespace-nowrap transition-all duration-220
-                ${n === 0
-                  ? 'bg-[#e4e3dc] text-[#9a9992] cursor-not-allowed opacity-60'
-                  : 'bg-[#111] text-white cursor-pointer hover:-translate-y-[2px] hover:shadow-[0_10px_20px_rgba(0,0,0,.22)]'
-                }`}
-            >
-              <SendIcon size={14} />
-              Send{n > 0 ? ` (${n})` : ''}
-            </button>
+          {!isAgent && item.status !== 'new' && (
+            <div className="flex items-center gap-2">
+              {!isDeleteMode ? (
+                <>
+                  {sentCandidateIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDeleteMode(true);
+                        setSelectedForDeletion(new Set());
+                        setOpenProfile(null);
+                      }}
+                      title="Delete sent profiles"
+                      className="inline-flex items-center gap-1.5 h-[38px] px-[16px] border border-[#fca5a5] rounded-full font-inherit text-[12.5px] font-[600] text-[#b91c1c] bg-[#fff5f5] hover:bg-[#fee2e2] transition-all duration-220 cursor-pointer shadow-[0_2px_8px_rgba(185,28,28,0.06)]"
+                    >
+                      <Trash2 size={13} />
+                      <span>Delete</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={n === 0}
+                    onClick={() => sendSelected(item)}
+                    title={n === 0 ? 'No field changes to send' : `Send updated profile details (${n} candidate${n > 1 ? 's' : ''})`}
+                    className={`inline-flex items-center gap-2 h-[38px] px-[18px] border-0 rounded-full font-inherit text-[12.5px] font-[600] whitespace-nowrap transition-all duration-220
+                      ${n === 0
+                        ? 'bg-[#e4e3dc] text-[#9a9992] cursor-not-allowed opacity-60'
+                        : 'bg-[#111] text-white cursor-pointer hover:-translate-y-[2px] hover:shadow-[0_10px_20px_rgba(0,0,0,.22)]'
+                      }`}
+                  >
+                    <SendIcon size={14} />
+                    Send{n > 0 ? ` (${n})` : ''}
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={() => {
+                      setIsDeleteMode(false);
+                      setSelectedForDeletion(new Set());
+                    }}
+                    className="inline-flex items-center h-[34px] px-[13px] rounded-full text-[12px] font-[600] bg-[#f1f0ea] text-[#444] hover:bg-[#e4e3dc] transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={() => {
+                      if (selectedForDeletion.size === sentCandidateIds.size) {
+                        setSelectedForDeletion(new Set());
+                      } else {
+                        setSelectedForDeletion(new Set(sentCandidateIds));
+                      }
+                    }}
+                    className="inline-flex items-center h-[34px] px-[13px] rounded-full text-[12px] font-[600] border border-[#fca5a5] bg-white text-[#b91c1c] hover:bg-[#fff5f5] transition-all cursor-pointer"
+                  >
+                    {selectedForDeletion.size === sentCandidateIds.size ? 'Deselect All' : `Select All Sent (${sentCandidateIds.size})`}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={selectedForDeletion.size === 0 || isDeleting}
+                    onClick={async () => {
+                      if (selectedForDeletion.size === 0 || !deleteSentProfiles) return;
+                      setIsDeleting(true);
+                      try {
+                        await deleteSentProfiles(item, Array.from(selectedForDeletion));
+                        setSelectedForDeletion(new Set());
+                        setIsDeleteMode(false);
+                      } catch (e) {
+                        // Handled in useMatching hook
+                      } finally {
+                        setIsDeleting(false);
+                      }
+                    }}
+                    className={`inline-flex items-center gap-1.5 h-[34px] px-[16px] rounded-full font-inherit text-[12.5px] font-[600] transition-all duration-200
+                      ${selectedForDeletion.size === 0 || isDeleting
+                        ? 'bg-[#fca5a5] text-white opacity-50 cursor-not-allowed'
+                        : 'bg-[#dc2626] text-white hover:bg-[#b91c1c] shadow-[0_4px_12px_rgba(220,38,38,0.25)] cursor-pointer hover:-translate-y-[1px]'
+                      }`}
+                  >
+                    <Trash2 size={13} className={isDeleting ? 'animate-spin' : ''} />
+                    <span>{isDeleting ? 'Deleting...' : `Confirm Delete${selectedForDeletion.size > 0 ? ` (${selectedForDeletion.size})` : ''}`}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
+
+        {isDeleteMode && (
+          <div className="mb-3 px-3.5 py-2 rounded-[14px] bg-[#fff5f5] border border-[#fca5a5] flex items-center justify-between text-[12px] text-[#991b1b] animate-[rise_.3s_ease]">
+            <span className="font-[600]">
+              Safety Mode: Only already sent profiles can be selected for deletion.
+            </span>
+            <span className="text-[11px] font-[600] bg-[#fee2e2] px-2 py-0.5 rounded-full text-[#b91c1c]">
+              {selectedForDeletion.size} / {sentCandidateIds.size} selected
+            </span>
+          </div>
+        )}
 
         {pageMatches.map((m, i) => {
           const isOpen = openProfile?.requestId === item.id && openProfile.candidateId === m.candidateProfileId;
           const releaseData = releaseHistory.find(r => r.candidate_profile_id === m.candidateProfileId);
-          const isSent = sent.some(s => s.candidateProfileId === m.candidateProfileId) || !!releaseData;
+          const isSent = sent.some(s => s.candidateProfileId === m.candidateProfileId) || !!releaseData || sentCandidateIds.has(m.candidateProfileId);
           const hasUserChosen = chosen?.has(m.candidateProfileId);
-          const isChosen = hasUserChosen
-            ? (chosen?.get(m.candidateProfileId)?.size || 0) > 0
-            : isSent;
+          const isChosen = item.status !== 'new' && (
+            hasUserChosen
+              ? (chosen?.get(m.candidateProfileId)?.size || 0) > 0
+              : isSent
+          );
           const allowedFields = new Set<string>(releaseData?.selected_fields || []);
 
           const p = (m as any).fullProfile || m.candidateData;
@@ -187,6 +301,121 @@ export function MatchesSection({
             cJob
           ].filter(Boolean).join(' · ');
 
+          // In Delete Mode: Unsent profiles cannot be selected
+          if (isDeleteMode && !isSent) {
+            return (
+              <div
+                key={m.candidateProfileId}
+                className="flex items-center gap-3 w-full border border-[#eee] bg-[#fafafa] rounded-[20px] p-[10px_14px_10px_10px] mb-[10px] text-left opacity-35 cursor-not-allowed select-none grayscale-[40%]"
+                title="Unsent candidate - cannot be deleted"
+              >
+                <div className="w-[18px] h-[18px] rounded border border-gray-300 bg-gray-100 shrink-0 -mr-[2px]" />
+                <div
+                  className="w-[44px] h-[44px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[13px] shrink-0"
+                  style={{ background: AVC[m.candidateProfileId.charCodeAt(0) % 5] }}
+                >
+                  {getInitials(cName)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <b className="block text-[14.5px] font-[600] text-gray-400 tracking-[-0.2px] truncate">
+                    {cName}
+                  </b>
+                  {cardSub && (
+                    <small className="block mt-[2px] text-[#aaa] text-[11px] font-[500] truncate">
+                      {cardSub}
+                    </small>
+                  )}
+                </div>
+                <div className="flex flex-col items-center opacity-40">
+                  <MatchRing pct={Math.round(m.finalScore)} />
+                  <small className="text-[#8d8c86] text-[9.5px] -mt-[2px]">match</small>
+                </div>
+              </div>
+            );
+          }
+
+          // In Delete Mode: Sent profiles can be selected
+          if (isDeleteMode && isSent) {
+            const isSelected = selectedForDeletion.has(m.candidateProfileId);
+            return (
+              <div
+                key={m.candidateProfileId}
+                tabIndex={0}
+                onClick={() => {
+                  setSelectedForDeletion(prev => {
+                    const next = new Set(prev);
+                    if (next.has(m.candidateProfileId)) next.delete(m.candidateProfileId);
+                    else next.add(m.candidateProfileId);
+                    return next;
+                  });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setSelectedForDeletion(prev => {
+                      const next = new Set(prev);
+                      if (next.has(m.candidateProfileId)) next.delete(m.candidateProfileId);
+                      else next.add(m.candidateProfileId);
+                      return next;
+                    });
+                  }
+                }}
+                className={`flex items-center gap-3 w-full border rounded-[20px] p-[10px_14px_10px_10px] mb-[10px] text-left cursor-pointer transition-all duration-[220ms] last:mb-0
+                  ${isSelected
+                    ? 'bg-[#fff5f5] border-[#f87171] ring-2 ring-[#ef4444] shadow-[0_4px_16px_rgba(239,68,68,0.15)]'
+                    : 'bg-white border-[#fca5a5] hover:bg-[#fffafa] hover:border-[#f87171]'
+                  }
+                `}
+              >
+                <CheckBox
+                  checked={isSelected}
+                  className="-mr-[2px]"
+                  aria-label={`Select ${cName} for deletion`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedForDeletion(prev => {
+                      const next = new Set(prev);
+                      if (next.has(m.candidateProfileId)) next.delete(m.candidateProfileId);
+                      else next.add(m.candidateProfileId);
+                      return next;
+                    });
+                  }}
+                />
+
+                <div
+                  className="w-[44px] h-[44px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[13px] shrink-0"
+                  style={{ background: AVC[m.candidateProfileId.charCodeAt(0) % 5] }}
+                >
+                  {getInitials(cName)}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <b className="block text-[14.5px] font-[600] tracking-[-0.2px] truncate">
+                    {cName}
+                    <span className={`inline-flex items-center gap-1 ml-2 align-[1px] rounded-full px-[8px] py-[2px] text-[10px] font-[700] ${
+                      isSelected
+                        ? 'bg-[#fee2e2] text-[#b91c1c]'
+                        : 'bg-[#e3f4e8] text-[#2d7a4b]'
+                    }`}>
+                      {isSelected ? <Trash2 size={10} /> : <CheckIcon size={10} strokeWidth={3} />}
+                      {isSelected ? 'To Delete' : 'Sent'}
+                    </span>
+                  </b>
+                  {cardSub && (
+                    <small className="block mt-[2px] text-[#8d8c86] text-[11px] font-[500] truncate">
+                      {cardSub}
+                    </small>
+                  )}
+                </div>
+
+                <div className="flex flex-col items-center">
+                  <MatchRing pct={Math.round(m.finalScore)} />
+                  <small className="text-[#8d8c86] text-[9.5px] -mt-[2px]">match</small>
+                </div>
+              </div>
+            );
+          }
+
+          // Normal Mode Card
           return (
             <div
               key={m.candidateProfileId}
@@ -207,7 +436,7 @@ export function MatchesSection({
               `}
               style={{ animationDelay: `${i * 0.06}s` }}
             >
-              {!isAgent && (
+              {!isAgent && item.status !== 'new' && (
                 <CheckBox
                   checked={isChosen}
                   className="-mr-[2px]"
@@ -290,7 +519,22 @@ export function MatchesSection({
 
       {/* RIGHT BOX */}
       <div className="bg-white border border-[#eeede6] shadow-[0_6px_18px_rgba(30,30,50,.05)] rounded-[24px] p-[18px_20px] flex flex-col">
-        {!activeMatch ? (
+        {isDeleteMode ? (
+          <div className="text-center p-6 m-auto">
+            <div className="w-12 h-12 rounded-full bg-[#fff5f5] text-[#dc2626] flex items-center justify-center mx-auto mb-3">
+              <Trash2 size={24} />
+            </div>
+            <h4 className="text-[14px] font-[700] text-[#991b1b] mb-1">Delete Sent Data Mode</h4>
+            <p className="text-[12px] text-[#8d8c86] max-w-[260px] mx-auto leading-relaxed">
+              Select already sent profiles from the list to revoke/delete the sent data. Unsent profiles cannot be selected.
+            </p>
+            {selectedForDeletion.size > 0 && (
+              <div className="mt-4 inline-block px-3 py-1.5 rounded-full bg-[#fee2e2] text-[#991b1b] text-[12px] font-[600]">
+                {selectedForDeletion.size} profile{selectedForDeletion.size > 1 ? 's' : ''} marked for deletion
+              </div>
+            )}
+          </div>
+        ) : !activeMatch ? (
           <>
             <div className="flex items-center gap-2 mb-3">
               <h4 className="flex items-baseline gap-2 m-0 text-[14px] font-[700] tracking-[-0.2px]">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { RequestItem, ColumnDef } from './types';
 import { useBottomSheet } from './useBottomSheet';
 import { XIcon, PhoneIcon, CopyIcon, UserIcon, HashIcon, CalendarIcon, SparkIcon, BookmarkFilledIcon } from './icons';
+import { FileDown } from 'lucide-react';
 import { MatchesSection } from './MatchesSection';
 import { ProfileNav } from './ProfileNav';
 import { ProfileSection } from './ProfileSection';
@@ -14,6 +15,9 @@ import { fetchRequestReleaseHistory, fetchProfileActivePreferences } from '@/lib
 import { ProfileAuditLogsSection } from './ProfileAuditLogsSection';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { submitMatchRequest } from '@/lib/actions/agent-requests';
+import { generateSingleProfilePDF, generateReleasedProfilesPDF } from '@/lib/utils/pdfExport';
+import { notificationService } from '@/lib/services/notification-service';
+import { createBrowserClient } from '@supabase/ssr';
 
 // Session-level memory cache for profile active preferences (Rule 2.1)
 const preferencesCache = new Map<string, any>();
@@ -31,6 +35,7 @@ interface RequestDetailsSheetProps {
   onHeightChange?: (height: number) => void;
   matching: any;
   hideRespondLater?: boolean;
+  isDirectory?: boolean;
   rightOffset?: number | string;
 }
 
@@ -70,6 +75,7 @@ export default function RequestDetailsSheet({
   columns,
   matching,
   hideRespondLater = false,
+  isDirectory = false,
   rightOffset = 10,
 }: RequestDetailsSheetProps) {
   const {
@@ -84,7 +90,10 @@ export default function RequestDetailsSheet({
   const router = useRouter();
   const { role } = useAuth();
   const isAgent = role === 'AGENT';
+  const isAdmin = role === 'HIGH_LEVEL_ADMIN';
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [isDownloadingProfilePdf, setIsDownloadingProfilePdf] = useState(false);
+  const [isDownloadingMatchesPdf, setIsDownloadingMatchesPdf] = useState(false);
 
   const [notesMap, setNotesMap] = useState<Record<string, string>>({});
   const [stickyVisible, setStickyVisible] = useState(false);
@@ -329,6 +338,140 @@ export default function RequestDetailsSheet({
     }
   }, [scrollRef]);
 
+  const isResponded = Boolean(
+    item &&
+    (['responded', 'downloaded', 'done'].includes(item.status) ||
+      releaseHistory.length > 0 ||
+      ['IN_REVIEW', 'DOWNLOADED', 'COMPLETED'].includes((item.profileData as any)?.request_status))
+  );
+
+  const handleDownloadProfilePdf = useCallback(async () => {
+    if (!item) return;
+    try {
+      setIsDownloadingProfilePdf(true);
+      onToast('Generating profile PDF...');
+      await generateSingleProfilePDF({
+        item,
+        preferences,
+      });
+      onToast('Profile PDF downloaded successfully');
+    } catch (err) {
+      console.error('Failed to download profile PDF:', err);
+      onToast('Failed to download profile PDF');
+    } finally {
+      setIsDownloadingProfilePdf(false);
+    }
+  }, [item, preferences, onToast]);
+
+  const handleDownloadMatchesPdf = useCallback(async () => {
+    if (!item) return;
+    try {
+      setIsDownloadingMatchesPdf(true);
+      onToast('Generating matches PDF...');
+
+      const targetRequestId = (item.profileData as any)?.request_id || (item.id.length === 36 ? item.id : undefined);
+      let releaseDetails: any = null;
+
+      if (targetRequestId) {
+        try {
+          releaseDetails = await notificationService.getRequestWithReleases(targetRequestId);
+        } catch (e) {
+          console.warn('Could not fetch via notificationService:', e);
+        }
+      }
+
+      if (!releaseDetails || !releaseDetails.releases || releaseDetails.releases.length === 0) {
+        const sourceProfileId = (item.profileData as any)?.profile_id || (item.profileData as any)?.id || item.id;
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        const { data: latestReq } = await supabase
+          .from('information_requests')
+          .select('id')
+          .eq('source_profile_id', sourceProfileId)
+          .in('status', ['IN_REVIEW', 'COMPLETED', 'DOWNLOADED'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestReq?.id) {
+          try {
+            releaseDetails = await notificationService.getRequestWithReleases(latestReq.id);
+          } catch (e) {
+            console.warn('Could not fetch latest request via notificationService:', e);
+          }
+        }
+      }
+
+      if (releaseDetails && releaseDetails.releases && releaseDetails.releases.length > 0) {
+        await generateReleasedProfilesPDF({
+          sourceProfile: releaseDetails.target_profile || {
+            full_name: item.name,
+            phone: item.phone,
+            date_of_birth: (item.profileData as any)?.date_of_birth,
+            marital_status: (item.profileData as any)?.marital_status,
+            location: (item.profileData as any)?.current_city_name_en || (item.profileData as any)?.current_location_text,
+          },
+          agent: releaseDetails.agent || {
+            full_name: item.staff,
+            phone: 'N/A',
+          },
+          releases: releaseDetails.releases,
+          requestId: targetRequestId,
+        });
+        onToast('Matches PDF downloaded successfully');
+      } else {
+        const currentM = matchingRef.current;
+        const cachedMatches = currentM.realMatches[item.id] || [];
+        const cachedHistory = currentM.releaseHistory[item.id] || [];
+
+        if (cachedMatches.length > 0 && cachedHistory.length > 0) {
+          const fallbackReleases = cachedHistory.map((h: any) => {
+            const match = cachedMatches.find((m: any) => m.candidateProfileId === h.candidate_profile_id);
+            const p = match?.fullProfile || match?.candidateData;
+            return {
+              candidate_profile_id: h.candidate_profile_id,
+              candidate: {
+                full_name: p?.full_name || h.candidate_name || 'Candidate',
+                gender: p?.gender,
+                marital_status: p?.marital_status,
+              },
+              score: match?.finalScore,
+              rank: match?.rank,
+              fields: (h.selected_fields || []).map((f: string) => ({ field_path: f, field_value: '' })),
+              released_at: h.released_at,
+            };
+          });
+
+          await generateReleasedProfilesPDF({
+            sourceProfile: {
+              full_name: item.name,
+              phone: item.phone,
+              date_of_birth: (item.profileData as any)?.date_of_birth,
+              marital_status: (item.profileData as any)?.marital_status,
+              location: (item.profileData as any)?.current_city_name_en || (item.profileData as any)?.current_location_text,
+            },
+            agent: {
+              full_name: item.staff,
+              phone: 'N/A',
+            },
+            releases: fallbackReleases,
+            requestId: targetRequestId,
+          });
+          onToast('Matches PDF downloaded successfully');
+        } else {
+          onToast('No released matches found for this profile');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to download matches PDF:', err);
+      onToast('Failed to download matches PDF');
+    } finally {
+      setIsDownloadingMatchesPdf(false);
+    }
+  }, [item, onToast]);
+
   if (!item) return null;
 
   const col = columns.find((c) => c.key === item.status) ?? columns[0];
@@ -497,13 +640,40 @@ export default function RequestDetailsSheet({
                   {item.phone}
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <a href={`tel:${digitsOnly(item.phone)}`} className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[#111] text-white text-[12px] font-[600] no-underline transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_16px_rgba(0,0,0,.14)]">
                     <PhoneIcon size={14} /> Call now
                   </a>
                   <button type="button" onClick={(e) => { e.stopPropagation(); handleCopy(item.phone, item.phone); }} className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[rgba(255,255,255,.75)] backdrop-blur-[8px] text-[#111] text-[12px] font-[600] border-none cursor-pointer transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_16px_rgba(0,0,0,.14)]">
                     <CopyIcon size={14} /> Copy phone
                   </button>
+                  {isDirectory && isAdmin && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={isDownloadingProfilePdf}
+                        onClick={(e) => { e.stopPropagation(); handleDownloadProfilePdf(); }}
+                        title="Download complete profile dossier PDF"
+                        className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[#064e3b] text-white text-[12px] font-[600] border-none cursor-pointer shadow-[0_4px_12px_rgba(6,78,59,.2)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_18px_rgba(6,78,59,.3)] disabled:opacity-50"
+                      >
+                        <FileDown size={14} className={isDownloadingProfilePdf ? "animate-spin" : ""} />
+                        <span>{isDownloadingProfilePdf ? "Downloading..." : "Download Profile PDF"}</span>
+                      </button>
+
+                      {isResponded && (
+                        <button
+                          type="button"
+                          disabled={isDownloadingMatchesPdf}
+                          onClick={(e) => { e.stopPropagation(); handleDownloadMatchesPdf(); }}
+                          title="Download PDF of sent/released matches for this profile"
+                          className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[#C86A4A] text-white text-[12px] font-[600] border-none cursor-pointer shadow-[0_4px_12px_rgba(200,106,74,.25)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_18px_rgba(200,106,74,.35)] disabled:opacity-50"
+                        >
+                          <FileDown size={14} className={isDownloadingMatchesPdf ? "animate-spin" : ""} />
+                          <span>{isDownloadingMatchesPdf ? "Downloading..." : "Download Matches PDF"}</span>
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -602,6 +772,7 @@ export default function RequestDetailsSheet({
                 toggleSelection={matching.toggleSelection}
                 releaseHistory={releaseHistory}
                 sendSelected={(c) => matching.sendSelected(c, onToast, (candidateId: string, reqId: string) => matching.setOpenProfile({ candidateId, requestId: reqId }), () => matching.setOpenProfile(null))}
+                deleteSentProfiles={(c, ids) => matching.deleteSentProfiles(c, ids, onToast)}
               />
             )}
           </div>

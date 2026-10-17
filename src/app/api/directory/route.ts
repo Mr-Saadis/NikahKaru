@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
       query,
       supabase
         .from('information_requests')
-        .select('source_profile_id, status, created_at')
+        .select('id, source_profile_id, status, created_at')
         .order('created_at', { ascending: false }),
     ]);
 
@@ -244,12 +244,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Build requests status map
-    const requestsByProfile = new Map<string, { status: string; count: number }>();
+    const requestsByProfile = new Map<string, { id: string; status: string; count: number }>();
     for (const req of requestsData || []) {
       const pid = req.source_profile_id;
       const existing = requestsByProfile.get(pid);
       if (!existing) {
-        requestsByProfile.set(pid, { status: req.status, count: 1 });
+        requestsByProfile.set(pid, { id: req.id, status: req.status, count: 1 });
       } else {
         existing.count += 1;
       }
@@ -355,6 +355,8 @@ export async function GET(request: NextRequest) {
 
         profileData: {
           ...p,
+          request_id: requestsByProfile.get(p.profile_id)?.id || null,
+          request_status: requestsByProfile.get(p.profile_id)?.status || null,
           education_records: nested?.education_records || [],
           employment_records: nested?.employment_records || [],
           parents: nested?.parents || [],

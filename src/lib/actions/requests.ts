@@ -7,6 +7,7 @@ import {
   fetchAgentNames as apiFetchAgentNames, 
   markRequestAsRead as apiMarkRequestAsRead,
   markRequestAsDownloaded as apiMarkRequestAsDownloaded,
+  deleteSentProfiles as apiDeleteSentProfiles,
   fetchRequestReleaseHistory as apiFetchRequestReleaseHistory,
   fetchSentProfilesForRequest as apiFetchSentProfilesForRequest,
   fetchProfileCompleteReleaseHistory as apiFetchProfileCompleteReleaseHistory,
@@ -16,6 +17,13 @@ import {
 } from '@/api/requests';
 
 export type { ProfileAuditLogItem };
+
+export async function deleteSentProfiles(
+  requestId: string,
+  candidateProfileIds: string[]
+): Promise<{ success: boolean; error?: string; remainingCount?: number }> {
+  return apiDeleteSentProfiles(requestId, candidateProfileIds);
+}
 
 export async function fetchBoardRequests(filters: FilterState): Promise<RequestItem[]> {
   return apiFetchBoardRequests(filters);

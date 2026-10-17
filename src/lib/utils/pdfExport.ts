@@ -87,6 +87,8 @@ function formatFieldValue(val: any, path?: string): string {
 import { jsPDF } from 'jspdf';
 import { filterAndFormatReleaseFields } from './formatReleaseFields';
 import { useReferenceDataStore } from '@/lib/stores/reference-data-store';
+import { getProfileGroups } from '@/components/requests/utils';
+import type { RequestItem } from '@/components/requests/types';
 
 export async function generateReleasedProfilesPDF(data: {
   sourceProfile: any;
@@ -420,6 +422,250 @@ export async function generateReleasedProfilesPDF(data: {
   // Safe file naming & trigger instant download
   const safeClientName = clientName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const filename = `NikaahKaro_Release_${safeClientName}.pdf`;
+
+  doc.save(filename);
+}
+
+/**
+ * Generate a complete, beautifully branded dossier PDF for a single client profile.
+ */
+export async function generateSingleProfilePDF(data: {
+  item: RequestItem;
+  preferences?: any;
+}): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  const { item, preferences } = data;
+  const groups = getProfileGroups(item, preferences);
+  const clientName = item.name || 'Client Profile';
+  const clientPhone = item.phone || 'N/A';
+  const clientCnic = item.cnic || 'N/A';
+  const staffName = item.staff || 'N/A';
+  const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const doc = new jsPDF({
+    orientation: 'p',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const marginX = 14;
+  const contentWidth = pageWidth - (marginX * 2); // 182mm
+  const maxY = pageHeight - 18; // Leave 18mm for bottom footer
+
+  let currentY = 16;
+
+  const drawPageHeader = (isFirstPage: boolean) => {
+    // Brand Logo
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.setTextColor(6, 78, 59); // Emerald
+    doc.text('Nikaah', marginX, currentY + 6);
+    const nikaahWidth = doc.getTextWidth('Nikaah');
+
+    doc.setTextColor(200, 106, 74); // Terra cotta
+    doc.text('Karo', marginX + nikaahWidth, currentY + 6);
+
+    // Subtitle
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(141, 140, 134);
+    doc.text('Confidential Client Profile Dossier', marginX, currentY + 11);
+
+    // Badge
+    const badgeText = 'CLIENT DOSSIER';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    const badgeTextWidth = doc.getTextWidth(badgeText);
+    const badgeW = badgeTextWidth + 8;
+    const badgeH = 5.5;
+    const badgeX = marginX + contentWidth - badgeW;
+    const badgeY = currentY + 1;
+
+    doc.setFillColor(6, 78, 59);
+    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 2.5, 2.5, 'F');
+    doc.setTextColor(250, 248, 245);
+    doc.text(badgeText, badgeX + 4, badgeY + 3.8);
+
+    // Date
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(141, 140, 134);
+    const dateText = `Date: ${todayStr}`;
+    const dateWidth = doc.getTextWidth(dateText);
+    doc.text(dateText, marginX + contentWidth - dateWidth, currentY + 11);
+
+    // Divider line
+    currentY += 14;
+    doc.setDrawColor(6, 78, 59);
+    doc.setLineWidth(0.6);
+    doc.line(marginX, currentY, marginX + contentWidth, currentY);
+    currentY += 5;
+  };
+
+  drawPageHeader(true);
+
+  // Overview Card
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(234, 226, 213);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(marginX, currentY, contentWidth, 24, 3, 3, 'FD');
+
+  const overviewY = currentY + 5;
+  const colW = contentWidth / 4;
+
+  const locText = (item.profileData as any)?.current_city_name_en || (item.profileData as any)?.current_location_text || 'N/A';
+  const overviewFields = [
+    { label: 'CLIENT NAME', val: clientName, sub: `CNIC: ${clientCnic}` },
+    { label: 'CONTACT PHONE', val: clientPhone, sub: `Status: ${(item.status || '').toUpperCase()}` },
+    { label: 'ASSIGNED STAFF', val: staffName, sub: `Reg Date: ${todayStr}` },
+    { label: 'CITY / LOCATION', val: locText, sub: '' }
+  ];
+
+  overviewFields.forEach((f, idx) => {
+    const xPos = marginX + 4 + (idx * colW);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(141, 140, 134);
+    doc.text(f.label, xPos, overviewY);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(31, 59, 52);
+    const truncatedVal = doc.splitTextToSize(f.val, colW - 6)[0] || f.val;
+    doc.text(truncatedVal, xPos, overviewY + 5);
+
+    if (f.sub) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(141, 140, 134);
+      doc.text(f.sub, xPos, overviewY + 9.5);
+    }
+  });
+
+  currentY += 28;
+
+  // Render each section group
+  groups.forEach((group) => {
+    const groupTitle = group[0];
+    const fields = group[1].filter(f => f[0] !== 'Profile picture');
+
+    if (fields.length === 0) return;
+
+    // Check if we need a page break for the section title
+    if (currentY + 25 > maxY) {
+      doc.addPage();
+      currentY = 16;
+      drawPageHeader(false);
+    }
+
+    // Section title
+    doc.setFillColor(200, 106, 74);
+    doc.rect(marginX, currentY, 1.8, 4.5, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(6, 78, 59);
+    doc.text(groupTitle.toUpperCase(), marginX + 4, currentY + 3.8);
+
+    currentY += 7;
+
+    // Build 2-column field rows
+    const fieldPairs: Array<[typeof fields[0], typeof fields[0] | undefined]> = [];
+    for (let i = 0; i < fields.length; i += 2) {
+      fieldPairs.push([fields[i], fields[i + 1]]);
+    }
+
+    const fieldColW = (contentWidth - 14) / 2;
+
+    fieldPairs.forEach((pair) => {
+      const leftLabel = pair[0][0];
+      const leftVal = String(pair[0][1] ?? 'N/A');
+      const rightLabel = pair[1]?.[0] || '';
+      const rightVal = pair[1] ? String(pair[1][1] ?? 'N/A') : '';
+
+      const leftLines = doc.splitTextToSize(leftVal, fieldColW - 6);
+      const rightLines = rightVal ? doc.splitTextToSize(rightVal, fieldColW - 6) : [];
+      const lineCount = Math.max(leftLines.length, rightLines.length, 1);
+      const rowHeight = Math.max(12, 6.5 + (lineCount * 3.8));
+
+      // Page break check
+      if (currentY + rowHeight + 3 > maxY) {
+        doc.addPage();
+        currentY = 16;
+        drawPageHeader(false);
+      }
+
+      // Left Box
+      const leftX = marginX + 2;
+      doc.setFillColor(250, 248, 245);
+      doc.setDrawColor(239, 233, 223);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(leftX, currentY, fieldColW, rowHeight, 1.5, 1.5, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(141, 140, 134);
+      doc.text(leftLabel.toUpperCase(), leftX + 3, currentY + 3.5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(31, 59, 52);
+      leftLines.forEach((line: string, lineIdx: number) => {
+        doc.text(line, leftX + 3, currentY + 7 + (lineIdx * 3.8));
+      });
+
+      // Right Box (if exists)
+      if (pair[1]) {
+        const rightX = marginX + 2 + fieldColW + 6;
+        doc.setFillColor(250, 248, 245);
+        doc.setDrawColor(239, 233, 223);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(rightX, currentY, fieldColW, rowHeight, 1.5, 1.5, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(141, 140, 134);
+        doc.text(rightLabel.toUpperCase(), rightX + 3, currentY + 3.5);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(31, 59, 52);
+        rightLines.forEach((line: string, lineIdx: number) => {
+          doc.text(line, rightX + 3, currentY + 7 + (lineIdx * 3.8));
+        });
+      }
+
+      currentY += rowHeight + 2;
+    });
+
+    currentY += 4;
+  });
+
+  // Stamp Footers on all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+
+    const footerY = pageHeight - 8;
+    doc.setDrawColor(234, 226, 213);
+    doc.setLineWidth(0.3);
+    doc.line(marginX, footerY - 3, marginX + contentWidth, footerY - 3);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(141, 140, 134);
+    doc.text('STRICTLY CONFIDENTIAL • Client Profile Dossier • NikaahKaro CRM', marginX, footerY);
+
+    const pageNumText = `Page ${p} of ${totalPages}`;
+    const pageNumWidth = doc.getTextWidth(pageNumText);
+    doc.text(pageNumText, marginX + contentWidth - pageNumWidth, footerY);
+  }
+
+  const safeClientName = clientName.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `NikaahKaro_Profile_${safeClientName}.pdf`;
 
   doc.save(filename);
 }

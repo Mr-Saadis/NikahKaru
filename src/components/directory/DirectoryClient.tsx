@@ -230,7 +230,7 @@ export function DirectoryClient() {
     const pool = baseEntries.length > 0 ? baseEntries : entries;
     for (const e of pool) {
       map.set(e.id, {
-        id: e.id,
+        id: (e.profileData as any)?.request_id || e.id,
         name: e.fullName,
         cnic: e.cnic,
         phone: e.phone,
@@ -450,6 +450,7 @@ export function DirectoryClient() {
         onHeightChange={setSheetHeight}
         matching={matching}
         hideRespondLater={true}
+        isDirectory={true}
         rightOffset={isDesktop ? 318 : 0}
       />
 

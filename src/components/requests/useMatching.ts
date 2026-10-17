@@ -4,7 +4,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { runMatching } from '@/lib/matching/engine';
 import type { MatchResult } from '@/lib/matching/types';
 import { getMatchProfileGroups } from './utils';
-import { fetchSentProfilesForRequest } from '@/lib/actions/requests';
+import { fetchSentProfilesForRequest, deleteSentProfiles } from '@/lib/actions/requests';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 export function useMatching() {
@@ -304,6 +304,7 @@ export function useMatching() {
       openPanel: (candidateId: string, requestId: string) => void,
       closePanel: () => void,
     ) => {
+      if (!item || item.status === 'new') return;
       const reqChosen = chosen[item.id];
       if (!reqChosen || reqChosen.size === 0) return;
 
@@ -517,6 +518,63 @@ export function useMatching() {
     [chosen, realMatches, sentExtra]
   );
 
+  const deleteSentProfilesAction = useCallback(
+    async (
+      item: RequestItem,
+      candidateProfileIds: string[],
+      onToast: (msg: string) => void
+    ) => {
+      if (!item || !candidateProfileIds.length) return;
+      try {
+        await deleteSentProfiles(item.id, candidateProfileIds);
+
+        // Update release history locally
+        setReleaseHistory((prev) => {
+          const currentHist = prev[item.id] || [];
+          return {
+            ...prev,
+            [item.id]: currentHist.filter(
+              (h) => !candidateProfileIds.includes(h.candidate_profile_id)
+            ),
+          };
+        });
+
+        // Update sentExtra locally
+        setSentExtra((prev) => {
+          const reqSentExtra = { ...(prev[item.id] || {}) };
+          candidateProfileIds.forEach((id) => {
+            delete reqSentExtra[id];
+          });
+          return { ...prev, [item.id]: reqSentExtra };
+        });
+
+        // Update chosen locally
+        setChosen((prev) => {
+          const reqChosen = prev[item.id];
+          if (!reqChosen) return prev;
+          const nextChosenMap = new Map(reqChosen);
+          candidateProfileIds.forEach((id) => {
+            nextChosenMap.delete(id);
+          });
+          return { ...prev, [item.id]: nextChosenMap };
+        });
+
+        // If openProfile is one of the deleted candidates, close it
+        if (openProfile && candidateProfileIds.includes(openProfile.candidateId)) {
+          setOpenProfile(null);
+        }
+
+        const count = candidateProfileIds.length;
+        onToast(`Deleted ${count} sent profile${count > 1 ? 's' : ''}`);
+      } catch (err: any) {
+        console.error("Error deleting sent profiles:", err);
+        onToast(err.message || 'Failed to delete sent profiles.');
+        throw err;
+      }
+    },
+    [openProfile]
+  );
+
   return {
     matchesOn,
     matchPage,
@@ -531,6 +589,7 @@ export function useMatching() {
     toggleSelection,
     updateSelectionKeys,
     sendSelected,
+    deleteSentProfiles: deleteSentProfilesAction,
     releaseHistory,
     setReleaseHistory,
     loadSentProfiles,
