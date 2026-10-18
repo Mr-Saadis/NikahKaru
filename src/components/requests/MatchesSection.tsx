@@ -3,7 +3,7 @@ import type { MatchResult } from '@/lib/matching/types';
 import { CheckBox } from './CheckBox';
 import { MatchRing } from './MatchRing';
 import { CheckIcon, SendIcon, ChevronRightIcon } from './icons';
-import { Trash2 } from 'lucide-react';
+import { Trash2, FileDown } from 'lucide-react';
 import type { RequestItem } from './types';
 import { fetchProfileCompleteReleaseHistory } from '@/lib/actions/requests';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -31,6 +31,8 @@ interface MatchesSectionProps {
   deleteSentProfiles?: (item: RequestItem, candidateProfileIds: string[]) => Promise<void>;
   releaseHistory?: any[];
   keysOf?: any; // Mock keys no longer needed
+  onDownloadMatchesPdf?: () => void;
+  isDownloadingMatchesPdf?: boolean;
 }
 
 export function MatchesSection({
@@ -46,6 +48,8 @@ export function MatchesSection({
   sendSelected,
   deleteSentProfiles,
   releaseHistory = [],
+  onDownloadMatchesPdf,
+  isDownloadingMatchesPdf,
 }: MatchesSectionProps) {
   const { role } = useAuth();
   const isAgent = role === 'AGENT';
@@ -162,6 +166,18 @@ export function MatchesSection({
               {matches.length} {isAgent ? 'released' : 'found · highest match first'}
             </small>
           </h4>
+          {isAgent && matches.length > 0 && onDownloadMatchesPdf && (
+            <button
+              type="button"
+              disabled={isDownloadingMatchesPdf}
+              onClick={onDownloadMatchesPdf}
+              title="Download PDF of released matches"
+              className="inline-flex items-center gap-1.5 h-[34px] px-[16px] border-0 rounded-full font-inherit text-[12px] font-[600] whitespace-nowrap bg-[#064e3b] text-white cursor-pointer hover:-translate-y-[2px] hover:shadow-[0_6px_16px_rgba(6,78,59,.25)] disabled:opacity-50 transition-all duration-200"
+            >
+              <FileDown size={14} className={isDownloadingMatchesPdf ? "animate-spin" : ""} />
+              <span>{isDownloadingMatchesPdf ? "Downloading..." : "Download Matches PDF"}</span>
+            </button>
+          )}
           {!isAgent && item.status !== 'new' && (
             <div className="flex items-center gap-2">
               {!isDeleteMode ? (

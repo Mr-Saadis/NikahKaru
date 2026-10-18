@@ -19,10 +19,11 @@ export const COLUMNS: ColumnDef[] = [
 ];
 
 export const AGENT_COLUMNS: ColumnDef[] = [
-  { label: 'Entries Logged',        key: 'logged',    color: '#064e3b', cardBg: '#F2EDE1', filledDashes: 1 },
-  { label: 'Requested Profiles',    key: 'requested', color: '#D4AF37', cardBg: '#C86A4A', filledDashes: 1 },
-  { label: 'Responded / Released',  key: 'responded', color: '#2F3E51', cardBg: '#2F3E51', filledDashes: 2 },
-  { label: 'Completed',             key: 'done',      color: '#A3B18A', cardBg: 'transparent', filledDashes: 3 },
+  { label: 'Entries Logged',        key: 'logged',     color: '#064e3b', cardBg: '#F2EDE1', filledDashes: 1 },
+  { label: 'Requested Profiles',    key: 'requested',  color: '#D4AF37', cardBg: '#C86A4A', filledDashes: 1 },
+  { label: 'Responded / Released',  key: 'responded',  color: '#2F3E51', cardBg: '#2F3E51', filledDashes: 2 },
+  { label: 'Downloaded',            key: 'downloaded', color: '#1F3B34', cardBg: '#A3B18A', filledDashes: 2 },
+  { label: 'Completed',             key: 'done',       color: '#A3B18A', cardBg: 'transparent', filledDashes: 3 },
 ];
 
 // Avatar accent colours — cycle by card index

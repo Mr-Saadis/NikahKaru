@@ -103,6 +103,8 @@ SELECT
             THEN 'requested'
         WHEN ir.status = 'IN_REVIEW'
             THEN 'responded'
+        WHEN ir.status = 'DOWNLOADED'
+            THEN 'downloaded'
         WHEN ir.status = 'COMPLETED'
             THEN 'done'
         WHEN ir.status = 'CANCELLED'

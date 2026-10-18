@@ -17,6 +17,7 @@ import {
   fetchProfileActivePreferences,
   fetchAgentsList,
   assignProfileToAgent,
+  markRequestAsDownloaded,
   type AgentOption,
 } from '@/lib/actions/requests';
 import { ProfileAuditLogsSection } from './ProfileAuditLogsSection';
@@ -521,6 +522,9 @@ export default function RequestDetailsSheet({
           releases: releaseDetails.releases,
           requestId: targetRequestId,
         });
+        if (targetRequestId) {
+          markRequestAsDownloaded(targetRequestId).catch(console.error);
+        }
         onToast('Matches PDF downloaded successfully');
       } else {
         const currentM = matchingRef.current;
@@ -560,6 +564,9 @@ export default function RequestDetailsSheet({
             releases: fallbackReleases,
             requestId: targetRequestId,
           });
+          if (targetRequestId) {
+            markRequestAsDownloaded(targetRequestId).catch(console.error);
+          }
           onToast('Matches PDF downloaded successfully');
         } else {
           onToast('No released matches found for this profile');
@@ -862,6 +869,20 @@ export default function RequestDetailsSheet({
                     </div>
                   )}
 
+                  {/* Download Matches PDF: Always available when request is responded/released */}
+                  {isResponded && (
+                    <button
+                      type="button"
+                      disabled={isDownloadingMatchesPdf}
+                      onClick={(e) => { e.stopPropagation(); handleDownloadMatchesPdf(); }}
+                      title="Download PDF of sent/released matches for this profile"
+                      className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[#C86A4A] text-white text-[12px] font-[600] border-none cursor-pointer shadow-[0_4px_12px_rgba(200,106,74,.25)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_18px_rgba(200,106,74,.35)] disabled:opacity-50"
+                    >
+                      <FileDown size={14} className={isDownloadingMatchesPdf ? "animate-spin" : ""} />
+                      <span>{isDownloadingMatchesPdf ? "Downloading..." : "Download Matches PDF"}</span>
+                    </button>
+                  )}
+
                   {isDirectory && isAdmin && (
                     <>
                       <button
@@ -874,19 +895,6 @@ export default function RequestDetailsSheet({
                         <FileDown size={14} className={isDownloadingProfilePdf ? "animate-spin" : ""} />
                         <span>{isDownloadingProfilePdf ? "Downloading..." : "Download Profile PDF"}</span>
                       </button>
-
-                      {isResponded && (
-                        <button
-                          type="button"
-                          disabled={isDownloadingMatchesPdf}
-                          onClick={(e) => { e.stopPropagation(); handleDownloadMatchesPdf(); }}
-                          title="Download PDF of sent/released matches for this profile"
-                          className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[#C86A4A] text-white text-[12px] font-[600] border-none cursor-pointer shadow-[0_4px_12px_rgba(200,106,74,.25)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_18px_rgba(200,106,74,.35)] disabled:opacity-50"
-                        >
-                          <FileDown size={14} className={isDownloadingMatchesPdf ? "animate-spin" : ""} />
-                          <span>{isDownloadingMatchesPdf ? "Downloading..." : "Download Matches PDF"}</span>
-                        </button>
-                      )}
 
                       {isNewData && (
                         <button
@@ -948,8 +956,20 @@ export default function RequestDetailsSheet({
                         <span>Loading released matches…</span>
                       </div>
                     ) : (
-                      <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#E8F5E9] border border-[#A5D6A7] text-[#1B5E20] text-[13px] font-[600]">
-                        <span>✓ Matches Released ({releaseHistory.length})</span>
+                      <div className="flex items-center gap-[10px]">
+                        <div className="inline-flex items-center gap-2 h-[44px] px-[18px] rounded-full bg-[#E8F5E9] border border-[#A5D6A7] text-[#1B5E20] text-[13px] font-[600]">
+                          <span>✓ Matches Released ({releaseHistory.length})</span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isDownloadingMatchesPdf}
+                          onClick={(e) => { e.stopPropagation(); handleDownloadMatchesPdf(); }}
+                          title="Download PDF of released matches for this profile"
+                          className="inline-flex items-center gap-[8px] h-[44px] px-[20px] border-0 rounded-full bg-[#064e3b] text-white font-inherit text-[13px] font-[600] cursor-pointer shadow-[0_6px_18px_rgba(6,78,59,.25)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_10px_24px_rgba(6,78,59,.35)] disabled:opacity-50"
+                        >
+                          <FileDown size={15} className={isDownloadingMatchesPdf ? "animate-spin" : ""} />
+                          <span>{isDownloadingMatchesPdf ? "Downloading..." : "Download Matches PDF"}</span>
+                        </button>
                       </div>
                     )
                   )}
@@ -1003,6 +1023,8 @@ export default function RequestDetailsSheet({
                 releaseHistory={releaseHistory}
                 sendSelected={(c) => matching.sendSelected(c, onToast, (candidateId: string, reqId: string) => matching.setOpenProfile({ candidateId, requestId: reqId }), () => matching.setOpenProfile(null))}
                 deleteSentProfiles={(c, ids) => matching.deleteSentProfiles(c, ids, onToast)}
+                onDownloadMatchesPdf={handleDownloadMatchesPdf}
+                isDownloadingMatchesPdf={isDownloadingMatchesPdf}
               />
             )}
           </div>
