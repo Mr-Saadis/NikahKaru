@@ -8,18 +8,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { Suspense } from 'react';
 
 export default function AddProfilePage() {
-  const { role, isInitialized } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) {
-      router.replace('/overview');
-    }
-  }, [isInitialized, role, router]);
-
-  if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) {
-    return null;
-  }
+  const { isInitialized } = useAuth();
 
   return (
     <>

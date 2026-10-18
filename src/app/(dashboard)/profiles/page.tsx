@@ -305,7 +305,12 @@ export default function ProfilesListPage() {
 
   const [stats, setStats] = useState({ total: 0, active: 0, draft: 0, paused: 0, archived: 0 });
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('selected_profile_id') || null;
+    }
+    return null;
+  });
   const [selectedProfile, setSelectedProfile] = useState<FullProfile | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -499,7 +504,23 @@ export default function ProfilesListPage() {
       });
       setProfiles(res.data);
       setTotalCount(res.count);
-      setSelectedId((prev) => prev || (res.data.length > 0 ? res.data[0].id : null));
+
+      const savedId = typeof window !== 'undefined' ? sessionStorage.getItem('selected_profile_id') : null;
+      if (savedId) {
+        sessionStorage.removeItem('selected_profile_id');
+        setSelectedId(savedId);
+        if (!res.data.some((p) => p.id === savedId)) {
+          ProfileService.getProfileById(savedId)
+            .then((newP) => {
+              if (newP) {
+                setProfiles((prev) => [newP as any, ...prev]);
+              }
+            })
+            .catch(console.error);
+        }
+      } else {
+        setSelectedId((prev) => prev || (res.data.length > 0 ? res.data[0].id : null));
+      }
     } catch (error) {
       console.error(error);
     } finally {

@@ -44,10 +44,21 @@ export async function proxy(request: NextRequest) {
   }
 
   // Protect Role Based Access Control Routes
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
-  const isProfilesRoute = request.nextUrl.pathname.startsWith('/profiles') || request.nextUrl.pathname.startsWith('/add-profile');
+  const pathname = request.nextUrl.pathname;
+  const isAdminRoute = pathname.startsWith('/admin');
+  const isProfilesRoute = pathname.startsWith('/profiles');
+  const isDirectoryRoute = pathname.startsWith('/directory');
+  const isRequestsRoute = pathname.startsWith('/requests');
+  const isAgentRequestsRoute = pathname.startsWith('/agent-requests');
 
-  if (user && (isAdminRoute || isProfilesRoute)) {
+  const needsRoleCheck =
+    isAdminRoute ||
+    isProfilesRoute ||
+    isDirectoryRoute ||
+    isRequestsRoute ||
+    isAgentRequestsRoute;
+
+  if (user && needsRoleCheck) {
     // Fetch user role
     const { data: userRoleData } = await supabase
       .from('user_roles')
@@ -55,18 +66,28 @@ export async function proxy(request: NextRequest) {
       .eq('user_id', user.id)
       .single();
 
-    // @ts-ignore - Supabase types might complain about nested selection
+    // @ts-expect-error - Supabase nested relation typing
     const roleName = userRoleData?.role?.name;
     
     if (isAdminRoute && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
-      // If not an admin, redirect to dashboard overview
       const url = request.nextUrl.clone();
       url.pathname = '/overview';
       return NextResponse.redirect(url);
     }
 
     if (isProfilesRoute && (roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN')) {
-      // Manager and High Level Admin cannot access profile page
+      const url = request.nextUrl.clone();
+      url.pathname = '/overview';
+      return NextResponse.redirect(url);
+    }
+
+    if ((isDirectoryRoute || isRequestsRoute) && roleName === 'AGENT') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/overview';
+      return NextResponse.redirect(url);
+    }
+
+    if (isAgentRequestsRoute && (roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN')) {
       const url = request.nextUrl.clone();
       url.pathname = '/overview';
       return NextResponse.redirect(url);

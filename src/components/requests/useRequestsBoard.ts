@@ -356,6 +356,14 @@ export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, 
     );
   }, []);
 
+  const updateItemStaff = useCallback((id: string, staff: string) => {
+    setAllItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, staff, profileData: { ...item.profileData, current_agent_name: staff } } : item
+      )
+    );
+  }, []);
+
   const resetFilters = useCallback(() => {
     setFilters({ search: '', dateFrom: '', dateTo: '', staff: '' });
     setExpandedFilter(null);
@@ -408,6 +416,7 @@ export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, 
     closeSheet,
     toggleLater,
     markAsReadLocal,
+    updateItemStaff,
 
     // Pagination
     loadMoreColumn: useCallback(async (colKey: string) => {

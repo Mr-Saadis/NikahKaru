@@ -701,3 +701,203 @@ export async function fetchProfileActivePreferences(profileId: string): Promise<
   return data || null;
 }
 
+// =======================================================================
+// Fetch Agents with ID & Full Name for Assignment Dropdown
+// =======================================================================
+export interface AgentOption {
+  id: string;
+  name: string;
+  email?: string;
+}
+
+export async function fetchAgentsList(): Promise<AgentOption[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select(`
+      user_id,
+      roles!inner ( name ),
+      users!user_roles_user_id_fkey!inner ( id, full_name, email, status )
+    `)
+    .eq('roles.name', 'AGENT');
+
+  if (error || !data) {
+    console.error('Error fetching agents list:', error);
+    return [];
+  }
+
+  const list: AgentOption[] = [];
+  const seen = new Set<string>();
+
+  data.forEach((row: any) => {
+    const u = row.users;
+    if (u && u.id && !seen.has(u.id)) {
+      seen.add(u.id);
+      list.push({
+        id: u.id,
+        name: u.full_name || 'Agent',
+        email: u.email || '',
+      });
+    }
+  });
+
+  return list.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// =======================================================================
+// Assign Profile To Agent (Manager & Admin action)
+// =======================================================================
+export async function assignProfileToAgent(params: {
+  profileId: string;
+  requestId?: string;
+  targetAgentId: string;
+  targetAgentName: string;
+  profileName: string;
+  previousAgentName?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized: Authentication required.' };
+    }
+
+    const adminClient = createAdminClient();
+
+    // Check user role
+    const { data: userRoleData, error: roleError } = await adminClient
+      .from('user_roles')
+      .select('roles(name)')
+      .eq('user_id', user.id);
+
+    if (roleError || !userRoleData || userRoleData.length === 0) {
+      return { success: false, error: 'Unauthorized: User role not found.' };
+    }
+
+    const roles = userRoleData.map((r: any) => r.roles?.name);
+    const isManager = roles.includes('MANAGER');
+    const isAdmin = roles.includes('HIGH_LEVEL_ADMIN');
+
+    if (!isManager && !isAdmin) {
+      return { success: false, error: 'Unauthorized: Only Managers and Admins can assign profiles.' };
+    }
+
+    const { profileId, requestId, targetAgentId, targetAgentName, profileName, previousAgentName } = params;
+
+    // 1. End active assignment in profile_agent_assignments
+    await adminClient
+      .from('profile_agent_assignments')
+      .update({
+        status: 'ENDED',
+        ended_at: new Date().toISOString(),
+      })
+      .eq('profile_id', profileId)
+      .eq('status', 'ACTIVE');
+
+    // 2. Insert new active assignment in profile_agent_assignments
+    const { error: insertAssignmentError } = await adminClient
+      .from('profile_agent_assignments')
+      .insert({
+        profile_id: profileId,
+        agent_id: targetAgentId,
+        assigned_by: user.id,
+        status: 'ACTIVE',
+        assigned_at: new Date().toISOString(),
+      });
+
+    if (insertAssignmentError) {
+      console.error('Error inserting profile_agent_assignments:', insertAssignmentError);
+      return { success: false, error: insertAssignmentError.message };
+    }
+
+    // 3. Update profiles.current_agent_id
+    await adminClient
+      .from('profiles')
+      .update({
+        current_agent_id: targetAgentId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profileId);
+
+    // 4. If request_id exists, update information_request_assignments
+    if (requestId) {
+      await adminClient
+        .from('information_request_assignments')
+        .update({
+          status: 'ENDED',
+          ended_at: new Date().toISOString(),
+        })
+        .eq('request_id', requestId)
+        .eq('status', 'ACTIVE');
+
+      await adminClient
+        .from('information_request_assignments')
+        .insert({
+          request_id: requestId,
+          assigned_to: targetAgentId,
+          assigned_by: user.id,
+          status: 'ACTIVE',
+          assigned_at: new Date().toISOString(),
+        });
+    }
+
+    // 5. Determine Assigner display name
+    const { data: userData } = await adminClient
+      .from('users')
+      .select('full_name')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const assignerName = userData?.full_name || (isAdmin ? 'Admin' : 'Manager');
+
+    // 6. Notification 1: To the Admin or Manager who performed the reassignment
+    await adminClient
+      .from('notifications')
+      .insert({
+        user_id: user.id,
+        type: 'ASSIGNMENT',
+        title: 'Profile Assigned Successfully',
+        message: `You assigned profile ${profileName || 'Unknown'} to ${targetAgentName}.`,
+        entity_type: 'profile',
+        entity_id: profileId,
+      });
+
+    // 7. Notification 2: To the new Agent
+    await adminClient
+      .from('notifications')
+      .insert({
+        user_id: targetAgentId,
+        type: 'ASSIGNMENT',
+        title: 'New Profile Assigned',
+        message: `Profile ${profileName || 'Unknown'} has been assigned to you by ${assignerName}.`,
+        entity_type: 'profile',
+        entity_id: profileId,
+      });
+
+    // 8. Audit Log: ONLY in case of MANAGER (Admin case skips audit log)
+    if (isManager) {
+      await adminClient
+        .from('audit_logs')
+        .insert({
+          actor_user_id: user.id,
+          action: 'ASSIGN',
+          entity_type: 'profile',
+          entity_id: profileId,
+          metadata: {
+            profile_id: profileId,
+            request_id: requestId || null,
+            agent_name: targetAgentName,
+            assigned_to: targetAgentId,
+            previous_agent: previousAgentName || null,
+          },
+        });
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('assignProfileToAgent unexpected error:', err);
+    return { success: false, error: err?.message || 'Failed to assign profile' };
+  }
+}
+

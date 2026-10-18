@@ -13,10 +13,13 @@ import {
   fetchProfileCompleteReleaseHistory as apiFetchProfileCompleteReleaseHistory,
   fetchProfileAuditLogs as apiFetchProfileAuditLogs,
   fetchProfileActivePreferences as apiFetchProfileActivePreferences,
+  fetchAgentsList as apiFetchAgentsList,
+  assignProfileToAgent as apiAssignProfileToAgent,
   type ProfileAuditLogItem,
+  type AgentOption,
 } from '@/api/requests';
 
-export type { ProfileAuditLogItem };
+export type { ProfileAuditLogItem, AgentOption };
 
 export async function deleteSentProfiles(
   requestId: string,
@@ -71,5 +74,20 @@ export async function fetchProfileAuditLogs(profileId: string): Promise<ProfileA
 
 export async function fetchProfileActivePreferences(profileId: string): Promise<any | null> {
   return apiFetchProfileActivePreferences(profileId);
+}
+
+export async function fetchAgentsList(): Promise<AgentOption[]> {
+  return apiFetchAgentsList();
+}
+
+export async function assignProfileToAgent(params: {
+  profileId: string;
+  requestId?: string;
+  targetAgentId: string;
+  targetAgentName: string;
+  profileName: string;
+  previousAgentName?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  return apiAssignProfileToAgent(params);
 }
 

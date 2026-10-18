@@ -7,6 +7,8 @@ import { ProfileService } from '@/lib/services/profile-service';
 import { PreferenceService } from '@/lib/services/preference-service';
 import { createClient } from '@/lib/supabase/client';
 import { useAutoSave } from '@/lib/hooks/useAutoSave';
+import { clearDirectoryCache } from '@/lib/directory/directory-cache';
+import { logProfileEditAction } from '@/lib/actions/audit';
 import ProfileSidebar from './ProfileSidebar';
 import Step1BasicInfo, { type Step1Data } from './steps/Step1BasicInfo';
 import Step2MaritalPhysical, { type Step2Data } from './steps/Step2MaritalPhysical';
@@ -61,12 +63,15 @@ const defaultStep8 = (): Step8Data => ({ pref_min_age: '', pref_max_age: '', pre
 export default function AddProfileForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
 
   const [profileId, setProfileId] = useState<string | null>(searchParams.get('draftId') || searchParams.get('edit'));
+  const isEditingRef = useRef<boolean>(Boolean(searchParams.get('edit')));
 
   useEffect(() => {
-    setProfileId(searchParams.get('draftId') || searchParams.get('edit'));
+    const editId = searchParams.get('edit');
+    if (editId) isEditingRef.current = true;
+    setProfileId(searchParams.get('draftId') || editId);
   }, [searchParams]);
 
   // Helper to get profile-specific localStorage key
@@ -1315,12 +1320,48 @@ export default function AddProfileForm() {
         }
       }
 
+      // 5. Write to audit_logs when AGENT or MANAGER edits an existing profile (Admins skipped per rule)
+      const isEdit = Boolean(searchParams.get('edit') || isEditingRef.current);
+      if (isEdit) {
+        try {
+          await logProfileEditAction({
+            profileId: pid,
+            role: role || undefined,
+            newData: {
+              full_name: step1.full_name,
+              phone: step1.phone,
+              gender: step1.gender,
+              status: allMandatoryCompleted ? 'ACTIVE' : 'DRAFT',
+            },
+            metadata: {
+              step: currentStep,
+            },
+          });
+        } catch (logErr) {
+          console.warn('Failed to record profile edit audit log:', logErr);
+        }
+      }
+
       // Clear local storage drafts (both profile-specific and 'new' keys)
       localStorage.removeItem(getLocalStorageKey(pid));
       localStorage.removeItem(getLocalStorageKey(null));
 
-      // Navigate to the new profile
-      router.push(`/profiles/${pid}`);
+      // Role-based redirect after saving:
+      // If AGENT -> redirect to /profiles with this profile open
+      // If ADMIN or MANAGER -> redirect to /directory with their sheet open
+      const isAgent = role === 'AGENT';
+      if (isAgent) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('selected_profile_id', pid);
+        }
+        router.push('/profiles');
+      } else {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('open_directory_profile_id', pid);
+        }
+        clearDirectoryCache();
+        router.push('/directory');
+      }
     } catch (err: any) {
       const errMsg = err instanceof Error ? err.message : (err?.message || JSON.stringify(err));
       console.error('Full save error:', errMsg, err);

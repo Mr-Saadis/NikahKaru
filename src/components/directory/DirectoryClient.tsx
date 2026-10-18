@@ -64,6 +64,75 @@ export function DirectoryClient() {
           setBaseEntries(data);
           setEntries(data);
           setIsLoading(false);
+
+          // Check if a specific profile should be open (e.g. newly saved profile by manager/admin)
+          const targetId = typeof window !== 'undefined' ? sessionStorage.getItem('open_directory_profile_id') : null;
+          if (targetId) {
+            sessionStorage.removeItem('open_directory_profile_id');
+            const exists = data.some((e) => e.id === targetId || e.profileId === targetId);
+            if (exists) {
+              setSelectedId(targetId);
+            } else {
+              // Fallback fetch if not immediately present in initial query
+              fetch(`/api/profiles/${targetId}`)
+                .then((r) => (r.ok ? r.json() : null))
+                .then((p) => {
+                  if (p && mounted) {
+                    const fallbackEntry: DirectoryEntry = {
+                      id: p.id,
+                      profileId: p.id,
+                      cnic: p.personal_information?.cnic ? String(p.personal_information.cnic) : '',
+                      fullName: p.personal_information?.full_name || 'Unnamed',
+                      phone: p.personal_information?.phone || '',
+                      assignedStaff: 'Unassigned',
+                      requestDate: p.created_at || new Date().toISOString(),
+                      boardStage: 'new',
+                      boardStageColor: '#2F3E51',
+                      cardBg: 'new',
+                      age: p.personal_information?.date_of_birth
+                        ? Math.floor((Date.now() - new Date(p.personal_information.date_of_birth).getTime()) / (365.25 * 24 * 3600 * 1000))
+                        : 0,
+                      dob: p.personal_information?.date_of_birth || '',
+                      gender: p.gender || 'MALE',
+                      maritalStatus: p.personal_information?.marital_status || 'NEVER_MARRIED',
+                      numberOfChildren: p.personal_information?.number_of_children || 0,
+                      motherTongue: '',
+                      heightCm: p.physical_information?.height_cm || 0,
+                      heightInches: 0,
+                      weightKg: p.physical_information?.weight_kg || 0,
+                      complexion: p.physical_information?.complexion || '',
+                      hasDisability: p.physical_information?.has_disability || false,
+                      qualification: '',
+                      institutionName: '',
+                      fieldOfStudy: '',
+                      jobTitle: '',
+                      organizationName: '',
+                      monthlyIncomeMin: 0,
+                      monthlyIncomeMax: 0,
+                      religionName: '',
+                      sectName: '',
+                      casteName: '',
+                      currentCountry: '',
+                      currentCity: '',
+                      permanentCity: '',
+                      familyType: '',
+                      fatherProfession: '',
+                      livingWith: '',
+                      houseStatus: '',
+                      prayer: '',
+                      beard: '',
+                      hijab: '',
+                      smoking: '',
+                      profileData: p,
+                    };
+                    setBaseEntries((prev) => [fallbackEntry, ...prev]);
+                    setEntries((prev) => [fallbackEntry, ...prev]);
+                    setSelectedId(targetId);
+                  }
+                })
+                .catch(console.error);
+            }
+          }
         }
       })
       .catch((err) => {
@@ -256,6 +325,14 @@ export function DirectoryClient() {
 
   const handleCloseSheet = useCallback(() => {
     setSelectedId(null);
+  }, []);
+
+  const handleProfileDeleted = useCallback((profileId: string) => {
+    setSelectedId(null);
+    setBaseEntries((prev) => prev.filter((e) => e.id !== profileId && e.profileId !== profileId));
+    setEntries((prev) => prev.filter((e) => e.id !== profileId && e.profileId !== profileId));
+    clearDirectoryCache();
+    setToastMsg('Profile and all associated data have been permanently deleted.');
   }, []);
 
   if (isLoading) {
@@ -452,6 +529,7 @@ export function DirectoryClient() {
         hideRespondLater={true}
         isDirectory={true}
         rightOffset={isDesktop ? 318 : 0}
+        onProfileDeleted={handleProfileDeleted}
       />
 
       {/* Reused Match Profile Panel (if Match Now candidate opened) */}
