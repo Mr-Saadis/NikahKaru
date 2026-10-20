@@ -38,7 +38,14 @@ import {
   Award,
   Mars,
   Venus,
+  Clock,
+  XCircle,
+  AlertCircle,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { notificationService } from '@/lib/services/notification-service';
+import { generateReleasedProfilesPDF } from '@/lib/utils/pdfExport';
+import { markRequestAsDownloaded } from '@/lib/actions/requests';
 import { ProfileService, type ProfileFilters } from '@/lib/services/profile-service';
 import type { ProfileListItem, ProfileStatus, FullProfile } from '@/lib/types/database.types';
 import Link from 'next/link';
@@ -322,9 +329,20 @@ export default function ProfilesListPage() {
   const realMatchResultsMapRef = useRef<Record<string, any>>({});
   const [prefetchedProfiles, setPrefetchedProfiles] = useState<Record<string, FullProfile>>({});
 
-  // ── Match request state (demo) ────────────────────────────────
+  // ── Match request & workflow state ────────────────────────────
+  type WorkflowStage = 'logged' | 'requested' | 'responded' | 'downloaded' | 'done';
+  interface ProfileRequestInfo {
+    id: string;
+    status: 'PENDING' | 'PENDING_OTHER' | 'IN_REVIEW' | 'DOWNLOADED' | 'COMPLETED' | 'CANCELLED';
+    workflowStage: WorkflowStage;
+    createdAt?: string;
+  }
+
   const [matchRequested, setMatchRequested] = useState(false);
   const [matchRequesting, setMatchRequesting] = useState(false);
+  const [activeRequest, setActiveRequest] = useState<ProfileRequestInfo | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isMarkingDownloaded, setIsMarkingDownloaded] = useState(false);
   const [runningMatchesMap, setRunningMatchesMap] = useState<Record<string, boolean>>({});
   const { addLock, removeLock, isLocked } = useNavigationLock();
 
@@ -339,31 +357,48 @@ export default function ProfilesListPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [isLocked]);
 
-  // Check if a request is already sent when profile changes
+  // Check if a request exists and determine workflow stage when profile changes
   useEffect(() => {
     setSelectedMatchId(null);
     setMatchRequested(false);
+    setActiveRequest(null);
     
     if (!selectedId) return;
 
     const checkExistingRequest = async () => {
       try {
         const supabase = createClient();
-        if (!user) return;
 
         const { data, error } = await supabase
           .from('information_requests')
-          .select('id')
+          .select('id, status, created_at, requested_by')
           .eq('source_profile_id', selectedId)
-          .eq('requested_by', user.id)
+          .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
         if (data && !error) {
+          let stage: WorkflowStage = 'requested';
+          if (data.status === 'IN_REVIEW') stage = 'responded';
+          else if (data.status === 'DOWNLOADED') stage = 'downloaded';
+          else if (data.status === 'COMPLETED') stage = 'done';
+          else if (data.status === 'CANCELLED') stage = 'logged';
+          else stage = 'requested';
+
+          setActiveRequest({
+            id: data.id,
+            status: data.status,
+            workflowStage: stage,
+            createdAt: data.created_at,
+          });
           setMatchRequested(true);
+        } else {
+          setActiveRequest(null);
+          setMatchRequested(false);
         }
       } catch (err) {
         console.error("Error checking existing request:", err);
+        setActiveRequest(null);
       }
     };
 
@@ -475,12 +510,111 @@ export default function ProfilesListPage() {
         throw error;
       }
 
+      const { data: newReq } = await supabase
+        .from('information_requests')
+        .select('id, status, created_at')
+        .eq('source_profile_id', selectedId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (newReq) {
+        setActiveRequest({
+          id: newReq.id,
+          status: newReq.status,
+          workflowStage: 'requested',
+          createdAt: newReq.created_at,
+        });
+      } else {
+        setActiveRequest({
+          id: '',
+          status: 'PENDING',
+          workflowStage: 'requested',
+        });
+      }
+
       setMatchRequested(true);
+      toast.success('Match analysis request submitted to manager');
     } catch (error: any) {
       console.error('Error requesting match:', error);
-      alert(error.message || 'Failed to send request. Please try again.');
+      toast.error(error.message || 'Failed to send request. Please try again.');
     } finally {
       setMatchRequesting(false);
+    }
+  };
+
+  // ── Download Released Matches Dossier (Adeel Bhatti / Responded) ──
+  const handleDownloadReleasedDossier = async () => {
+    if (!activeRequest?.id || !selectedProfile) return;
+    try {
+      setIsDownloadingPdf(true);
+      toast.info('Generating official released matches dossier...');
+
+      const releaseDetails = await notificationService.getRequestWithReleases(activeRequest.id);
+
+      if (!releaseDetails || !releaseDetails.releases || releaseDetails.releases.length === 0) {
+        toast.error('No released candidate profiles found for this request yet.');
+        return;
+      }
+
+      await generateReleasedProfilesPDF({
+        sourceProfile: releaseDetails.target_profile || {
+          full_name: selectedProfile.personal_information?.full_name,
+          phone: selectedProfile.personal_information?.phone,
+          date_of_birth: selectedProfile.personal_information?.date_of_birth,
+          marital_status: selectedProfile.personal_information?.marital_status,
+          location: resolveCity(selectedProfile as any) || undefined,
+        },
+        agent: releaseDetails.agent || {
+          full_name: user?.full_name || 'Assigned Agent',
+          phone: user?.phone || 'N/A',
+        },
+        releases: releaseDetails.releases,
+        requestId: activeRequest.id,
+      });
+
+      // Update DB status to DOWNLOADED
+      const res = await markRequestAsDownloaded(activeRequest.id);
+      if (res.success) {
+        setActiveRequest(prev => prev ? { ...prev, status: 'DOWNLOADED', workflowStage: 'downloaded' } : null);
+        toast.success('Matches dossier downloaded! Stage moved to Downloaded.');
+      } else {
+        toast.success('Matches dossier downloaded successfully.');
+      }
+    } catch (err: any) {
+      console.error('Failed to download released dossier:', err);
+      toast.error('Failed to download released dossier');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  // ── Mark Directly as Downloaded ─────────────────────────────────
+  const handleMarkAsDownloaded = async () => {
+    if (!activeRequest?.id) return;
+    try {
+      setIsMarkingDownloaded(true);
+      const res = await markRequestAsDownloaded(activeRequest.id);
+      if (res.success) {
+        setActiveRequest(prev => prev ? { ...prev, status: 'DOWNLOADED', workflowStage: 'downloaded' } : null);
+        toast.success('Profile stage moved to Downloaded');
+      } else {
+        toast.error(res.error || 'Failed to update stage');
+      }
+    } catch (err: any) {
+      console.error('Error marking as downloaded:', err);
+      toast.error(err.message || 'Failed to update stage');
+    } finally {
+      setIsMarkingDownloaded(false);
+    }
+  };
+
+  // ── Action Buttons for Downloaded Stage: Complete & Incomplete ──
+  const handleWorkflowAction = (action: 'complete' | 'incomplete') => {
+    if (action === 'complete') {
+      toast.info('Workflow: "Complete" selected. (Full outcome workflow rules will be connected next)');
+    } else {
+      toast.info('Workflow: "Incomplete" selected. (Full workflow rules will be connected next)');
     }
   };
 
@@ -1034,38 +1168,153 @@ export default function ProfilesListPage() {
                   );
                 })()}
 
-                {/* Request Match Analysis */}
-                <section className="bg-[#C86A4A] text-white rounded-[24px] p-6 shadow-md shadow-[#C86A4A]/20 relative overflow-hidden flex-1 shrink-0 min-h-[220px] flex flex-col justify-center">
+                {/* ── Workflow Card (Changes based on request status) ── */}
+                <section className="bg-[#C86A4A] text-white rounded-[24px] p-6 shadow-md shadow-[#C86A4A]/20 relative overflow-hidden flex-1 shrink-0 min-h-[220px] flex flex-col justify-center transition-all">
                   <Heart className="absolute -right-6 -bottom-6 w-32 h-32 text-white opacity-10 -rotate-12 pointer-events-none" />
                   <div className="relative z-10">
-                    <h3 className="text-[18px] font-extrabold tracking-tight leading-tight mb-2">Request Match<br />Analysis</h3>
-                    <p className="text-[12px] text-white/90 font-medium leading-relaxed max-w-[85%] mb-5">
-                      Request a detailed compatibility breakdown and expert insights for this profile.
-                    </p>
-                    {realMatchResultsMap[selectedId!] ? (
-                      matchRequested ? (
+                    {/* Stage 1: No request yet (logged) */}
+                    {(!activeRequest || activeRequest.workflowStage === 'logged') && (
+                      <>
+                        <h3 className="text-[18px] font-extrabold tracking-tight leading-tight mb-2">
+                          Request Match<br />Analysis
+                        </h3>
+                        <p className="text-[12px] text-white/90 font-medium leading-relaxed max-w-[85%] mb-5">
+                          Request a detailed compatibility breakdown and expert insights for this profile.
+                        </p>
+                        {realMatchResultsMap[selectedId!] ? (
+                          <button
+                            onClick={handleRequestMatch}
+                            disabled={matchRequesting}
+                            className="inline-flex items-center gap-2 bg-white text-[#C86A4A] hover:bg-white/90 font-bold text-[12px] px-5 py-2.5 rounded-full shadow-sm transition-all disabled:opacity-70 cursor-pointer"
+                          >
+                            {matchRequesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            {matchRequesting ? 'Sending...' : 'Send Request'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleRunMatches}
+                            disabled={runningMatchesMap[selectedId!]}
+                            className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold text-[12px] px-5 py-2.5 rounded-full backdrop-blur-sm transition-all shadow-sm disabled:opacity-70 disabled:hover:bg-white/20 border border-white/10 cursor-pointer"
+                          >
+                            {runningMatchesMap[selectedId!] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            {runningMatchesMap[selectedId!] ? 'Running Algorithm…' : 'Run Algorithm'}
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {/* Stage 2: Requested / In Review with Manager */}
+                    {activeRequest?.workflowStage === 'requested' && (
+                      <>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-extrabold uppercase tracking-wider bg-white/20 text-white mb-2">
+                          <Clock className="w-3.5 h-3.5" /> Awaiting Manager Review
+                        </div>
+                        <h3 className="text-[18px] font-extrabold tracking-tight leading-tight mb-2">
+                          Match Request<br />Submitted
+                        </h3>
+                        <p className="text-[12px] text-white/90 font-medium leading-relaxed max-w-[85%] mb-5">
+                          Your match analysis request is currently being reviewed by the operations manager.
+                        </p>
                         <div className="inline-flex items-center gap-1.5 text-[12px] font-bold px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm shadow-sm border border-white/10">
                           <CheckCircle className="w-4 h-4" /> Request Sent
                         </div>
-                      ) : (
-                        <button
-                          onClick={handleRequestMatch}
-                          disabled={matchRequesting}
-                          className="inline-flex items-center gap-2 bg-white text-[#C86A4A] hover:bg-white/90 font-bold text-[12px] px-5 py-2.5 rounded-full shadow-sm transition-all disabled:opacity-70"
-                        >
-                          {matchRequesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                          {matchRequesting ? 'Sending...' : 'Send Request'}
-                        </button>
-                      )
-                    ) : (
-                      <button
-                        onClick={handleRunMatches}
-                        disabled={runningMatchesMap[selectedId!]}
-                        className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold text-[12px] px-5 py-2.5 rounded-full backdrop-blur-sm transition-all shadow-sm disabled:opacity-70 disabled:hover:bg-white/20 border border-white/10"
-                      >
-                        {runningMatchesMap[selectedId!] ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        {runningMatchesMap[selectedId!] ? 'Running Algorithm…' : 'Run Algorithm'}
-                      </button>
+                      </>
+                    )}
+
+                    {/* Stage 3: Responded / Released (Adeel Bhatti) */}
+                    {activeRequest?.workflowStage === 'responded' && (
+                      <>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-extrabold uppercase tracking-wider bg-white/20 text-white mb-2">
+                          <Sparkles className="w-3.5 h-3.5 text-[#F5C770]" /> Released by Manager
+                        </div>
+                        <h3 className="text-[18px] font-extrabold tracking-tight leading-tight mb-2">
+                          Matches<br />Released
+                        </h3>
+                        <p className="text-[12px] text-white/90 font-medium leading-relaxed max-w-[90%] mb-4">
+                          Manager has approved candidate matches. Download the released dossier to proceed with client communication.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <button
+                            onClick={handleDownloadReleasedDossier}
+                            disabled={isDownloadingPdf}
+                            className="inline-flex items-center gap-2 bg-white text-[#C86A4A] hover:bg-white/95 font-bold text-[12.5px] px-5 py-2.5 rounded-full shadow-md transition-all disabled:opacity-70 cursor-pointer"
+                          >
+                            {isDownloadingPdf ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-[#C86A4A]" />
+                            ) : (
+                              <Download className="w-4 h-4 text-[#C86A4A]" />
+                            )}
+                            {isDownloadingPdf ? 'Generating PDF...' : 'Download Matches'}
+                          </button>
+                          <button
+                            onClick={handleMarkAsDownloaded}
+                            disabled={isMarkingDownloaded}
+                            className="inline-flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white font-semibold text-[11.5px] px-3.5 py-2 rounded-full border border-white/20 backdrop-blur-sm transition-all cursor-pointer"
+                            title="Mark directly as downloaded"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Mark Downloaded
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Stage 4: Downloaded (Tehreem Raza) */}
+                    {activeRequest?.workflowStage === 'downloaded' && (
+                      <>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-extrabold uppercase tracking-wider bg-white/20 text-white mb-2">
+                          <CheckCircle className="w-3.5 h-3.5 text-[#A3B18A]" /> Downloaded Stage
+                        </div>
+                        <h3 className="text-[18px] font-extrabold tracking-tight leading-tight mb-1.5">
+                          Match Dossier<br />Downloaded
+                        </h3>
+                        <p className="text-[12px] text-white/90 font-medium leading-relaxed max-w-[90%] mb-4">
+                          Review candidate dossiers with the client and update proposal status.
+                        </p>
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            onClick={() => handleWorkflowAction('complete')}
+                            className="inline-flex items-center gap-2 bg-white text-[#1F3B34] hover:bg-[#F2EDE1] font-bold text-[12.5px] px-5 py-2.5 rounded-full shadow-md transition-all cursor-pointer"
+                          >
+                            <CheckCircle className="w-4 h-4 text-[#16a34a]" />
+                            Complete
+                          </button>
+                          <button
+                            onClick={() => handleWorkflowAction('incomplete')}
+                            className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold text-[12.5px] px-5 py-2.5 rounded-full border border-white/25 backdrop-blur-sm transition-all cursor-pointer"
+                          >
+                            <XCircle className="w-4 h-4 text-[#FCA5A5]" />
+                            Incomplete
+                          </button>
+                        </div>
+                        <div className="mt-3">
+                          <button
+                            onClick={handleDownloadReleasedDossier}
+                            disabled={isDownloadingPdf}
+                            className="text-[11px] text-white/70 hover:text-white underline inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Download className="w-3 h-3" /> Re-download Dossier PDF
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Stage 5: Done / Completed */}
+                    {activeRequest?.workflowStage === 'done' && (
+                      <>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-extrabold uppercase tracking-wider bg-white/20 text-white mb-2">
+                          <CheckCircle className="w-3.5 h-3.5 text-[#A3B18A]" /> Completed
+                        </div>
+                        <h3 className="text-[18px] font-extrabold tracking-tight leading-tight mb-2">
+                          Proposal Cycle<br />Completed
+                        </h3>
+                        <p className="text-[12px] text-white/90 font-medium leading-relaxed max-w-[85%] mb-4">
+                          This matchmaking request has been successfully closed and recorded.
+                        </p>
+                        <div className="inline-flex items-center gap-2 text-[12.5px] font-bold px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm border border-white/10">
+                          <CheckCircle className="w-4 h-4 text-[#A3B18A]" /> Finalized
+                        </div>
+                      </>
                     )}
                   </div>
                 </section>
@@ -1777,15 +2026,52 @@ export default function ProfilesListPage() {
                         <Edit2 className="w-[18px] h-[18px]" />
                       </button>
                     </Link>
-                    <button className="w-10 h-10 rounded-full bg-[#C86A4A] text-white flex items-center justify-center cursor-pointer hover:bg-[#a6563b] transition-all shadow-sm">
+                    <button 
+                      onClick={!activeRequest ? handleRequestMatch : undefined}
+                      disabled={Boolean(activeRequest) || matchRequesting}
+                      className="w-10 h-10 rounded-full bg-[#C86A4A] text-white flex items-center justify-center cursor-pointer hover:bg-[#a6563b] transition-all shadow-sm disabled:opacity-50 disabled:cursor-default"
+                      title={activeRequest ? `Workflow Stage: ${formatEnum(activeRequest.workflowStage)}` : 'Send Match Analysis Request'}
+                    >
                       <Send className="w-[18px] h-[18px]" />
                     </button>
-                    <button className="w-10 h-10 rounded-full bg-[#C86A4A] text-white flex items-center justify-center cursor-pointer hover:bg-[#a6563b] transition-all shadow-sm">
-                      <FileText className="w-[18px] h-[18px]" />
+                    <button 
+                      onClick={['responded', 'downloaded'].includes(activeRequest?.workflowStage || '') ? handleDownloadReleasedDossier : undefined}
+                      disabled={isDownloadingPdf}
+                      className="w-10 h-10 rounded-full bg-[#C86A4A] text-white flex items-center justify-center cursor-pointer hover:bg-[#a6563b] transition-all shadow-sm disabled:opacity-70"
+                      title={['responded', 'downloaded'].includes(activeRequest?.workflowStage || '') ? 'Download Released Matches PDF' : 'Dossier'}
+                    >
+                      {isDownloadingPdf ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : <FileText className="w-[18px] h-[18px]" />}
                     </button>
                     <span className="px-[12px] py-[6px] rounded-[20px] bg-white text-[11px] font-semibold ml-2 border border-black/5 text-[#717972] shadow-sm">
                       Profile #{selectedProfile.id.substring(0, 8).toUpperCase()}
                     </span>
+
+                    {/* Workflow Stage Pill */}
+                    {activeRequest?.workflowStage === 'responded' && (
+                      <span className="px-[12px] py-[6px] rounded-[20px] bg-[#2F3E51] text-white text-[11px] font-bold ml-1.5 shadow-sm flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3 text-[#F5C770]" /> Released
+                      </span>
+                    )}
+                    {activeRequest?.workflowStage === 'downloaded' && (
+                      <span className="px-[12px] py-[6px] rounded-[20px] bg-[#A3B18A]/25 text-[#1F3B34] border border-[#A3B18A]/40 text-[11px] font-bold ml-1.5 shadow-sm flex items-center gap-1.5">
+                        <CheckCircle className="w-3 h-3 text-[#1F3B34]" /> Downloaded
+                      </span>
+                    )}
+                    {activeRequest?.workflowStage === 'requested' && (
+                      <span className="px-[12px] py-[6px] rounded-[20px] bg-[#FEF3C7] text-[#92400E] border border-[#F6E1BA] text-[11px] font-bold ml-1.5 shadow-sm flex items-center gap-1.5">
+                        <Clock className="w-3 h-3 text-[#92400E]" /> Request Sent
+                      </span>
+                    )}
+                    {activeRequest?.workflowStage === 'done' && (
+                      <span className="px-[12px] py-[6px] rounded-[20px] bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc] text-[11px] font-bold ml-1.5 shadow-sm flex items-center gap-1.5">
+                        <CheckCircle className="w-3 h-3 text-[#16a34a]" /> Completed
+                      </span>
+                    )}
+                    {(!activeRequest || activeRequest?.workflowStage === 'logged') && (
+                      <span className="px-[12px] py-[6px] rounded-[20px] bg-[#F4EFE7] text-[#696256] text-[11px] font-bold ml-1.5 shadow-sm flex items-center gap-1.5">
+                        Entries Logged
+                      </span>
+                    )}
                   </div>
 
                   {/* Horizontal Navigation Tabs */}
