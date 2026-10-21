@@ -85,10 +85,11 @@ export default function Header({
   const badgeBorder = isDark ? "border-[#2F3E51]" : "border-white";
   const pathname = usePathname();
   const isNotificationsPage = pathname === '/notifications';
+  const isOverviewPage = pathname === '/overview';
 
   return (
     <>
-      {!isNotificationsPage && (
+      {!isNotificationsPage && !isOverviewPage && (
         <div className="absolute top-9 right-12 flex items-center gap-3 z-[40]">
           <button 
             onClick={() => setIsDraftsOpen(true)}
