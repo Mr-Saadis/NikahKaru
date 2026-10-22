@@ -364,6 +364,14 @@ export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, 
     );
   }, []);
 
+  const updateItemStatus = useCallback((id: string, status: RequestStatus) => {
+    setAllItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, status, profileData: { ...item.profileData, request_status: status } } : item
+      )
+    );
+  }, []);
+
   const resetFilters = useCallback(() => {
     setFilters({ search: '', dateFrom: '', dateTo: '', staff: '' });
     setExpandedFilter(null);
@@ -417,6 +425,7 @@ export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, 
     toggleLater,
     markAsReadLocal,
     updateItemStaff,
+    updateItemStatus,
 
     // Pagination
     loadMoreColumn: useCallback(async (colKey: string) => {

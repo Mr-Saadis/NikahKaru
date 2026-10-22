@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { RequestItem, ColumnDef } from './types';
 import { useBottomSheet } from './useBottomSheet';
 import { XIcon, PhoneIcon, CopyIcon, UserIcon, HashIcon, CalendarIcon, SparkIcon, BookmarkFilledIcon } from './icons';
-import { FileDown, UserCheck, ChevronDown, Search, Trash2, Pencil } from 'lucide-react';
+import { FileDown, UserCheck, ChevronDown, Search, Trash2, Pencil, Heart, CheckCircle2, RotateCcw } from 'lucide-react';
 import DeleteProfileDialog from './DeleteProfileDialog';
+import { CompleteMarriageDialog } from './CompleteMarriageDialog';
 import { MatchesSection } from './MatchesSection';
 import { ProfileNav } from './ProfileNav';
 import { ProfileSection } from './ProfileSection';
@@ -18,6 +19,7 @@ import {
   fetchAgentsList,
   assignProfileToAgent,
   markRequestAsDownloaded,
+  markRequestAsIncomplete,
   type AgentOption,
 } from '@/lib/actions/requests';
 import { ProfileAuditLogsSection } from './ProfileAuditLogsSection';
@@ -46,6 +48,7 @@ interface RequestDetailsSheetProps {
   isDirectory?: boolean;
   rightOffset?: number | string;
   onItemStaffUpdated?: (itemId: string, newStaff: string) => void;
+  onItemStatusUpdated?: (itemId: string, newStatus: any) => void;
   onProfileDeleted?: (profileId: string) => void;
 }
 
@@ -88,6 +91,7 @@ export default function RequestDetailsSheet({
   isDirectory = false,
   rightOffset = 10,
   onItemStaffUpdated,
+  onItemStatusUpdated,
   onProfileDeleted,
 }: RequestDetailsSheetProps) {
   const {
@@ -217,6 +221,82 @@ export default function RequestDetailsSheet({
   const inFlightFetchRef = useRef<string | null>(null);
 
   const profileId = item?.profileData?.profile_id || item?.profileData?.source_profile_id || (item?.profileData?.request_id && item?.profileData?.request_id === item?.id ? undefined : item?.id) || item?.profileData?.id;
+
+  // Completion / Status Dropdown & Dialog state
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
+  const [isMarkingIncomplete, setIsMarkingIncomplete] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close status dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setIsStatusDropdownOpen(false);
+      }
+    }
+    if (isStatusDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isStatusDropdownOpen]);
+
+  // Consumes existing in-memory matches / release history — ZERO extra API calls
+  const releasedCandidates = useMemo(() => {
+    if (!item) return [];
+    const currentM = matchingRef.current;
+    const cachedMatches = currentM.realMatches[item.id] || [];
+    const cachedHistory = currentM.releaseHistory[item.id] || [];
+
+    if (cachedMatches.length > 0) {
+      return cachedMatches;
+    }
+
+    return cachedHistory.map((h: any) => ({
+      candidateProfileId: h.candidate_profile_id,
+      finalScore: 0,
+      fullProfile: {
+        full_name: h.candidate_name,
+        date_of_birth: h.candidate_dob,
+        current_city_name_en: h.candidate_city,
+        marital_status: h.candidate_marital_status,
+      },
+    }));
+  }, [item, matching]);
+
+  const handleMarkIncomplete = useCallback(async () => {
+    if (!item) return;
+    const targetRequestId = (item.profileData as any)?.request_id || (item.id.length === 36 ? item.id : undefined);
+    if (!targetRequestId) {
+      onToast('No request ID found for this profile');
+      return;
+    }
+
+    try {
+      setIsMarkingIncomplete(true);
+      onToast('Updating status to incomplete...');
+      const res = await markRequestAsIncomplete(targetRequestId);
+      if (res.success) {
+        onToast('Profile marked as incomplete / in-progress');
+        onItemStatusUpdated?.(item.id, 'responded');
+      } else {
+        onToast(res.error || 'Failed to update status');
+      }
+    } catch (err: any) {
+      console.error('Error marking incomplete:', err);
+      onToast('Error updating status');
+    } finally {
+      setIsMarkingIncomplete(false);
+    }
+  }, [item, onToast, onItemStatusUpdated]);
+
+  const handleMarriageSuccess = useCallback((selectedCandidateId: string) => {
+    setIsCompleteDialogOpen(false);
+    onToast('Marriage finalized successfully! All other releases removed.');
+    if (item) {
+      onItemStatusUpdated?.(item.id, 'done');
+    }
+  }, [item, onToast, onItemStatusUpdated]);
 
   const [preferences, setPreferences] = useState<any | null>(() => {
     return profileId ? (preferencesCache.get(profileId) || null) : null;
@@ -970,12 +1050,118 @@ export default function RequestDetailsSheet({
                           <FileDown size={15} className={isDownloadingMatchesPdf ? "animate-spin" : ""} />
                           <span>{isDownloadingMatchesPdf ? "Downloading..." : "Download Matches PDF"}</span>
                         </button>
+
+                        {/* Dropdown for Downloaded Profiles (Agent View) */}
+                        {item.status === 'downloaded' && (
+                          <div className="relative" ref={statusDropdownRef}>
+                            <button
+                              type="button"
+                              onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
+                              className="inline-flex items-center gap-2 h-[44px] px-[18px] border-0 rounded-full bg-[#A3B18A] hover:bg-[#8fa074] text-[#1F3B34] font-inherit text-[13px] font-[700] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-[2px]"
+                              title="Mark as Complete or Incomplete"
+                            >
+                              <CheckCircle2 size={16} className="text-[#1F3B34]" />
+                              <span>Mark as Complete</span>
+                              <ChevronDown size={14} className={`transition-transform duration-200 ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {isStatusDropdownOpen && (
+                              <div className="absolute right-0 mt-2 w-64 bg-white rounded-[20px] shadow-[0_16px_36px_rgba(0,0,0,0.15)] border border-[#E9E4DC] p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsStatusDropdownOpen(false);
+                                    handleMarkIncomplete();
+                                  }}
+                                  disabled={isMarkingIncomplete}
+                                  className="w-full text-left px-3.5 py-2.5 rounded-[14px] text-[13px] font-semibold text-[#696256] hover:bg-[#FAF8F5] hover:text-[#1F3B34] flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <RotateCcw size={15} className="text-[#C86A4A]" />
+                                  <div>
+                                    <div className="font-bold text-[#1F3B34]">Incomplete</div>
+                                    <div className="text-[11px] text-[#8B8479] font-normal">Revert to follow-up or review</div>
+                                  </div>
+                                </button>
+
+                                <div className="h-[1px] bg-[#E9E4DC]/60 my-1" />
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsStatusDropdownOpen(false);
+                                    setIsCompleteDialogOpen(true);
+                                  }}
+                                  className="w-full text-left px-3.5 py-2.5 rounded-[14px] text-[13px] font-semibold text-[#064e3b] hover:bg-[#E5EFE9] flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <Heart size={16} className="text-[#064e3b] fill-[#064e3b]" />
+                                  <div>
+                                    <div className="font-bold text-[#064e3b]">Completed (Marriage Finalized)</div>
+                                    <div className="text-[11px] text-[#064e3b]/80 font-normal">Select candidate & finalize</div>
+                                  </div>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )
                   )}
                 </div>
               ) : (
                 <div className="ml-auto flex items-center gap-[10px]">
+                  {/* Dropdown for Downloaded Profiles (Manager/Admin View) */}
+                  {item.status === 'downloaded' && (
+                    <div className="relative" ref={statusDropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
+                        className="inline-flex items-center gap-2 h-[48px] px-[20px] border-0 rounded-full bg-[#A3B18A] hover:bg-[#8fa074] text-[#1F3B34] font-inherit text-[13.5px] font-[700] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-[2px]"
+                        title="Mark as Complete or Incomplete"
+                      >
+                        <CheckCircle2 size={16} className="text-[#1F3B34]" />
+                        <span>Mark as Complete</span>
+                        <ChevronDown size={14} className={`transition-transform duration-200 ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {isStatusDropdownOpen && (
+                        <div className="absolute right-0 mt-2 w-64 bg-white rounded-[20px] shadow-[0_16px_36px_rgba(0,0,0,0.15)] border border-[#E9E4DC] p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsStatusDropdownOpen(false);
+                              handleMarkIncomplete();
+                            }}
+                            disabled={isMarkingIncomplete}
+                            className="w-full text-left px-3.5 py-2.5 rounded-[14px] text-[13px] font-semibold text-[#696256] hover:bg-[#FAF8F5] hover:text-[#1F3B34] flex items-center gap-2.5 transition-colors cursor-pointer"
+                          >
+                            <RotateCcw size={15} className="text-[#C86A4A]" />
+                            <div>
+                              <div className="font-bold text-[#1F3B34]">Incomplete</div>
+                              <div className="text-[11px] text-[#8B8479] font-normal">Revert to follow-up or review</div>
+                            </div>
+                          </button>
+
+                          <div className="h-[1px] bg-[#E9E4DC]/60 my-1" />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsStatusDropdownOpen(false);
+                              setIsCompleteDialogOpen(true);
+                            }}
+                            className="w-full text-left px-3.5 py-2.5 rounded-[14px] text-[13px] font-semibold text-[#064e3b] hover:bg-[#E5EFE9] flex items-center gap-2.5 transition-colors cursor-pointer"
+                          >
+                            <Heart size={16} className="text-[#064e3b] fill-[#064e3b]" />
+                            <div>
+                              <div className="font-bold text-[#064e3b]">Completed (Marriage Finalized)</div>
+                              <div className="text-[11px] text-[#064e3b]/80 font-normal">Select candidate & finalize</div>
+                            </div>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {isMatchesOn && (
                     <button
                       type="button"
@@ -1165,6 +1351,20 @@ export default function RequestDetailsSheet({
             onProfileDeleted?.(profileId);
             onClose();
           }}
+          onToast={onToast}
+        />
+      )}
+
+      {/* Complete Marriage Dialog (Downloaded Profiles) */}
+      {isCompleteDialogOpen && item && (
+        <CompleteMarriageDialog
+          isOpen={isCompleteDialogOpen}
+          onClose={() => setIsCompleteDialogOpen(false)}
+          sourceName={item.name}
+          sourceProfileId={profileId || item.id}
+          requestId={(item.profileData as any)?.request_id || (item.id.length === 36 ? item.id : '')}
+          candidates={releasedCandidates}
+          onSuccess={handleMarriageSuccess}
           onToast={onToast}
         />
       )}

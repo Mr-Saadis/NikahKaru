@@ -53,6 +53,7 @@ export default function RequestsBoard({ columns, fetchColumnRequests, fetchReque
     staffNames,
     markAsReadLocal,
     updateItemStaff,
+    updateItemStatus,
     loadMoreColumn,
     isLoadingMore,
     columnHasMore,
@@ -222,6 +223,7 @@ export default function RequestsBoard({ columns, fetchColumnRequests, fetchReque
           onHeightChange={setSheetHeight}
           matching={matching}
           onItemStaffUpdated={updateItemStaff}
+          onItemStatusUpdated={updateItemStatus}
         />
 
         {/* ── Toast ── */}

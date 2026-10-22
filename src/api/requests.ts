@@ -901,3 +901,176 @@ export async function assignProfileToAgent(params: {
   }
 }
 
+// =======================================================================
+// Finalize Marriage Pairing & Cleanup Unselected Releases (Strictly by UUID)
+// =======================================================================
+export async function finalizeMarriagePairing(params: {
+  requestId: string;
+  sourceProfileId: string;
+  candidateProfileId: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { requestId, sourceProfileId, candidateProfileId } = params;
+    if (!sourceProfileId || !candidateProfileId) {
+      return { success: false, error: 'Source Profile ID and Candidate Profile ID are required.' };
+    }
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const adminClient = createAdminClient();
+
+    // 1. Identify Hassan's request IDs
+    const { data: sourceReqs } = await adminClient
+      .from('information_requests')
+      .select('id')
+      .eq('source_profile_id', sourceProfileId);
+
+    const sourceReqIds = (sourceReqs || []).map((r) => r.id);
+    if (requestId && !sourceReqIds.includes(requestId)) {
+      sourceReqIds.push(requestId);
+    }
+
+    // Delete other candidate releases for Hassan
+    if (sourceReqIds.length > 0) {
+      await adminClient
+        .from('information_releases')
+        .delete()
+        .in('request_id', sourceReqIds)
+        .neq('candidate_profile_id', candidateProfileId);
+    }
+
+    // 2. Identify Fatima's request IDs (Vice-Versa strictly by UUID)
+    const { data: candidateReqs } = await adminClient
+      .from('information_requests')
+      .select('id')
+      .eq('source_profile_id', candidateProfileId);
+
+    const candidateReqIds = (candidateReqs || []).map((r) => r.id);
+
+    // Delete other candidate releases for Fatima
+    if (candidateReqIds.length > 0) {
+      await adminClient
+        .from('information_releases')
+        .delete()
+        .in('request_id', candidateReqIds)
+        .neq('candidate_profile_id', sourceProfileId);
+    }
+
+    // 3. Remove Fatima as a released candidate from anyone else's requests (where request is NOT Hassan's)
+    if (sourceReqIds.length > 0) {
+      await adminClient
+        .from('information_releases')
+        .delete()
+        .eq('candidate_profile_id', candidateProfileId)
+        .not('request_id', 'in', `(${sourceReqIds.join(',')})`);
+    } else {
+      await adminClient
+        .from('information_releases')
+        .delete()
+        .eq('candidate_profile_id', candidateProfileId);
+    }
+
+    // Remove Hassan as a released candidate from anyone else's requests (where request is NOT Fatima's)
+    if (candidateReqIds.length > 0) {
+      await adminClient
+        .from('information_releases')
+        .delete()
+        .eq('candidate_profile_id', sourceProfileId)
+        .not('request_id', 'in', `(${candidateReqIds.join(',')})`);
+    } else {
+      await adminClient
+        .from('information_releases')
+        .delete()
+        .eq('candidate_profile_id', sourceProfileId);
+    }
+
+    // 4. Update both profile statuses to ARCHIVED
+    await adminClient
+      .from('profiles')
+      .update({ status: 'ARCHIVED', updated_at: new Date().toISOString() })
+      .in('id', [sourceProfileId, candidateProfileId]);
+
+    // 5. Update personal_information marital_status to MARRIED
+    await adminClient
+      .from('personal_information')
+      .update({ marital_status: 'MARRIED' })
+      .in('profile_id', [sourceProfileId, candidateProfileId]);
+
+    // 6. Complete all requests for both profiles
+    const allReqIds = [...new Set([...sourceReqIds, ...candidateReqIds])];
+    if (allReqIds.length > 0) {
+      await adminClient
+        .from('information_requests')
+        .update({ status: 'COMPLETED', updated_at: new Date().toISOString() })
+        .in('id', allReqIds);
+    }
+
+    // 7. Refresh materialized view (non-blocking)
+    try {
+      await adminClient.rpc('refresh_mv_matching_profiles');
+    } catch (mvErr) {
+      console.warn('refresh_mv_matching_profiles failed:', mvErr);
+    }
+
+    // 8. Audit log
+    if (user?.id) {
+      await adminClient.from('audit_logs').insert({
+        actor_user_id: user.id,
+        action: 'MARRIAGE_FINALIZED',
+        entity_type: 'information_requests',
+        entity_id: requestId || sourceProfileId,
+        metadata: {
+          event: 'MARRIAGE_FINALIZED',
+          source_profile_id: sourceProfileId,
+          candidate_profile_id: candidateProfileId,
+          cleaned_source_requests: sourceReqIds,
+          cleaned_candidate_requests: candidateReqIds,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('finalizeMarriagePairing error:', err);
+    return { success: false, error: err?.message || 'Failed to finalize marriage.' };
+  }
+}
+
+// =======================================================================
+// Mark Request as Incomplete (Revert to IN_REVIEW for follow-up)
+// =======================================================================
+export async function markRequestAsIncomplete(requestId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const adminClient = createAdminClient();
+
+    const { error: updErr } = await adminClient
+      .from('information_requests')
+      .update({ status: 'IN_REVIEW', updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+
+    if (updErr) {
+      return { success: false, error: updErr.message };
+    }
+
+    if (user?.id) {
+      await adminClient.from('audit_logs').insert({
+        actor_user_id: user.id,
+        action: 'STATUS_CHANGE',
+        entity_type: 'information_requests',
+        entity_id: requestId,
+        new_data: { status: 'IN_REVIEW' },
+        metadata: { event: 'MARKED_INCOMPLETE', description: 'Reopened for follow-up or review' },
+      });
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('markRequestAsIncomplete error:', err);
+    return { success: false, error: err?.message || 'Failed to mark as incomplete.' };
+  }
+}
+
+

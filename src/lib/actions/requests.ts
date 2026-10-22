@@ -15,6 +15,8 @@ import {
   fetchProfileActivePreferences as apiFetchProfileActivePreferences,
   fetchAgentsList as apiFetchAgentsList,
   assignProfileToAgent as apiAssignProfileToAgent,
+  finalizeMarriagePairing as apiFinalizeMarriagePairing,
+  markRequestAsIncomplete as apiMarkRequestAsIncomplete,
   type ProfileAuditLogItem,
   type AgentOption,
 } from '@/api/requests';
@@ -90,4 +92,17 @@ export async function assignProfileToAgent(params: {
 }): Promise<{ success: boolean; error?: string }> {
   return apiAssignProfileToAgent(params);
 }
+
+export async function finalizeMarriagePairing(params: {
+  requestId: string;
+  sourceProfileId: string;
+  candidateProfileId: string;
+}): Promise<{ success: boolean; error?: string }> {
+  return apiFinalizeMarriagePairing(params);
+}
+
+export async function markRequestAsIncomplete(requestId: string): Promise<{ success: boolean; error?: string }> {
+  return apiMarkRequestAsIncomplete(requestId);
+}
+
 
