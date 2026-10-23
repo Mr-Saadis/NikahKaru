@@ -17,6 +17,7 @@ import {
   assignProfileToAgent as apiAssignProfileToAgent,
   finalizeMarriagePairing as apiFinalizeMarriagePairing,
   markRequestAsIncomplete as apiMarkRequestAsIncomplete,
+  markRequestAsCompletedOutsideSystem as apiMarkRequestAsCompletedOutsideSystem,
   type ProfileAuditLogItem,
   type AgentOption,
 } from '@/api/requests';
@@ -101,8 +102,12 @@ export async function finalizeMarriagePairing(params: {
   return apiFinalizeMarriagePairing(params);
 }
 
+export async function markRequestAsCompletedOutsideSystem(requestId: string): Promise<{ success: boolean; error?: string }> {
+  return apiMarkRequestAsCompletedOutsideSystem(requestId);
+}
+
 export async function markRequestAsIncomplete(requestId: string): Promise<{ success: boolean; error?: string }> {
-  return apiMarkRequestAsIncomplete(requestId);
+  return apiMarkRequestAsCompletedOutsideSystem(requestId);
 }
 
 

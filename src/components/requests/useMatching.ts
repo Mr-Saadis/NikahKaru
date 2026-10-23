@@ -23,6 +23,7 @@ export function useMatching() {
   
   // Release history state
   const [releaseHistory, setReleaseHistory] = useState<Record<string, any[]>>({});
+  const [isSending, setIsSending] = useState<Record<string, boolean>>({});
 
   const loadSentProfiles = useCallback(async (item: RequestItem, explicitHistory?: any[]) => {
     if (!item) return [];
@@ -67,6 +68,15 @@ export function useMatching() {
   const toggleMatches = useCallback(async (item: RequestItem, forceRematch = false) => {
     const requestId = item.id;
     let isTurningOff = false;
+
+    const isCompleted = item?.status === 'done' || 
+      item?.status === 'COMPLETED' || 
+      (item?.profileData as any)?.request_status === 'COMPLETED' || 
+      (item?.profileData as any)?.status === 'INACTIVE';
+
+    if (isCompleted) {
+      forceRematch = false;
+    }
     
     setMatchesOn((prev) => {
       const isCurrentlyOn = prev[requestId];
@@ -164,7 +174,7 @@ export function useMatching() {
         }
       }
 
-      if (results.length === 0) {
+      if (results.length === 0 && !isCompleted) {
         try {
           results = await runMatching(supabase, sourceProfileId, {
             limit: 50,
@@ -303,8 +313,10 @@ export function useMatching() {
       onToast: (msg: string) => void,
       openPanel: (candidateId: string, requestId: string) => void,
       closePanel: () => void,
+      onItemStatusUpdated?: (id: string, status: any) => void,
     ) => {
       if (!item || item.status === 'new') return;
+      if (isSending[item.id]) return;
       const reqChosen = chosen[item.id];
       if (!reqChosen || reqChosen.size === 0) return;
 
@@ -455,10 +467,12 @@ export function useMatching() {
         return;
       }
 
+      setIsSending((prev) => ({ ...prev, [item.id]: true }));
       onToast('Sending matches...');
 
       try {
-        const res = await fetch(`/api/requests/${item.id}/release`, {
+        const targetRequestId = (item.profileData as any)?.request_id || item.id;
+        const res = await fetch(`/api/requests/${targetRequestId}/release`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ releasesData })
@@ -507,15 +521,23 @@ export function useMatching() {
         closePanel();
         onToast(`Sent details to ${n} candidate${n > 1 ? 's' : ''}`);
 
-        // Note: To fully remove the card from the board, we could either force a refetch or trigger a local state update
-        // to move it to 'Completed'. For now, marking it as sent will show the checkmarks.
+        // If card was in downloaded stage, transition it to responded stage
+        if (item.status === 'downloaded') {
+          item.status = 'responded';
+          if (item.profileData) {
+            (item.profileData as any).request_status = 'IN_REVIEW';
+          }
+          onItemStatusUpdated?.(item.id, 'responded');
+        }
 
       } catch (e: any) {
         console.error(e);
         onToast(e.message || 'Failed to send matches. Please try again.');
+      } finally {
+        setIsSending((prev) => ({ ...prev, [item.id]: false }));
       }
     },
-    [chosen, realMatches, sentExtra]
+    [chosen, realMatches, sentExtra, isSending]
   );
 
   const deleteSentProfilesAction = useCallback(
@@ -592,6 +614,7 @@ export function useMatching() {
     deleteSentProfiles: deleteSentProfilesAction,
     releaseHistory,
     setReleaseHistory,
+    isSending,
     loadSentProfiles,
   };
 }

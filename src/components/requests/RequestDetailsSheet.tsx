@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { RequestItem, ColumnDef } from './types';
 import { useBottomSheet } from './useBottomSheet';
 import { XIcon, PhoneIcon, CopyIcon, UserIcon, HashIcon, CalendarIcon, SparkIcon, BookmarkFilledIcon } from './icons';
-import { FileDown, UserCheck, ChevronDown, Search, Trash2, Pencil, Heart, CheckCircle2, RotateCcw } from 'lucide-react';
+import { FileDown, UserCheck, ChevronDown, Search, Trash2, Pencil, Heart, CheckCircle2, RotateCcw, ExternalLink } from 'lucide-react';
 import DeleteProfileDialog from './DeleteProfileDialog';
 import { CompleteMarriageDialog } from './CompleteMarriageDialog';
 import { MatchesSection } from './MatchesSection';
@@ -19,7 +19,7 @@ import {
   fetchAgentsList,
   assignProfileToAgent,
   markRequestAsDownloaded,
-  markRequestAsIncomplete,
+  markRequestAsCompletedOutsideSystem,
   type AgentOption,
 } from '@/lib/actions/requests';
 import { ProfileAuditLogsSection } from './ProfileAuditLogsSection';
@@ -222,6 +222,18 @@ export default function RequestDetailsSheet({
 
   const profileId = item?.profileData?.profile_id || item?.profileData?.source_profile_id || (item?.profileData?.request_id && item?.profileData?.request_id === item?.id ? undefined : item?.id) || item?.profileData?.id;
 
+  const isCompleted = Boolean(
+    item && (
+      item.status === 'done' ||
+      item.status === 'completed_outside' ||
+      item.status === 'COMPLETED' ||
+      item.status === 'COMPLETED_OUTSIDE_SYSTEM' ||
+      (item.profileData as any)?.request_status === 'COMPLETED' ||
+      (item.profileData as any)?.request_status === 'COMPLETED_OUTSIDE_SYSTEM' ||
+      (item.profileData as any)?.status === 'INACTIVE'
+    )
+  );
+
   // Completion / Status Dropdown & Dialog state
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
@@ -264,7 +276,7 @@ export default function RequestDetailsSheet({
     }));
   }, [item, matching]);
 
-  const handleMarkIncomplete = useCallback(async () => {
+  const handleMarkCompletedOutsideSystem = useCallback(async () => {
     if (!item) return;
     const targetRequestId = (item.profileData as any)?.request_id || (item.id.length === 36 ? item.id : undefined);
     if (!targetRequestId) {
@@ -274,16 +286,28 @@ export default function RequestDetailsSheet({
 
     try {
       setIsMarkingIncomplete(true);
-      onToast('Updating status to incomplete...');
-      const res = await markRequestAsIncomplete(targetRequestId);
+      onToast('Updating status to Completed Outside System...');
+      const res = await markRequestAsCompletedOutsideSystem(targetRequestId);
       if (res.success) {
-        onToast('Profile marked as incomplete / in-progress');
-        onItemStatusUpdated?.(item.id, 'responded');
+        onToast('Profile marked as Completed Outside System');
+        if (item.profileData) {
+          (item.profileData as any).request_status = 'COMPLETED_OUTSIDE_SYSTEM';
+          (item.profileData as any).status = 'INACTIVE';
+        }
+        item.status = 'completed_outside';
+        const currentM = matchingRef.current;
+        if (currentM.setRealMatches) {
+          currentM.setRealMatches((prev: any) => ({
+            ...prev,
+            [item.id]: []
+          }));
+        }
+        onItemStatusUpdated?.(item.id, 'completed_outside');
       } else {
         onToast(res.error || 'Failed to update status');
       }
     } catch (err: any) {
-      console.error('Error marking incomplete:', err);
+      console.error('Error marking completed outside system:', err);
       onToast('Error updating status');
     } finally {
       setIsMarkingIncomplete(false);
@@ -294,6 +318,19 @@ export default function RequestDetailsSheet({
     setIsCompleteDialogOpen(false);
     onToast('Marriage finalized successfully! All other releases removed.');
     if (item) {
+      const currentM = matchingRef.current;
+      if (currentM.setRealMatches) {
+        currentM.setRealMatches((prev: any) => ({
+          ...prev,
+          [item.id]: (prev[item.id] || []).filter((m: any) => m.candidateProfileId === selectedCandidateId)
+        }));
+      }
+      if (currentM.setReleaseHistory) {
+        currentM.setReleaseHistory((prev: any) => ({
+          ...prev,
+          [item.id]: (prev[item.id] || []).filter((r: any) => r.candidate_profile_id === selectedCandidateId)
+        }));
+      }
       onItemStatusUpdated?.(item.id, 'done');
     }
   }, [item, onToast, onItemStatusUpdated]);
@@ -458,6 +495,22 @@ export default function RequestDetailsSheet({
 
   const handleMatchNow = useCallback(() => {
     if (!item) return;
+    if (isCompleted) {
+      // If completed, only toggle visibility of the finalized released matches without running rematch engine
+      const isTurningOn = !matching.matchesOn[item.id];
+      matching.toggleMatches(item, false);
+      if (isTurningOn) {
+        setTimeout(() => {
+          if (matchesRef.current && scrollRef.current) {
+            scrollRef.current.scrollTo({
+              top: matchesRef.current.getBoundingClientRect().top - scrollRef.current.getBoundingClientRect().top + scrollRef.current.scrollTop - 74,
+              behavior: 'smooth'
+            });
+          }
+        }, 500);
+      }
+      return;
+    }
     const isTurningOn = !matching.matchesOn[item.id];
     matching.toggleMatches(item, isTurningOn);
 
@@ -472,13 +525,17 @@ export default function RequestDetailsSheet({
         }
       }, 500);
     }
-  }, [item, matching, scrollRef]);
+  }, [item, matching, scrollRef, isCompleted]);
 
   const handleRematch = useCallback(() => {
     if (!item) return;
+    if (isCompleted) {
+      onToast('Profile is completed. Rematching is not allowed.');
+      return;
+    }
     // Real rematch logic could reset state, but for now just toast
     onToast('Matches refreshed (from cache)');
-  }, [item, onToast]);
+  }, [item, onToast, isCompleted]);
 
   const handleAgentSubmitRequest = useCallback(async () => {
     if (!item) return;
@@ -673,8 +730,8 @@ export default function RequestDetailsSheet({
   const reqChosen = matching.chosen[item.id];
   let M = matching.realMatches[item.id] || [];
 
-  if (isAgent || (!isMatchesOn && releaseHistory.length > 0)) {
-    // For AGENT: only show profiles released by manager from history
+  if (isCompleted || isAgent || (!isMatchesOn && releaseHistory.length > 0)) {
+    // When completed (or for agent): strictly only show the released/finalized candidate from history
     M = M.filter((m: any) => releaseHistory.some((r: any) => r.candidate_profile_id === m.candidateProfileId));
   }
 
@@ -949,19 +1006,6 @@ export default function RequestDetailsSheet({
                     </div>
                   )}
 
-                  {/* Download Matches PDF: Always available when request is responded/released */}
-                  {isResponded && (
-                    <button
-                      type="button"
-                      disabled={isDownloadingMatchesPdf}
-                      onClick={(e) => { e.stopPropagation(); handleDownloadMatchesPdf(); }}
-                      title="Download PDF of sent/released matches for this profile"
-                      className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[#C86A4A] text-white text-[12px] font-[600] border-none cursor-pointer shadow-[0_4px_12px_rgba(200,106,74,.25)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_18px_rgba(200,106,74,.35)] disabled:opacity-50"
-                    >
-                      <FileDown size={14} className={isDownloadingMatchesPdf ? "animate-spin" : ""} />
-                      <span>{isDownloadingMatchesPdf ? "Downloading..." : "Download Matches PDF"}</span>
-                    </button>
-                  )}
 
                   {isDirectory && isAdmin && (
                     <>
@@ -1029,7 +1073,7 @@ export default function RequestDetailsSheet({
                       <span>⏳ Awaiting Manager Review</span>
                     </div>
                   )}
-                  {(item.status === 'responded' || item.status === 'downloaded' || item.status === 'done' || releaseHistory.length > 0) && (
+                  {(item.status === 'responded' || item.status === 'downloaded' || item.status === 'done' || item.status === 'completed_outside' || releaseHistory.length > 0) && (
                     isActuallyLoading ? (
                       <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#F2EDE1] border border-[#E5DFD3] text-[#2F3E51] text-[13px] font-[600]">
                         <SparkIcon size={16} className="text-[#C86A4A] animate-[sheet-spin_1s_linear_infinite]" />
@@ -1037,19 +1081,15 @@ export default function RequestDetailsSheet({
                       </div>
                     ) : (
                       <div className="flex items-center gap-[10px]">
-                        <div className="inline-flex items-center gap-2 h-[44px] px-[18px] rounded-full bg-[#E8F5E9] border border-[#A5D6A7] text-[#1B5E20] text-[13px] font-[600]">
-                          <span>✓ Matches Released ({releaseHistory.length})</span>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={isDownloadingMatchesPdf}
-                          onClick={(e) => { e.stopPropagation(); handleDownloadMatchesPdf(); }}
-                          title="Download PDF of released matches for this profile"
-                          className="inline-flex items-center gap-[8px] h-[44px] px-[20px] border-0 rounded-full bg-[#064e3b] text-white font-inherit text-[13px] font-[600] cursor-pointer shadow-[0_6px_18px_rgba(6,78,59,.25)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_10px_24px_rgba(6,78,59,.35)] disabled:opacity-50"
-                        >
-                          <FileDown size={15} className={isDownloadingMatchesPdf ? "animate-spin" : ""} />
-                          <span>{isDownloadingMatchesPdf ? "Downloading..." : "Download Matches PDF"}</span>
-                        </button>
+                        {item.status === 'completed_outside' ? (
+                          <div className="inline-flex items-center gap-2 h-[44px] px-[18px] rounded-full bg-[#F2EDE1] border border-[#E5DFD3] text-[#5C5449] text-[13px] font-[700]">
+                            <span>✓ Completed Outside System</span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-2 h-[44px] px-[18px] rounded-full bg-[#E8F5E9] border border-[#A5D6A7] text-[#1B5E20] text-[13px] font-[600]">
+                            <span>✓ Matches Released ({releaseHistory.length})</span>
+                          </div>
+                        )}
 
                         {/* Dropdown for Downloaded Profiles (Agent View) */}
                         {item.status === 'downloaded' && (
@@ -1058,7 +1098,7 @@ export default function RequestDetailsSheet({
                               type="button"
                               onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
                               className="inline-flex items-center gap-2 h-[44px] px-[18px] border-0 rounded-full bg-[#A3B18A] hover:bg-[#8fa074] text-[#1F3B34] font-inherit text-[13px] font-[700] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-[2px]"
-                              title="Mark as Complete or Incomplete"
+                              title="Mark as Complete"
                             >
                               <CheckCircle2 size={16} className="text-[#1F3B34]" />
                               <span>Mark as Complete</span>
@@ -1071,15 +1111,15 @@ export default function RequestDetailsSheet({
                                   type="button"
                                   onClick={() => {
                                     setIsStatusDropdownOpen(false);
-                                    handleMarkIncomplete();
+                                    handleMarkCompletedOutsideSystem();
                                   }}
                                   disabled={isMarkingIncomplete}
                                   className="w-full text-left px-3.5 py-2.5 rounded-[14px] text-[13px] font-semibold text-[#696256] hover:bg-[#FAF8F5] hover:text-[#1F3B34] flex items-center gap-2.5 transition-colors cursor-pointer"
                                 >
-                                  <RotateCcw size={15} className="text-[#C86A4A]" />
+                                  <ExternalLink size={15} className="text-[#C86A4A]" />
                                   <div>
-                                    <div className="font-bold text-[#1F3B34]">Incomplete</div>
-                                    <div className="text-[11px] text-[#8B8479] font-normal">Revert to follow-up or review</div>
+                                    <div className="font-bold text-[#1F3B34]">Completed Outside System</div>
+                                    <div className="text-[11px] text-[#8B8479] font-normal">Marriage finalized outside NikahKaro</div>
                                   </div>
                                 </button>
 
@@ -1116,7 +1156,7 @@ export default function RequestDetailsSheet({
                         type="button"
                         onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
                         className="inline-flex items-center gap-2 h-[48px] px-[20px] border-0 rounded-full bg-[#A3B18A] hover:bg-[#8fa074] text-[#1F3B34] font-inherit text-[13.5px] font-[700] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-[2px]"
-                        title="Mark as Complete or Incomplete"
+                        title="Mark as Complete"
                       >
                         <CheckCircle2 size={16} className="text-[#1F3B34]" />
                         <span>Mark as Complete</span>
@@ -1129,15 +1169,15 @@ export default function RequestDetailsSheet({
                             type="button"
                             onClick={() => {
                               setIsStatusDropdownOpen(false);
-                              handleMarkIncomplete();
+                              handleMarkCompletedOutsideSystem();
                             }}
                             disabled={isMarkingIncomplete}
                             className="w-full text-left px-3.5 py-2.5 rounded-[14px] text-[13px] font-semibold text-[#696256] hover:bg-[#FAF8F5] hover:text-[#1F3B34] flex items-center gap-2.5 transition-colors cursor-pointer"
                           >
-                            <RotateCcw size={15} className="text-[#C86A4A]" />
+                            <ExternalLink size={15} className="text-[#C86A4A]" />
                             <div>
-                              <div className="font-bold text-[#1F3B34]">Incomplete</div>
-                              <div className="text-[11px] text-[#8B8479] font-normal">Revert to follow-up or review</div>
+                              <div className="font-bold text-[#1F3B34]">Completed Outside System</div>
+                              <div className="text-[11px] text-[#8B8479] font-normal">Marriage finalized outside NikahKaro</div>
                             </div>
                           </button>
 
@@ -1162,40 +1202,51 @@ export default function RequestDetailsSheet({
                     </div>
                   )}
 
-                  {isMatchesOn && (
-                    <button
-                      type="button"
-                      disabled={isActuallyLoading || isMatchingLoading}
-                      onClick={handleRematch}
-                      className="inline-flex items-center justify-center h-[48px] px-[20px] border-0 rounded-full bg-[rgba(255,255,255,.72)] backdrop-blur-[8px] text-[#111] font-inherit text-[13px] font-[600] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,.08)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(0,0,0,.15)] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                    >
-                      Rematch
-                    </button>
+                  {isCompleted ? (
+                    (isActuallyLoading || isMatchingLoading) ? (
+                      <div className="inline-flex items-center gap-2 h-[48px] px-[24px] rounded-full bg-[rgba(255,255,255,.72)] backdrop-blur-[8px] text-[#111] text-[13.5px] font-[600]">
+                        <SparkIcon size={17} className="text-[#064e3b] animate-[sheet-spin_1s_linear_infinite]" />
+                        <span>Loading matches…</span>
+                      </div>
+                    ) : null
+                  ) : (
+                    <>
+                      {isMatchesOn && (
+                        <button
+                          type="button"
+                          disabled={isActuallyLoading || isMatchingLoading}
+                          onClick={handleRematch}
+                          className="inline-flex items-center justify-center h-[48px] px-[20px] border-0 rounded-full bg-[rgba(255,255,255,.72)] backdrop-blur-[8px] text-[#111] font-inherit text-[13px] font-[600] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,.08)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_8px_20px_rgba(0,0,0,.15)] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        >
+                          Rematch
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={isActuallyLoading || isMatchingLoading}
+                        onClick={handleMatchNow}
+                        className="inline-flex items-center gap-[9px] h-[48px] px-[26px] border-0 rounded-full bg-[#111] text-white font-inherit text-[14px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(0,0,0,.25)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_14px_30px_rgba(0,0,0,.32)] disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
+                      >
+                        <SparkIcon size={17} className={`text-[#eddd02] ${(isActuallyLoading || isMatchingLoading) ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
+                        <span>
+                          {isActuallyLoading
+                            ? 'Loading matches…'
+                            : isMatchesOn
+                              ? 'Hide Matches'
+                              : isMatchingLoading
+                                ? 'Finding matches…'
+                                : (releaseHistory.length > 0 ? 'Rematch' : 'Match Now')}
+                        </span>
+                      </button>
+                    </>
                   )}
-                  <button
-                    type="button"
-                    disabled={isActuallyLoading || isMatchingLoading}
-                    onClick={handleMatchNow}
-                    className="inline-flex items-center gap-[9px] h-[48px] px-[26px] border-0 rounded-full bg-[#111] text-white font-inherit text-[14px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(0,0,0,.25)] transition-all duration-250 hover:-translate-y-[2px] hover:shadow-[0_14px_30px_rgba(0,0,0,.32)] disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
-                  >
-                    <SparkIcon size={17} className={`text-[#eddd02] ${(isActuallyLoading || isMatchingLoading) ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
-                    <span>
-                      {isActuallyLoading
-                        ? 'Loading matches…'
-                        : isMatchesOn
-                          ? 'Hide Matches'
-                          : isMatchingLoading
-                            ? 'Finding matches…'
-                            : (releaseHistory.length > 0 ? 'Rematch' : 'Match Now')}
-                    </span>
-                  </button>
                 </div>
               )}
             </div>
           </div>
 
           <div id="mt" ref={matchesRef}>
-            {!isActuallyLoading && (isMatchesOn || releaseHistory.length > 0) && (
+            {!isActuallyLoading && (isMatchesOn || releaseHistory.length > 0 || isCompleted) && (
               <MatchesSection
                 item={item}
                 matches={M}
@@ -1207,10 +1258,11 @@ export default function RequestDetailsSheet({
                 setOpenProfile={matching.setOpenProfile}
                 toggleSelection={matching.toggleSelection}
                 releaseHistory={releaseHistory}
-                sendSelected={(c) => matching.sendSelected(c, onToast, (candidateId: string, reqId: string) => matching.setOpenProfile({ candidateId, requestId: reqId }), () => matching.setOpenProfile(null))}
+                sendSelected={(c) => matching.sendSelected(c, onToast, (candidateId: string, reqId: string) => matching.setOpenProfile({ candidateId, requestId: reqId }), () => matching.setOpenProfile(null), onItemStatusUpdated)}
                 deleteSentProfiles={(c, ids) => matching.deleteSentProfiles(c, ids, onToast)}
                 onDownloadMatchesPdf={handleDownloadMatchesPdf}
                 isDownloadingMatchesPdf={isDownloadingMatchesPdf}
+                isSending={matching.isSending[item.id] || false}
               />
             )}
           </div>

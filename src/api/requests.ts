@@ -35,18 +35,40 @@ export async function fetchBoardRequests(filters: FilterState): Promise<RequestI
     return [];
   }
 
-  return (data || []).map((item: any) => ({
-    id: item.board_id,
-    name: item.full_name || 'Unknown',
-    cnic: item.cnic || '00000-0000000-0',
-    phone: item.primary_phone || item.phone || 'N/A',
-    staff: item.current_agent_name || item.created_by_name || 'System',
-    date: item.request_date,
-    status: item.request_status,
-    later: item.later || false,
-    isRead: item.is_read || false,
-    profileData: item, // Attach full profile row for sheet & matching
-  }));
+  const rawData = data || [];
+  const requestIds = rawData.map((item: any) => item.request_id || item.board_id).filter(Boolean);
+  let completedOutsideIds = new Set<string>();
+
+  if (requestIds.length > 0) {
+    const { data: outsideRows } = await supabase
+      .from('information_requests')
+      .select('id')
+      .in('id', requestIds)
+      .eq('status', 'COMPLETED_OUTSIDE_SYSTEM');
+
+    if (outsideRows && outsideRows.length > 0) {
+      completedOutsideIds = new Set(outsideRows.map((r: any) => r.id));
+    }
+  }
+
+  return rawData.map((item: any) => {
+    let status = item.request_status;
+    if (completedOutsideIds.has(item.request_id) || completedOutsideIds.has(item.board_id)) {
+      status = 'completed_outside';
+    }
+    return {
+      id: item.board_id,
+      name: item.full_name || 'Unknown',
+      cnic: item.cnic || '00000-0000000-0',
+      phone: item.primary_phone || item.phone || 'N/A',
+      staff: item.current_agent_name || item.created_by_name || 'System',
+      date: item.request_date,
+      status,
+      later: item.later || false,
+      isRead: item.is_read || false,
+      profileData: { ...item, request_status: status },
+    };
+  });
 }
 
 export async function fetchColumnRequests(
@@ -56,6 +78,81 @@ export async function fetchColumnRequests(
   limit: number = 20
 ): Promise<RequestItem[]> {
   const supabase = await createClient();
+
+  if (status === 'completed_outside') {
+    let query = supabase
+      .from('vw_manager_requests_board')
+      .select('*')
+      .eq('request_status', 'completed_outside');
+
+    if (filters.search) {
+      const q = `%${filters.search}%`;
+      query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+    }
+    if (filters.dateFrom) query = query.gte('request_date', filters.dateFrom);
+    if (filters.dateTo) query = query.lte('request_date', filters.dateTo);
+    if (filters.staff) query = query.or(`current_agent_name.eq."${filters.staff}",created_by_name.eq."${filters.staff}"`);
+
+    query = query.order('request_date', { ascending: false }).range(offset, offset + limit - 1);
+    const { data: viewData } = await query;
+    if (viewData && viewData.length > 0) {
+      return viewData.map((item: any) => ({
+        id: item.board_id,
+        name: item.full_name || 'Unknown',
+        cnic: item.cnic || '00000-0000000-0',
+        phone: item.primary_phone || item.phone || 'N/A',
+        staff: item.current_agent_name || item.created_by_name || 'System',
+        date: item.request_date,
+        status: 'completed_outside',
+        later: item.later || false,
+        isRead: item.is_read || false,
+        profileData: item,
+      }));
+    }
+
+    // Direct database fallback if SQL view has not been re-run in Supabase yet
+    let irQuery = supabase
+      .from('information_requests')
+      .select('id, created_at, is_read, source_profile_id')
+      .eq('status', 'COMPLETED_OUTSIDE_SYSTEM')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (filters.dateFrom) irQuery = irQuery.gte('created_at', filters.dateFrom);
+    if (filters.dateTo) irQuery = irQuery.lte('created_at', filters.dateTo);
+
+    const { data: irData, error: irErr } = await irQuery;
+    if (irErr || !irData || irData.length === 0) return [];
+
+    const profIds = irData.map((r: any) => r.source_profile_id).filter(Boolean);
+    if (profIds.length === 0) return [];
+
+    let profQuery = supabase.from('vw_profile_core').select('*').in('profile_id', profIds);
+    if (filters.search) {
+      const q = `%${filters.search}%`;
+      profQuery = profQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+    }
+    const { data: profs } = await profQuery;
+    const profMap = new Map((profs || []).map((p: any) => [p.profile_id, p]));
+
+    return irData
+      .filter((r: any) => !filters.search || profMap.has(r.source_profile_id))
+      .map((r: any) => {
+        const prof = profMap.get(r.source_profile_id) || {};
+        return {
+          id: r.id,
+          name: prof.full_name || 'Unknown',
+          cnic: prof.cnic || '00000-0000000-0',
+          phone: prof.primary_phone || prof.phone || 'N/A',
+          staff: prof.current_agent_name || prof.created_by_name || 'System',
+          date: r.created_at,
+          status: 'completed_outside',
+          later: false,
+          isRead: r.is_read || false,
+          profileData: { ...prof, request_id: r.id, request_status: 'completed_outside' },
+        };
+      });
+  }
 
   let query = supabase
     .from('vw_manager_requests_board')
@@ -820,7 +917,16 @@ export async function assignProfileToAgent(params: {
       })
       .eq('id', profileId);
 
-    // 4. If request_id exists, update information_request_assignments
+    // 4. Update information_requests.requested_by to targetAgentId for this profile
+    await adminClient
+      .from('information_requests')
+      .update({
+        requested_by: targetAgentId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('source_profile_id', profileId);
+
+    // 5. If request_id exists, update information_request_assignments
     if (requestId) {
       await adminClient
         .from('information_request_assignments')
@@ -842,7 +948,7 @@ export async function assignProfileToAgent(params: {
         });
     }
 
-    // 5. Determine Assigner display name
+    // 6. Determine Assigner display name
     const { data: userData } = await adminClient
       .from('users')
       .select('full_name')
@@ -984,10 +1090,71 @@ export async function finalizeMarriagePairing(params: {
         .eq('candidate_profile_id', sourceProfileId);
     }
 
-    // 4. Update both profile statuses to ARCHIVED
+    // =======================================================================
+    // 4. Clean up match_run_results (Purge unselected candidates like Saba Siddiqui)
+    // =======================================================================
+    // A. Clean up match runs for source profile (Adeel)
+    const { data: sourceMatchRuns } = await adminClient
+      .from('match_runs')
+      .select('id')
+      .eq('source_profile_id', sourceProfileId);
+
+    const sourceMatchRunIds = (sourceMatchRuns || []).map((r) => r.id);
+    if (sourceMatchRunIds.length > 0) {
+      await adminClient
+        .from('match_run_results')
+        .delete()
+        .in('match_run_id', sourceMatchRunIds)
+        .neq('candidate_profile_id', candidateProfileId);
+    }
+
+    // B. Clean up match runs for candidate profile (Ayesha - Vice Versa)
+    const { data: candidateMatchRuns } = await adminClient
+      .from('match_runs')
+      .select('id')
+      .eq('source_profile_id', candidateProfileId);
+
+    const candidateMatchRunIds = (candidateMatchRuns || []).map((r) => r.id);
+    if (candidateMatchRunIds.length > 0) {
+      await adminClient
+        .from('match_run_results')
+        .delete()
+        .in('match_run_id', candidateMatchRunIds)
+        .neq('candidate_profile_id', sourceProfileId);
+    }
+
+    // C. Remove Ayesha as candidate in ANY other profile's match runs (where run does NOT belong to Adeel)
+    if (sourceMatchRunIds.length > 0) {
+      await adminClient
+        .from('match_run_results')
+        .delete()
+        .eq('candidate_profile_id', candidateProfileId)
+        .not('match_run_id', 'in', `(${sourceMatchRunIds.join(',')})`);
+    } else {
+      await adminClient
+        .from('match_run_results')
+        .delete()
+        .eq('candidate_profile_id', candidateProfileId);
+    }
+
+    // Remove Adeel as candidate in ANY other profile's match runs (where run does NOT belong to Ayesha)
+    if (candidateMatchRunIds.length > 0) {
+      await adminClient
+        .from('match_run_results')
+        .delete()
+        .eq('candidate_profile_id', sourceProfileId)
+        .not('match_run_id', 'in', `(${candidateMatchRunIds.join(',')})`);
+    } else {
+      await adminClient
+        .from('match_run_results')
+        .delete()
+        .eq('candidate_profile_id', sourceProfileId);
+    }
+
+    // 4. Update both profile statuses to INACTIVE
     await adminClient
       .from('profiles')
-      .update({ status: 'ARCHIVED', updated_at: new Date().toISOString() })
+      .update({ status: 'INACTIVE', updated_at: new Date().toISOString() })
       .in('id', [sourceProfileId, candidateProfileId]);
 
     // 5. Update personal_information marital_status to MARRIED
@@ -1038,39 +1205,127 @@ export async function finalizeMarriagePairing(params: {
 }
 
 // =======================================================================
-// Mark Request as Incomplete (Revert to IN_REVIEW for follow-up)
+// Mark Request as Completed Outside System
 // =======================================================================
-export async function markRequestAsIncomplete(requestId: string): Promise<{ success: boolean; error?: string }> {
+export async function markRequestAsCompletedOutsideSystem(requestId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const adminClient = createAdminClient();
 
-    const { error: updErr } = await adminClient
+    // 1. Lookup source profile ID from request
+    const { data: req } = await adminClient
       .from('information_requests')
-      .update({ status: 'IN_REVIEW', updated_at: new Date().toISOString() })
-      .eq('id', requestId);
+      .select('source_profile_id')
+      .eq('id', requestId)
+      .maybeSingle();
 
-    if (updErr) {
-      return { success: false, error: updErr.message };
+    const sourceProfileId = req?.source_profile_id;
+
+    // Find all information_requests for this source profile
+    let sourceReqIds: string[] = [requestId];
+    if (sourceProfileId) {
+      const { data: sourceReqs } = await adminClient
+        .from('information_requests')
+        .select('id')
+        .eq('source_profile_id', sourceProfileId);
+
+      const foundIds = (sourceReqs || []).map((r) => r.id);
+      sourceReqIds = Array.from(new Set([...sourceReqIds, ...foundIds]));
     }
 
+    // 2. Delete all released matches for this profile's requests
+    if (sourceReqIds.length > 0) {
+      await adminClient
+        .from('information_releases')
+        .delete()
+        .in('request_id', sourceReqIds);
+    }
+
+    if (sourceProfileId) {
+      // 3. Remove this profile as a released candidate from anyone else's requests
+      await adminClient
+        .from('information_releases')
+        .delete()
+        .eq('candidate_profile_id', sourceProfileId);
+
+      // 4. Delete match_run_results for all match runs belonging to this profile
+      const { data: sourceMatchRuns } = await adminClient
+        .from('match_runs')
+        .select('id')
+        .eq('source_profile_id', sourceProfileId);
+
+      const sourceMatchRunIds = (sourceMatchRuns || []).map((r) => r.id);
+      if (sourceMatchRunIds.length > 0) {
+        await adminClient
+          .from('match_run_results')
+          .delete()
+          .in('match_run_id', sourceMatchRunIds);
+      }
+
+      // 5. Remove this profile as a candidate from any other profile's match runs
+      await adminClient
+        .from('match_run_results')
+        .delete()
+        .eq('candidate_profile_id', sourceProfileId);
+
+      // 6. Update profile status to INACTIVE & MARRIED
+      await adminClient
+        .from('profiles')
+        .update({ status: 'INACTIVE', updated_at: new Date().toISOString() })
+        .eq('id', sourceProfileId);
+
+      await adminClient
+        .from('personal_information')
+        .update({ marital_status: 'MARRIED', updated_at: new Date().toISOString() })
+        .eq('profile_id', sourceProfileId);
+    }
+
+    // 7. Update all requests for this profile to COMPLETED_OUTSIDE_SYSTEM
+    if (sourceReqIds.length > 0) {
+      const { error: updErr } = await adminClient
+        .from('information_requests')
+        .update({ status: 'COMPLETED_OUTSIDE_SYSTEM', updated_at: new Date().toISOString() })
+        .in('id', sourceReqIds);
+
+      if (updErr) {
+        return { success: false, error: updErr.message };
+      }
+    }
+
+    // 8. Refresh materialized view (non-blocking)
+    try {
+      await adminClient.rpc('refresh_mv_matching_profiles');
+    } catch (mvErr) {
+      console.warn('refresh_mv_matching_profiles failed:', mvErr);
+    }
+
+    // 9. Audit log
     if (user?.id) {
       await adminClient.from('audit_logs').insert({
         actor_user_id: user.id,
         action: 'STATUS_CHANGE',
         entity_type: 'information_requests',
         entity_id: requestId,
-        new_data: { status: 'IN_REVIEW' },
-        metadata: { event: 'MARKED_INCOMPLETE', description: 'Reopened for follow-up or review' },
+        new_data: { status: 'COMPLETED_OUTSIDE_SYSTEM' },
+        metadata: {
+          event: 'COMPLETED_OUTSIDE_SYSTEM',
+          description: 'Marriage finalized outside NikahKaru system. Released matches and match run results purged.',
+          source_profile_id: sourceProfileId,
+          cleaned_requests: sourceReqIds,
+          timestamp: new Date().toISOString(),
+        },
       });
     }
 
     return { success: true };
   } catch (err: any) {
-    console.error('markRequestAsIncomplete error:', err);
-    return { success: false, error: err?.message || 'Failed to mark as incomplete.' };
+    console.error('markRequestAsCompletedOutsideSystem error:', err);
+    return { success: false, error: err?.message || 'Failed to complete outside system.' };
   }
 }
+
+// Backward-compatible alias
+export const markRequestAsIncomplete = markRequestAsCompletedOutsideSystem;
 
 

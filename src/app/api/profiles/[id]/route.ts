@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(
   request: NextRequest,
@@ -12,6 +13,10 @@ export async function GET(
     }
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     // Fetch from the views
     const [
@@ -24,8 +29,26 @@ export async function GET(
       supabase.from('vw_profile_active_preferences').select('*').eq('profile_id', id).maybeSingle()
     ]);
 
-    if (coreError) {
-      return NextResponse.json({ error: coreError.message }, { status: 404 });
+    if (coreError || !coreData) {
+      return NextResponse.json({ error: coreError?.message || 'Profile not found' }, { status: 404 });
+    }
+
+    const adminClient = createAdminClient();
+    const { data: userRoleData } = await adminClient
+      .from('user_roles')
+      .select('roles(name)')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle();
+
+    let roleName = '';
+    if (userRoleData?.roles) {
+      const r: any = userRoleData.roles;
+      roleName = (Array.isArray(r) ? r[0]?.name : r?.name)?.toUpperCase() || '';
+    }
+
+    if (roleName === 'AGENT' && coreData.current_agent_id !== user.id) {
+      return NextResponse.json({ error: 'Unauthorized: Profile not assigned to you' }, { status: 403 });
     }
 
     // Map the view data back to FullProfile structure expected by the frontend

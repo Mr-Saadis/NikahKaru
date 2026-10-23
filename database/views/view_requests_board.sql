@@ -40,13 +40,13 @@ SELECT
     
     lr.created_at as request_date,
     CASE 
-        WHEN lr.req_status = 'PENDING' THEN 
+        WHEN lr.req_status::text = 'PENDING' THEN 
             CASE WHEN rc.req_count > 1 THEN 'second' ELSE 'first' END
-        WHEN lr.req_status = 'PENDING_OTHER' THEN 'second'
-        WHEN lr.req_status = 'IN_REVIEW' THEN 'responded'
-        WHEN lr.req_status = 'DOWNLOADED' THEN 'downloaded'
-        WHEN lr.req_status = 'COMPLETED' THEN 'done'
-        WHEN lr.req_status = 'CANCELLED' THEN 'archive'
+        WHEN lr.req_status::text = 'PENDING_OTHER' THEN 'second'
+        WHEN lr.req_status::text = 'IN_REVIEW' THEN 'responded'
+        WHEN lr.req_status::text = 'DOWNLOADED' THEN 'downloaded'
+        WHEN lr.req_status::text = 'COMPLETED' THEN 'done'
+        WHEN lr.req_status::text = 'COMPLETED_OUTSIDE_SYSTEM' THEN 'completed_outside'
         ELSE 'new'
     END as request_status,
     false as later,
@@ -81,7 +81,7 @@ SELECT
 
     p.*
 FROM public.vw_profile_core p
-WHERE p.created_by = (SELECT auth.uid())
+WHERE (p.current_agent_id = (SELECT auth.uid()) OR (p.current_agent_id IS NULL AND p.created_by = (SELECT auth.uid())))
   AND NOT EXISTS (
       SELECT 1
       FROM public.information_requests ir
@@ -90,25 +90,25 @@ WHERE p.created_by = (SELECT auth.uid())
 
 UNION ALL
 
--- 2. Every request submitted by this agent (REQUESTED, RESPONDED, DONE)
+-- 2. Every request assigned to or submitted by this agent (REQUESTED, RESPONDED, DONE)
 SELECT
     ir.id AS board_id,
     ir.id AS request_id,
-    ir.requested_by AS agent_id,
+    COALESCE(p.current_agent_id, ir.requested_by) AS agent_id,
 
     ir.created_at AS request_date,
 
     CASE
-        WHEN ir.status IN ('PENDING', 'PENDING_OTHER')
+        WHEN ir.status::text IN ('PENDING', 'PENDING_OTHER')
             THEN 'requested'
-        WHEN ir.status = 'IN_REVIEW'
+        WHEN ir.status::text = 'IN_REVIEW'
             THEN 'responded'
-        WHEN ir.status = 'DOWNLOADED'
+        WHEN ir.status::text = 'DOWNLOADED'
             THEN 'downloaded'
-        WHEN ir.status = 'COMPLETED'
+        WHEN ir.status::text = 'COMPLETED'
             THEN 'done'
-        WHEN ir.status = 'CANCELLED'
-            THEN 'archive'
+        WHEN ir.status::text = 'COMPLETED_OUTSIDE_SYSTEM'
+            THEN 'completed_outside'
         ELSE 'requested'
     END::text AS request_status,
 
@@ -119,5 +119,15 @@ SELECT
 FROM public.information_requests ir
 JOIN public.vw_profile_core p
     ON p.profile_id = ir.source_profile_id
-WHERE ir.requested_by = (SELECT auth.uid());
+WHERE (
+    p.current_agent_id = (SELECT auth.uid())
+    OR (p.current_agent_id IS NULL AND ir.requested_by = (SELECT auth.uid()))
+    OR EXISTS (
+        SELECT 1
+        FROM public.information_request_assignments ira
+        WHERE ira.request_id = ir.id
+          AND ira.assigned_to = (SELECT auth.uid())
+          AND ira.status = 'ACTIVE'
+    )
+);
 

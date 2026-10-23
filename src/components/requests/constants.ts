@@ -7,23 +7,25 @@ import type { ColumnDef } from './types';
 // Sage Whisper: #A3B18A, Cannoli Cream: #F2EDE1
 // ============================================================
 export const COLUMNS: ColumnDef[] = [
-  { label: 'New Data',              key: 'new',       color: '#064e3b', cardBg: '#F2EDE1', filledDashes: 1 },
-  { label: 'First Time Request',    key: 'first',     color: '#D4AF37', cardBg: '#C86A4A', filledDashes: 1 },
-  { label: 'Second Time Request',   key: 'second',    color: '#C86A4A', cardBg: '#2F3E51', filledDashes: 2 },
-  { label: 'Requests Responded',    key: 'responded',  color: '#2F3E51', cardBg: '#F2EDE1', filledDashes: 2 },
-  { label: 'Downloaded',            key: 'downloaded', color: '#1F3B34', cardBg: '#A3B18A', filledDashes: 2 },
-  { label: 'Completed',             key: 'done',      color: '#A3B18A', cardBg: 'transparent', filledDashes: 3 },
-  { label: 'Pause',                 key: 'pause',     color: '#6b7280', cardBg: '#1F3B34', filledDashes: 2 },
-  { label: 'Feedback',              key: 'feedback',  color: '#1F3B34', cardBg: '#F2EDE1', filledDashes: 2 },
-  { label: 'Archive',               key: 'archive',   color: '#2F3E51', cardBg: '#A3B18A', filledDashes: 3 },
+  { label: 'New Data',                  key: 'new',               color: '#064e3b', cardBg: '#F2EDE1', filledDashes: 1 },
+  { label: 'First Time Request',        key: 'first',             color: '#D4AF37', cardBg: '#C86A4A', filledDashes: 1 },
+  { label: 'Second Time Request',       key: 'second',            color: '#C86A4A', cardBg: '#2F3E51', filledDashes: 2 },
+  { label: 'Requests Responded',        key: 'responded',         color: '#2F3E51', cardBg: '#F2EDE1', filledDashes: 2 },
+  { label: 'Downloaded',                key: 'downloaded',        color: '#1F3B34', cardBg: '#A3B18A', filledDashes: 2 },
+  { label: 'Completed',                 key: 'done',              color: '#A3B18A', cardBg: 'transparent', filledDashes: 3 },
+  { label: 'Completed Outside System',  key: 'completed_outside', color: '#5C5449', cardBg: '#F2EDE1', filledDashes: 3 },
+  { label: 'Pause',                     key: 'pause',             color: '#6b7280', cardBg: '#1F3B34', filledDashes: 2 },
+  { label: 'Feedback',                  key: 'feedback',          color: '#1F3B34', cardBg: '#F2EDE1', filledDashes: 2 },
+  { label: 'Archive',                   key: 'archive',           color: '#2F3E51', cardBg: '#A3B18A', filledDashes: 3 },
 ];
 
 export const AGENT_COLUMNS: ColumnDef[] = [
-  { label: 'Entries Logged',        key: 'logged',     color: '#064e3b', cardBg: '#F2EDE1', filledDashes: 1 },
-  { label: 'Requested Profiles',    key: 'requested',  color: '#D4AF37', cardBg: '#C86A4A', filledDashes: 1 },
-  { label: 'Responded / Released',  key: 'responded',  color: '#2F3E51', cardBg: '#2F3E51', filledDashes: 2 },
-  { label: 'Downloaded',            key: 'downloaded', color: '#1F3B34', cardBg: '#A3B18A', filledDashes: 2 },
-  { label: 'Completed',             key: 'done',       color: '#A3B18A', cardBg: 'transparent', filledDashes: 3 },
+  { label: 'Entries Logged',            key: 'logged',            color: '#064e3b', cardBg: '#F2EDE1', filledDashes: 1 },
+  { label: 'Requested Profiles',        key: 'requested',         color: '#D4AF37', cardBg: '#C86A4A', filledDashes: 1 },
+  { label: 'Responded / Released',      key: 'responded',         color: '#2F3E51', cardBg: '#2F3E51', filledDashes: 2 },
+  { label: 'Downloaded',                key: 'downloaded',        color: '#1F3B34', cardBg: '#A3B18A', filledDashes: 2 },
+  { label: 'Completed',                 key: 'done',              color: '#A3B18A', cardBg: 'transparent', filledDashes: 3 },
+  { label: 'Completed Outside System',  key: 'completed_outside', color: '#5C5449', cardBg: '#F2EDE1', filledDashes: 3 },
 ];
 
 // Avatar accent colours — cycle by card index

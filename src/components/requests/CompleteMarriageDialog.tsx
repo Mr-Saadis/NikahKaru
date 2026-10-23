@@ -130,7 +130,7 @@ export function CompleteMarriageDialog({
         <div className="px-6 py-3 bg-[#FDF0D8]/60 border-b border-[#F5C770]/40 flex items-start gap-2.5 text-[11.5px] text-[#8B6122] leading-relaxed shrink-0">
           <Sparkles className="w-4 h-4 shrink-0 text-[#C86A4A] mt-0.5" />
           <div>
-            Selecting a candidate confirms their marriage. Both profiles will be completed & archived, and other unselected released matches will be automatically cleared.
+            Selecting a candidate confirms their marriage. Both profiles will be marked inactive & requests completed, and other unselected released matches will be automatically cleared.
           </div>
         </div>
 

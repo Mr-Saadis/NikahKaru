@@ -3,7 +3,7 @@ import type { MatchResult } from '@/lib/matching/types';
 import { CheckBox } from './CheckBox';
 import { MatchRing } from './MatchRing';
 import { CheckIcon, SendIcon, ChevronRightIcon } from './icons';
-import { Trash2, FileDown } from 'lucide-react';
+import { Trash2, FileDown, Loader2 } from 'lucide-react';
 import type { RequestItem } from './types';
 import { fetchProfileCompleteReleaseHistory } from '@/lib/actions/requests';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -33,6 +33,7 @@ interface MatchesSectionProps {
   keysOf?: any; // Mock keys no longer needed
   onDownloadMatchesPdf?: () => void;
   isDownloadingMatchesPdf?: boolean;
+  isSending?: boolean;
 }
 
 export function MatchesSection({
@@ -50,9 +51,13 @@ export function MatchesSection({
   releaseHistory = [],
   onDownloadMatchesPdf,
   isDownloadingMatchesPdf,
+  isSending = false,
 }: MatchesSectionProps) {
   const { role } = useAuth();
   const isAgent = role === 'AGENT';
+
+  const [isLocalSending, setIsLocalSending] = useState(false);
+  const sending = isSending || isLocalSending;
 
   const [completeHistory, setCompleteHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -166,7 +171,7 @@ export function MatchesSection({
               {matches.length} {isAgent ? 'released' : 'found · highest match first'}
             </small>
           </h4>
-          {isAgent && matches.length > 0 && onDownloadMatchesPdf && (
+          {(isAgent || releaseHistory.length > 0) && matches.length > 0 && onDownloadMatchesPdf && (
             <button
               type="button"
               disabled={isDownloadingMatchesPdf}
@@ -185,13 +190,14 @@ export function MatchesSection({
                   {sentCandidateIds.size > 0 && (
                     <button
                       type="button"
+                      disabled={sending}
                       onClick={() => {
                         setIsDeleteMode(true);
                         setSelectedForDeletion(new Set());
                         setOpenProfile(null);
                       }}
                       title="Delete sent profiles"
-                      className="inline-flex items-center gap-1.5 h-[38px] px-[16px] border border-[#fca5a5] rounded-full font-inherit text-[12.5px] font-[600] text-[#b91c1c] bg-[#fff5f5] hover:bg-[#fee2e2] transition-all duration-220 cursor-pointer shadow-[0_2px_8px_rgba(185,28,28,0.06)]"
+                      className="inline-flex items-center gap-1.5 h-[38px] px-[16px] border border-[#fca5a5] rounded-full font-inherit text-[12.5px] font-[600] text-[#b91c1c] bg-[#fff5f5] hover:bg-[#fee2e2] transition-all duration-220 cursor-pointer shadow-[0_2px_8px_rgba(185,28,28,0.06)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Trash2 size={13} />
                       <span>Delete</span>
@@ -200,17 +206,40 @@ export function MatchesSection({
 
                   <button
                     type="button"
-                    disabled={n === 0}
-                    onClick={() => sendSelected(item)}
-                    title={n === 0 ? 'No field changes to send' : `Send updated profile details (${n} candidate${n > 1 ? 's' : ''})`}
+                    disabled={n === 0 || sending}
+                    onClick={async () => {
+                      if (sending || n === 0) return;
+                      setIsLocalSending(true);
+                      try {
+                        await sendSelected(item);
+                      } finally {
+                        setIsLocalSending(false);
+                      }
+                    }}
+                    title={
+                      sending
+                        ? 'Sending candidate data…'
+                        : n === 0
+                        ? 'No field changes to send'
+                        : `Send updated profile details (${n} candidate${n > 1 ? 's' : ''})`
+                    }
                     className={`inline-flex items-center gap-2 h-[38px] px-[18px] border-0 rounded-full font-inherit text-[12.5px] font-[600] whitespace-nowrap transition-all duration-220
-                      ${n === 0
+                      ${n === 0 || sending
                         ? 'bg-[#e4e3dc] text-[#9a9992] cursor-not-allowed opacity-60'
                         : 'bg-[#111] text-white cursor-pointer hover:-translate-y-[2px] hover:shadow-[0_10px_20px_rgba(0,0,0,.22)]'
                       }`}
                   >
-                    <SendIcon size={14} />
-                    Send{n > 0 ? ` (${n})` : ''}
+                    {sending ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin text-[#111]" />
+                        <span>Sending…</span>
+                      </>
+                    ) : (
+                      <>
+                        <SendIcon size={14} />
+                        <span>Send{n > 0 ? ` (${n})` : ''}</span>
+                      </>
+                    )}
                   </button>
                 </>
               ) : (
