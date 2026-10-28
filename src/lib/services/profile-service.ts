@@ -132,6 +132,7 @@ export class ProfileService {
       marital_status: data.marital_status || 'NEVER_MARRIED',
       number_of_children: data.number_of_children ? Number(data.number_of_children) : 0,
       nationality_country_id: data.nationality_country_id ? Number(data.nationality_country_id) : null,
+      multiple_nationality: Boolean(data.multiple_nationality),
       mother_tongue_id: data.mother_tongue_id ? Number(data.mother_tongue_id) : null,
     };
 

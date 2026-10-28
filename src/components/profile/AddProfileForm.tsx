@@ -19,7 +19,7 @@ import Step6FamilyDetails, { type Step6Data } from './steps/Step6FamilyDetails';
 import Step7Lifestyle, { type Step7Data } from './steps/Step7Lifestyle';
 import Step8Preferences, { type Step8Data } from './steps/Step8Preferences';
 import Step9Review from './steps/Step9Review';
-import { ArrowLeft, ArrowRight, Save, Loader2, AlertTriangle, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Loader2, AlertTriangle, X, ShieldCheck } from 'lucide-react';
 
 // ── Step config ────────────────────────────────────────────────
 const STEPS = [
@@ -51,7 +51,7 @@ const SIDEBAR_STEPS = STEPS.map((s) => ({
 }));
 
 // ── Default form state ─────────────────────────────────────────
-const defaultStep1 = (): Step1Data => ({ gender: '', full_name: '', cnic: '', phone: '', date_of_birth: '', marital_status: 'NEVER_MARRIED', number_of_children: '', children_living_with: '', nationality_country_id: '', mother_tongue_id: '', profile_picture: '', children: [], previous_marriages: [] });
+const defaultStep1 = (): Step1Data => ({ gender: '', full_name: '', cnic: '', phone: '', date_of_birth: '', marital_status: 'NEVER_MARRIED', number_of_children: '', children_living_with: '', nationality_country_id: '', multiple_nationality: false, mother_tongue_id: '', profile_picture: '', children: [], previous_marriages: [] });
 const defaultStep2 = (): Step2Data => ({ height_cm: '', weight_kg: '', complexion: '', has_disability: false, disability_details: '' });
 const defaultStep3 = (): Step3Data => ({ education_records: [], employment_records: [], monthly_income_min: '', monthly_income_max: '' });
 const defaultStep4 = (): Step4Data => ({ religion_id: 1, sect_id: '', caste_id: '', other_caste_text: '' });
@@ -85,6 +85,7 @@ export default function AddProfileForm() {
   const [error, setError] = useState<string | null>(null);
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [missingFieldsList, setMissingFieldsList] = useState<{ stepId: number; stepName: string; missingFields: string[] }[]>([]);
+  const [isConfirmedAccuracy, setIsConfirmedAccuracy] = useState(false);
 
   // Step data states
   const [step1, setStep1] = useState<Step1Data>(defaultStep1);
@@ -142,6 +143,7 @@ export default function AddProfileForm() {
                 marital_status: pi.marital_status || 'NEVER_MARRIED',
                 number_of_children: pi.number_of_children?.toString() || '',
                 nationality_country_id: pi.nationality_country_id?.toString() || '',
+                multiple_nationality: Boolean(pi.multiple_nationality),
                 mother_tongue_id: pi.mother_tongue_id?.toString() || '',
                 children: (profile.children || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), age: r.age != null ? String(r.age) : '', living_with_profile: r.living_with_profile ? 'YES' : 'NO' })),
                 previous_marriages: (profile.previous_marriages || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), marriage_year: r.marriage_year != null ? String(r.marriage_year) : '', end_year: r.end_year != null ? String(r.end_year) : '', children_count: r.children_count != null ? String(r.children_count) : '0', children_live_with_profile: r.children_live_with_profile ? 'YES' : 'NO' }))
@@ -404,6 +406,7 @@ export default function AddProfileForm() {
           date_of_birth: data.step1.date_of_birth || null,
           marital_status: data.step1.marital_status || 'NEVER_MARRIED',
           nationality_country_id: data.step1.nationality_country_id ? Number(data.step1.nationality_country_id) : null,
+          multiple_nationality: Boolean(data.step1.multiple_nationality),
           mother_tongue_id: data.step1.mother_tongue_id ? Number(data.step1.mother_tongue_id) : null,
           number_of_children: data.step1.number_of_children ? Number(data.step1.number_of_children) : 0,
         }));
@@ -691,6 +694,7 @@ export default function AddProfileForm() {
           date_of_birth: step1.date_of_birth || null,
           marital_status: step1.marital_status || 'NEVER_MARRIED',
           nationality_country_id: step1.nationality_country_id ? Number(step1.nationality_country_id) : null,
+          multiple_nationality: Boolean(step1.multiple_nationality),
           mother_tongue_id: step1.mother_tongue_id ? Number(step1.mother_tongue_id) : null,
           number_of_children: step1.number_of_children ? Number(step1.number_of_children) : 0,
         });
@@ -754,6 +758,7 @@ export default function AddProfileForm() {
             date_of_birth: step1.date_of_birth || null,
             marital_status: step1.marital_status || 'NEVER_MARRIED',
             nationality_country_id: step1.nationality_country_id ? Number(step1.nationality_country_id) : null,
+            multiple_nationality: Boolean(step1.multiple_nationality),
             mother_tongue_id: step1.mother_tongue_id ? Number(step1.mother_tongue_id) : null,
             number_of_children: step1.number_of_children ? Number(step1.number_of_children) : 0,
           });
@@ -882,7 +887,7 @@ export default function AddProfileForm() {
         const hasMother = step6.parents.some(p => p.parent_type === 'MOTHER');
         const parentsValid = hasFather && hasMother && step6.parents.every(p => {
           if (p.status === 'DECEASED') return true;
-          return !!(p.full_name && p.profession && p.education);
+          return !!(p.full_name && p.profession);
         });
 
         const mandatoryComplete = !!parentsValid;
@@ -979,7 +984,7 @@ export default function AddProfileForm() {
     const s1: string[] = [];
     if (!step1.full_name?.trim()) s1.push('Full Name');
     if (!step1.gender) s1.push('Gender');
-    if (!step1.date_of_birth) s1.push('Date of Birth');
+    if (!step1.date_of_birth) s1.push('Age');
     if (!step1.marital_status) s1.push('Marital Status');
     if (s1.length > 0) missing.push({ stepId: 1, stepName: 'Basic Information', missingFields: s1 });
 
@@ -1020,8 +1025,8 @@ export default function AddProfileForm() {
     const hasMother = step6.parents.some(p => p.parent_type === 'MOTHER');
     if (!hasFather) s6.push('Father Info');
     if (!hasMother) s6.push('Mother Info');
-    const incompleteParents = step6.parents.some(p => p.status !== 'DECEASED' && (!p.full_name?.trim() || !p.profession?.trim() || !p.education?.trim()));
-    if (incompleteParents) s6.push('Living Parents Details (Name, Profession, Education)');
+    const incompleteParents = step6.parents.some(p => p.status !== 'DECEASED' && (!p.full_name?.trim() || !p.profession?.trim()));
+    if (incompleteParents) s6.push('Living Parents Details (Name, Profession)');
     if (s6.length > 0) missing.push({ stepId: 6, stepName: 'Family Details', missingFields: s6 });
 
     // Step 7
@@ -1043,6 +1048,7 @@ export default function AddProfileForm() {
 
   // ── Trigger save: if mandatory fields are missing, prompt confirmation modal ──
   const handleSaveClick = () => {
+    if (!isConfirmedAccuracy) return;
     const missing = getMissingMandatoryDetails();
     if (missing.length > 0) {
       setMissingFieldsList(missing);
@@ -1076,6 +1082,7 @@ export default function AddProfileForm() {
         date_of_birth: step1.date_of_birth || null,
         marital_status: step1.marital_status || 'NEVER_MARRIED',
         nationality_country_id: step1.nationality_country_id ? Number(step1.nationality_country_id) : null,
+        multiple_nationality: Boolean(step1.multiple_nationality),
         mother_tongue_id: step1.mother_tongue_id ? Number(step1.mother_tongue_id) : null,
         number_of_children: step1.number_of_children ? Number(step1.number_of_children) : 0,
       });
@@ -1409,6 +1416,28 @@ export default function AddProfileForm() {
               {renderStep()}
             </div>
 
+            {/* Step 9 Accuracy Commitment Checkbox */}
+            {currentStep === 9 && (
+              <div className="mb-6 p-4.5 sm:p-5 rounded-2xl transition-all">
+                <label className="flex items-start gap-3.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isConfirmedAccuracy}
+                    onChange={(e) => setIsConfirmedAccuracy(e.target.checked)}
+                    className="mt-0.5 h-5 w-5 rounded border-[#C86A4A] text-[#064e3b] focus:ring-[#064e3b] accent-[#064e3b] cursor-pointer shrink-0"
+                  />
+                  <div className="text-[13px] leading-relaxed">
+                    <p className="font-bold text-[#1E1F22]">
+                      I confirm that all information entered above is correct.
+                    </p>
+                    <p className="text-[12px] text-[#7A6B58] mt-1">
+                      Please note: If any false or incorrect information is provided, matching will not be run for this profile.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
+
             {/* Navigation buttons */}
             <div className="shrink-0 flex items-center justify-between mt-auto pt-8 border-t border-[#EFE9DF]/50">
               <button
@@ -1440,8 +1469,9 @@ export default function AddProfileForm() {
                 <button
                   type="button"
                   onClick={handleSaveClick}
-                  disabled={isSaving || isUploadingImage || !step1.full_name || !step1.gender}
-                  className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-8 py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+                  disabled={isSaving || isUploadingImage || !step1.full_name || !step1.gender || !isConfirmedAccuracy}
+                  title={!isConfirmedAccuracy ? "Please check the confirmation box above to enable saving" : undefined}
+                  className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-8 py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {isSaving ? (
                     <><Loader2 size={18} className="animate-spin" /> Saving...</>

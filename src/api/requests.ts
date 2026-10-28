@@ -344,8 +344,34 @@ export async function deleteSentProfiles(
         }
       });
     }
+  }
 
-    return { success: true, remainingCount: count ?? 0 };
+  // Also clean up match_run_results so revoked candidates are removed from match results views
+  try {
+    const adminClient = createAdminClient();
+    const { data: reqData } = await adminClient
+      .from('information_requests')
+      .select('source_profile_id')
+      .eq('id', requestId)
+      .maybeSingle();
+
+    if (reqData?.source_profile_id) {
+      const { data: mRuns } = await adminClient
+        .from('match_runs')
+        .select('id')
+        .eq('source_profile_id', reqData.source_profile_id);
+
+      const mRunIds = (mRuns || []).map((r: any) => r.id);
+      if (mRunIds.length > 0) {
+        await adminClient
+          .from('match_run_results')
+          .delete()
+          .in('match_run_id', mRunIds)
+          .in('candidate_profile_id', candidateProfileIds);
+      }
+    }
+  } catch (cleanErr) {
+    console.warn('Failed to clean match_run_results during deleteSentProfiles:', cleanErr);
   }
 
   return { success: true, remainingCount: data?.remaining_count ?? 0 };

@@ -84,7 +84,6 @@ export default function AuthProvider({ children }: AuthProviderProps) {
         return;
       }
 
-      console.log('DEBUG: Successfully fetched role', userRoleData);
 
       // Supabase returns nested relation as object (since limit 1 + single)
       const role = userRoleData.roles as unknown as Role;

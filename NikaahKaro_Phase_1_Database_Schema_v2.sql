@@ -227,6 +227,7 @@ create table public.personal_information (
     marital_status public.marital_status not null,
     number_of_children integer not null default 0,
     nationality_country_id bigint references public.countries(id) on delete restrict,
+    multiple_nationality boolean not null default false,
     cnic bigint,
     mother_tongue_id bigint references public.mother_tongues(id) on delete restrict,
     created_at timestamptz not null default now(),

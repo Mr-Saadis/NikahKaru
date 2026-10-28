@@ -261,6 +261,7 @@ export interface PersonalInformation {
   marital_status: MaritalStatus;
   number_of_children: number;
   nationality_country_id: number | null;
+  multiple_nationality?: boolean | null;
   cnic: string | null;
   phone: string | null;
   mother_tongue_id: number | null;

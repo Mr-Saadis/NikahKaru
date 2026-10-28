@@ -41,7 +41,7 @@ export const FAMILY_MAP: Record<string, string> = {
 export const ENUM_OPTIONS: Record<string, string[]> = {
   gender: ['Male', 'Female'],
   maritalStatus: ['Never Married', 'Married', 'Divorced', 'Widowed', 'Separated'],
-  complexion: ['Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark Brown', 'Dark'],
+  complexion: ['Very Fair', 'Fair', 'Whitish', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark Brown', 'Dark'],
   prayer: ['Highly Practicing', 'Practicing', 'Moderate', 'Other'],
   beardHijab: ['Yes', 'No'],
   smoking: ['No', 'Yes', 'Occasionally'],

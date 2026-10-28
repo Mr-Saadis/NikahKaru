@@ -2,8 +2,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Plus, Trash2, Camera, User, Loader2 } from 'lucide-react';
-import { useRef } from 'react';
-import CustomDatePicker from '@/components/ui/custom-date-picker';
+import { useRef, useState, useEffect } from 'react';
 import { compressImage } from '@/lib/imageUtils';
 
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
@@ -15,10 +14,12 @@ type Step1Data = {
   cnic: string;
   phone: string;
   date_of_birth: string;
+  age?: number | '';
   marital_status: MaritalStatus | '';
   number_of_children?: number | '';
   children_living_with?: '' | 'YES' | 'NO' | 'SOMETIMES';
   nationality_country_id: number | '';
+  multiple_nationality?: boolean;
   mother_tongue_id: number | '';
   profile_picture?: string;
   profile_picture_file?: File;
@@ -50,16 +51,42 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
   const set = (field: keyof Step1Data, value: Step1Data[keyof Step1Data]) =>
     onChange({ ...data, [field]: value });
 
-  const calculateAge = (dobString: string) => {
+  const getAgeFromDob = (dobString: string): string => {
     if (!dobString) return '';
-    const dob = new Date(dobString);
-    const today = new Date();
-    let age = today.getFullYear() - dob.getFullYear();
-    const m = today.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
-      age--;
+    const yearPart = parseInt(dobString.split('-')[0], 10);
+    if (!isNaN(yearPart) && yearPart > 1900) {
+      const currentYear = new Date().getFullYear();
+      const age = currentYear - yearPart;
+      return age > 0 ? String(age) : '';
     }
-    return age;
+    return '';
+  };
+
+  const [ageInput, setAgeInput] = useState<string>(() => getAgeFromDob(data.date_of_birth));
+
+  useEffect(() => {
+    const derived = getAgeFromDob(data.date_of_birth);
+    setAgeInput((prev) => (prev === derived ? prev : derived));
+  }, [data.date_of_birth]);
+
+  const handleAgeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^0-9]/g, '');
+    const val = raw.slice(0, 3);
+    setAgeInput(val);
+
+    if (!val) {
+      set('date_of_birth', '');
+      return;
+    }
+
+    const ageNum = parseInt(val, 10);
+    if (!isNaN(ageNum) && ageNum >= 1 && ageNum <= 120) {
+      const currentYear = new Date().getFullYear();
+      const birthYear = currentYear - ageNum;
+      set('date_of_birth', `${birthYear}-01-01`);
+    } else {
+      set('date_of_birth', '');
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -207,31 +234,25 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
         </div>
       </div>
 
-      {/* Date of Birth & Age */}
-      <div className="grid grid-cols-2 gap-8 lg:gap-12">
+      {/* Age */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Date of Birth
-          </label>
-          <CustomDatePicker
-            value={data.date_of_birth}
-            onChange={(val) => set('date_of_birth', val)}
-            placeholder="dd/mm/yyyy"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Age
+            Age <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <input
               type="text"
-              readOnly
-              value={data.date_of_birth ? `${calculateAge(data.date_of_birth)} years` : ''}
-              placeholder="Auto-calculated"
-              className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C]/50 rounded-[20px] px-5 py-3.5 text-[14px] text-[#888174] font-medium cursor-not-allowed outline-none shadow-none"
+              inputMode="numeric"
+              value={ageInput}
+              onChange={handleAgeChange}
+              placeholder="e.g. 26"
+              maxLength={3}
+              className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] pl-5 pr-20 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
             />
+            <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#888174] pointer-events-none">
+              Years
+            </span>
           </div>
         </div>
       </div>
@@ -382,6 +403,17 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
             placeholder="Select country"
             direction="up"
           />
+          <label className="flex items-center gap-2 cursor-pointer pt-1 select-none">
+            <input
+              type="checkbox"
+              checked={Boolean(data.multiple_nationality)}
+              onChange={(e) => set('multiple_nationality', e.target.checked)}
+              className="accent-[#064e3b] w-4 h-4 rounded cursor-pointer"
+            />
+            <span className="text-[12px] font-medium text-[#4E473D]">
+              Multiple Nationality
+            </span>
+          </label>
         </div>
 
         <div className="space-y-2">

@@ -149,8 +149,6 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
 
   const currentProvinces = data.current_country_id ? getProvincesByCountry(Number(data.current_country_id)) : [];
   const currentCities = data.current_province_id ? getCitiesByProvince(Number(data.current_province_id)) : [];
-  const permProvinces = data.permanent_country_id ? getProvincesByCountry(Number(data.permanent_country_id)) : [];
-  const permCities = data.permanent_province_id ? getCitiesByProvince(Number(data.permanent_province_id)) : [];
 
   return (
     <div className="space-y-6">
@@ -160,7 +158,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
       </div>
 
       <LocationRow
-        label="Current Location"
+        label="Location"
         isMandatory={true}
         countryVal={data.current_country_id}
         onCountry={(v) => onChange({ ...data, current_country_id: v, current_province_id: '', current_city_id: '', current_province_text: '', current_city_text: '' })}
@@ -176,63 +174,6 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
         onCityTextChange={(v) => set('current_city_text', v)}
         locationText={data.current_location_text}
         onLocationTextChange={(v) => set('current_location_text', v)}
-      />
-
-      <LocationRow
-        label="Permanent / Home Location"
-        headerRight={
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={
-                !!data.current_country_id &&
-                data.permanent_country_id === data.current_country_id &&
-                (data.permanent_province_id || '') === (data.current_province_id || '') &&
-                (data.permanent_city_id || '') === (data.current_city_id || '') &&
-                (data.permanent_location_text || '') === (data.current_location_text || '')
-              }
-              className="accent-[#064e3b] w-3.5 h-3.5"
-              onChange={(e) => {
-                if (e.target.checked) {
-                  onChange({
-                    ...data,
-                    permanent_country_id: data.current_country_id,
-                    permanent_province_id: data.current_province_id,
-                    permanent_city_id: data.current_city_id,
-                    permanent_province_text: data.current_province_text,
-                    permanent_city_text: data.current_city_text,
-                    permanent_location_text: data.current_location_text,
-                  });
-                } else {
-                  onChange({
-                    ...data,
-                    permanent_country_id: '',
-                    permanent_province_id: '',
-                    permanent_city_id: '',
-                    permanent_province_text: '',
-                    permanent_city_text: '',
-                    permanent_location_text: '',
-                  });
-                }
-              }}
-            />
-            <span className="text-[10px] font-bold tracking-wider uppercase text-[#064e3b]">Same as Current</span>
-          </label>
-        }
-        countryVal={data.permanent_country_id}
-        onCountry={(v) => onChange({ ...data, permanent_country_id: v, permanent_province_id: '', permanent_city_id: '', permanent_province_text: '', permanent_city_text: '' })}
-        provinceOptions={permProvinces}
-        provinceVal={data.permanent_province_id}
-        onProvince={(v) => onChange({ ...data, permanent_province_id: v, permanent_city_id: '' })}
-        cityOptions={permCities}
-        cityVal={data.permanent_city_id}
-        onCity={(v) => set('permanent_city_id', v)}
-        provinceText={data.permanent_province_text}
-        onProvinceTextChange={(v) => set('permanent_province_text', v)}
-        cityText={data.permanent_city_text}
-        onCityTextChange={(v) => set('permanent_city_text', v)}
-        locationText={data.permanent_location_text}
-        onLocationTextChange={(v) => set('permanent_location_text', v)}
       />
 
       {/* Residency Info */}

@@ -11,11 +11,11 @@ type PartialParent = {
   parent_type: ParentType;
   status: ParentStatus;
   full_name: string;
-  age: string;
+  age?: string;
   profession: string;
-  education: string;
+  education?: string;
   country_id: number | '';
-  city_id: number | '';
+  city_id?: number | '';
   living_arrangement: string;
   social_background: string;
   additional_details: string;
@@ -30,7 +30,7 @@ type PartialSibling = {
   profession: string;
   education: string;
   country_id: number | '';
-  city_id: number | '';
+  city_id?: number | '';
 };
 
 type Step6Data = {
@@ -52,7 +52,7 @@ interface Step6Props {
 export type { Step6Data };
 
 export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
-  const { countries, cities } = useReferenceData();
+  const { countries } = useReferenceData();
 
   const set = <K extends keyof Step6Data>(field: K, value: Step6Data[K]) =>
     onChange({ ...data, [field]: value });
@@ -66,11 +66,8 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
       parent_type: type,
       status: 'ALIVE',
       full_name: '',
-      age: '',
       profession: '',
-      education: '',
       country_id: '',
-      city_id: '',
       living_arrangement: '',
       social_background: '',
       additional_details: '',
@@ -145,40 +142,25 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 lg:gap-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Full Name {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
                 <input type="text" value={parent.full_name} onChange={(e) => {
                   if (/^[A-Za-z\s]*$/.test(e.target.value)) updateParent(idx, { full_name: e.target.value });
                 }} placeholder="Name" className={inputClass} /></div>
-              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Age</label>
-                <input type="text" value={parent.age} onChange={(e) => {
-                  if (e.target.value === '' || /^\d+$/.test(e.target.value)) updateParent(idx, { age: e.target.value });
-                }} placeholder="Age" className={inputClass} /></div>
 
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
                 <input type="text" value={parent.profession} onChange={(e) => updateParent(idx, { profession: e.target.value })} placeholder="e.g. Retired" className={inputClass} /></div>
-              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Education {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
-                <input type="text" value={parent.education} onChange={(e) => updateParent(idx, { education: e.target.value })} placeholder="e.g. Matric" className={inputClass} /></div>
 
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Country</label>
                 <SearchableSelect
                   value={parent.country_id ? String(parent.country_id) : ''}
-                  onChange={(val) => updateParent(idx, { country_id: val ? Number(val) : '', city_id: '' })}
+                  onChange={(val) => updateParent(idx, { country_id: val ? Number(val) : '' })}
                   options={countries.map(c => ({ label: c.name_en, value: String(c.id) }))}
                   placeholder="Select"
                   className=""
                 /></div>
-              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">City</label>
-                <SearchableSelect
-                  value={parent.city_id ? String(parent.city_id) : ''}
-                  onChange={(val) => updateParent(idx, { city_id: val ? Number(val) : '' })}
-                  options={parent.country_id ? cities.filter(c => c.country_id === parent.country_id).map(c => ({ label: c.name_en, value: String(c.id) })) : []}
-                  placeholder="Select"
-                  className=""
-                  disabled={!parent.country_id}
-                /></div>
 
-              <div className="col-span-2">
+              <div>
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Living Arrangement</label>
                 <SearchableSelect
                   value={parent.living_arrangement || ''}
@@ -191,7 +173,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                   className=""
                 />
               </div>
-              <div className="col-span-2">
+              <div className="md:col-span-2">
                 <label className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">
                   Additional Details
                 </label>
@@ -206,7 +188,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-[13px] font-bold text-[#232326]">Siblings</h4>
-          <button type="button" onClick={() => set('siblings', [...data.siblings, { _tempId: crypto.randomUUID(), gender: '', full_name: '', age: '', marital_status: '', profession: '', education: '', country_id: '', city_id: '' }])}
+          <button type="button" onClick={() => set('siblings', [...data.siblings, { _tempId: crypto.randomUUID(), gender: '', full_name: '', age: '', marital_status: '', profession: '', education: '', country_id: '' }])}
             className="flex items-center gap-1.5 text-[11px] font-bold text-[#064e3b] hover:bg-[#F7FAF8] px-3 py-1.5 rounded-full border border-[#064e3b]/20 transition-colors">
             <Plus size={13} /> Add Sibling
           </button>
@@ -226,7 +208,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 lg:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 lg:gap-6">
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Gender</label>
                 <SearchableSelect
                   value={sib.gender || ''}
@@ -255,28 +237,18 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                   placeholder="Select"
                   className=""
                 /></div>
-              <div className="col-span-2"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession</label>
+              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession</label>
                 <input type="text" value={sib.profession} onChange={(e) => updateSibling(idx, { profession: e.target.value })} placeholder="e.g. Doctor" className={inputClass} /></div>
-
-              <div className="col-span-3"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Education</label>
+              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Education</label>
                 <input type="text" value={sib.education} onChange={(e) => updateSibling(idx, { education: e.target.value })} placeholder="e.g. B.Sc" className={inputClass} /></div>
 
-              <div className="col-span-1"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Country</label>
+              <div className="sm:col-span-2 md:col-span-3"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Country</label>
                 <SearchableSelect
                   value={sib.country_id ? String(sib.country_id) : ''}
-                  onChange={(val) => updateSibling(idx, { country_id: val ? Number(val) : '', city_id: '' })}
+                  onChange={(val) => updateSibling(idx, { country_id: val ? Number(val) : '' })}
                   options={countries.map(c => ({ label: c.name_en, value: String(c.id) }))}
                   placeholder="Select"
                   className=""
-                /></div>
-              <div className="col-span-2"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">City</label>
-                <SearchableSelect
-                  value={sib.city_id ? String(sib.city_id) : ''}
-                  onChange={(val) => updateSibling(idx, { city_id: val ? Number(val) : '' })}
-                  options={sib.country_id ? cities.filter(c => c.country_id === sib.country_id).map(c => ({ label: c.name_en, value: String(c.id) })) : []}
-                  placeholder="Select"
-                  className=""
-                  disabled={!sib.country_id}
                 /></div>
             </div>
           </div>

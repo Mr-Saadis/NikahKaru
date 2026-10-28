@@ -320,6 +320,7 @@ export default function ProfilesListPage() {
   });
   const [selectedProfile, setSelectedProfile] = useState<FullProfile | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [isFetchingMatches, setIsFetchingMatches] = useState(false);
 
   const [activeTab, setActiveTab] = useState('overview');
   const [activeBreakdownTab, setActiveBreakdownTab] = useState('All');
@@ -418,17 +419,34 @@ export default function ProfilesListPage() {
       isReal = true;
     }
     
-    if (results.length === 0) return { results: [], distribution: { excellent: 0, high: 0, good: 0, moderate: 0, lower: 0 }, average: 0, highest: 0, highCount: 0, totalCompared: 0, top5: [], isReal };
+    // Filter to only items that have a valid candidateId
+    const validResults = (results || [])
+      .filter((r: any) => r && (r.candidateId || r.candidateProfileId))
+      .map((r: any) => ({
+        ...r,
+        candidateId: r.candidateId || r.candidateProfileId,
+      }));
 
-    const distribution = getMatchDistribution(results);
-    const average = getAverageScore(results);
-    const highest = getHighestScore(results);
-    const highCount = getHighMatchCount(results);
+    if (validResults.length === 0) return { results: [], distribution: { excellent: 0, high: 0, good: 0, moderate: 0, lower: 0 }, average: 0, highest: 0, highCount: 0, totalCompared: 0, top5: [], isReal };
+
+    const distribution = getMatchDistribution(validResults);
+    const average = getAverageScore(validResults);
+    const highest = getHighestScore(validResults);
+    const highCount = getHighMatchCount(validResults);
     
     // Top 5 by score, displayed in DESCENDING order (highest first)
-    const top5 = [...results].sort((a, b) => b.score - a.score).slice(0, 5);
+    // Deduplicate by candidateId to guarantee unique items
+    const candidateMap = new Map<string, any>();
+    for (const r of validResults) {
+      if (!candidateMap.has(r.candidateId) || (candidateMap.get(r.candidateId)?.score ?? 0) < (r.score ?? 0)) {
+        candidateMap.set(r.candidateId, r);
+      }
+    }
+    const top5 = Array.from(candidateMap.values())
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, 5);
 
-    return { results, distribution, average, highest, highCount, totalCompared: results.length, top5, isReal };
+    return { results: validResults, distribution, average, highest, highCount, totalCompared: validResults.length, top5, isReal };
   }, [selectedId, profiles, realMatchResultsMap]);
 
   // Auto-select the top match so the Detailed Analytics panel is visible by default
@@ -679,13 +697,16 @@ export default function ProfilesListPage() {
     let cancelled = false;
 
     // Helper to fetch matches
-    const fetchMatches = async (id: string) => {
-      if (realMatchResultsMapRef.current[id]) return; // already fetched
+    const fetchMatches = async (id: string, forceFresh = false) => {
+      if (!forceFresh && realMatchResultsMapRef.current[id]) return; // already fetched
+      setIsFetchingMatches(true);
       try {
         const matches = await ProfileService.getProfileMatches(id);
         if (matches.results && matches.results.length > 0 && !cancelled) {
           const currentSourceGender = selectedProfile?.gender || 'MALE';
-          const formattedResults = matches.results.map((res: any) => {
+          const validResults = matches.results.filter((res: any) => res && (res.candidate_profile_id || res.candidateId));
+          const formattedResults = validResults.map((res: any) => {
+            const candId = res.candidate_profile_id || res.candidateId;
             const sourceGender = res.source_gender || currentSourceGender;
             const s2cBreakdowns = (res.score_breakdowns || []).filter((b: any) =>
               !b.direction || b.direction === 'SOURCE_TO_CANDIDATE' || b.direction === sourceGender
@@ -694,17 +715,17 @@ export default function ProfilesListPage() {
               b.direction && b.direction !== sourceGender && b.direction !== 'SOURCE_TO_CANDIDATE'
             );
             return {
-              candidateId: res.candidate_profile_id,
+              candidateId: candId,
               candidateName: res.candidate_profile_name,
               candidateDob: res.candidate_dob,
               candidateCityId: res.candidate_city_id,
               candidateCityName: res.candidate_city_name,
-              candidateProfileUrl: res.candidate_profile_url,
-              score: Math.round(res.final_score),
+              candidateProfileUrl: role === 'AGENT' ? null : res.candidate_profile_url,
+              score: Math.round(res.final_score ?? res.score ?? 0),
               _realResult: {
                 ...res,
-                candidateProfileId: res.candidate_profile_id,
-                finalScore: res.final_score,
+                candidateProfileId: candId,
+                finalScore: res.final_score ?? res.score ?? 0,
                 breakdowns: {
                   sourceToCandidate: s2cBreakdowns.length > 0 ? s2cBreakdowns : (res.score_breakdowns || []),
                   candidateToSource: c2sBreakdowns,
@@ -714,17 +735,27 @@ export default function ProfilesListPage() {
           });
           realMatchResultsMapRef.current[id] = formattedResults;
           setRealMatchResultsMap(prev => ({ ...prev, [id]: formattedResults }));
+        } else if (!cancelled) {
+          realMatchResultsMapRef.current[id] = [];
+          setRealMatchResultsMap(prev => ({ ...prev, [id]: [] }));
         }
       } catch (e) {
         console.error('Failed to fetch DB matches', e);
+      } finally {
+        if (!cancelled) {
+          setIsFetchingMatches(false);
+        }
       }
     };
 
-    // If already cached, use instantly — no loading state
+    // If already cached, use instantly — but fetch matches with loading indicator
     if (fullProfileCache.current[selectedId]) {
-      setSelectedProfile(fullProfileCache.current[selectedId]);
+      const cached = fullProfileCache.current[selectedId];
+      setSelectedProfile(cached);
       setActiveTab('overview');
-      fetchMatches(selectedId); // Fetch matches in background
+      setSelectedMatchId(null);
+      const isCompletedProfile = cached.status === 'INACTIVE';
+      fetchMatches(selectedId, isCompletedProfile);
       return;
     }
 
@@ -892,6 +923,23 @@ export default function ProfilesListPage() {
 
   const renderOverviewTab = () => {
     if (!sp) return null;
+
+    if (isFetchingMatches) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-250px)] text-center animate-in fade-in duration-300">
+          <div className="w-20 h-20 bg-[#E5EFE9] rounded-full flex items-center justify-center mb-5 shadow-sm border border-[#C5DBCF]">
+            <Loader2 className="w-9 h-9 animate-spin text-[#064e3b]" />
+          </div>
+          <h3 className="text-[22px] font-bold text-[#1F3B34] mb-2">Loading Compatibility Insights</h3>
+          <p className="text-[14px] text-[#717972] max-w-sm leading-relaxed">
+            Fetching released candidate matches and score breakdowns from manager...
+          </p>
+          <div className="w-56 h-1.5 bg-[#E5EFE9] rounded-full mt-6 overflow-hidden">
+            <div className="h-full bg-[#064e3b] rounded-full animate-pulse w-3/4" />
+          </div>
+        </div>
+      );
+    }
     
     if (!matchData?.isReal) {
       return (
@@ -986,12 +1034,14 @@ export default function ProfilesListPage() {
                           <BarChart3 className="w-[20px] h-[20px] text-[#C86A4A]" />
                           <span>Compatibility Overview</span>
                         </div>
-                        <button
-                          onClick={() => { setSelectedId(selectedMatch.candidateId); setSelectedMatchId(null); }}
-                          className="text-[11px] font-bold text-[#C86A4A] hover:text-[#a6563b] transition-colors flex items-center gap-1.5 bg-[#F5F0E8]/50 px-3 py-1.5 rounded-full border border-[#E9E4DC]/50"
-                        >
-                          View Full Profile <ChevronRight className="w-3 h-3" />
-                        </button>
+                        {role !== 'AGENT' && (
+                          <button
+                            onClick={() => { setSelectedId(selectedMatch.candidateId); setSelectedMatchId(null); }}
+                            className="text-[11px] font-bold text-[#C86A4A] hover:text-[#a6563b] transition-colors flex items-center gap-1.5 bg-[#F5F0E8]/50 px-3 py-1.5 rounded-full border border-[#E9E4DC]/50"
+                          >
+                            View Full Profile <ChevronRight className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
 
                       {/* Profile & Total Score */}
@@ -1109,11 +1159,11 @@ export default function ProfilesListPage() {
 
                           return (
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                              {itemsToRender.map((item) => {
+                              {itemsToRender.map((item, idx) => {
                                 const isPerfect = item.score === 100;
                                 const barColor = isPerfect ? '#1F3B34' : '#A3B18A'; 
                                 return (
-                                  <div key={item.category} className="bg-[#FAF8F5] rounded-[20px] p-4 lg:p-5 flex flex-col justify-between h-[105px] border border-[#E9E4DC] shadow-sm relative overflow-hidden group hover:border-[#dcd5c2] transition-colors">
+                                  <div key={`${item.category}-${idx}`} className="bg-[#FAF8F5] rounded-[20px] p-4 lg:p-5 flex flex-col justify-between h-[105px] border border-[#E9E4DC] shadow-sm relative overflow-hidden group hover:border-[#dcd5c2] transition-colors">
                                     <div className="absolute left-0 right-0 bottom-0 h-[40px] opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(#1F3B34 1.5px, transparent 1.5px)', backgroundSize: '6px 6px' }} />
                                     <span className="text-[12px] font-bold text-[#717972] relative z-10 truncate" title={item.category}>{item.category}</span>
                                     <div className="flex flex-col gap-2.5 mt-auto relative z-10">
@@ -1335,21 +1385,23 @@ export default function ProfilesListPage() {
 
             <div className="grid grid-cols-1 @[600px]:grid-cols-2 @[1100px]:grid-cols-1 gap-3">
               {top5.map((match: any, index: number) => {
-                const cp = findProfile(match.candidateId);
+                const candId = match.candidateId || match.candidateProfileId;
+                const cp = candId ? findProfile(candId) : null;
                 const name = match.candidateName || cp?.personal_information?.full_name || 'Candidate';
                 const initial = name.charAt(0).toUpperCase();
                 const dob = match.candidateDob || cp?.personal_information?.date_of_birth;
                 const age = computeAge(dob);
                 const city = match.candidateCityName || resolveCityById(match.candidateCityId) || (cp ? resolveCity(cp) : '');
-                const avatar = match.candidateProfileUrl || cp?.profile_URL;
+                const isAgent = role === 'AGENT';
+                const avatar = isAgent ? null : (match.candidateProfileUrl || cp?.profile_URL);
                 const scoreColor = getScoreColor(match.score);
                 const scoreLabel = getScoreLabel(match.score);
-                const isSelected = selectedMatchId === match.candidateId;
+                const isSelected = selectedMatchId === candId;
 
                 return (
                   <button
-                    key={match.candidateId}
-                    onClick={() => setSelectedMatchId(match.candidateId)}
+                    key={candId ? `cand-${candId}` : `match-${index}`}
+                    onClick={() => candId && setSelectedMatchId(candId)}
                     style={{ animationDelay: `${index * 80}ms` }}
                     className={`animate-fade-in-up w-full text-left rounded-[20px] p-3.5 flex items-center gap-3.5 transition-all duration-300 group relative overflow-hidden ${isSelected
                       ? 'bg-[#2F3E51] shadow-[0_8px_20px_-6px_rgba(47,62,81,0.4)] border border-[#2F3E51]'
@@ -1966,6 +2018,11 @@ export default function ProfilesListPage() {
 
         {/* ═══════════════ RIGHT PANEL: Profile Workspace ═══════════════ */}
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#FAF8F5] relative ml-2 rounded-l-[28px] shadow-[-8px_0_24px_rgba(0,0,0,0.02)] border-l border-t border-[#E9E4DC]/50">
+          {(isFetchingMatches || detailLoading) && (
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#E5EFE9] overflow-hidden z-50">
+              <div className="h-full bg-[#064e3b] animate-pulse w-full" />
+            </div>
+          )}
 
           {detailLoading ? (
             <div className="flex-1 flex items-center justify-center text-[#8B8479] gap-2">

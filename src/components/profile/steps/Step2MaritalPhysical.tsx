@@ -2,6 +2,7 @@
 
 import type { PhysicalInformation } from '@/lib/types/database.types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Check } from 'lucide-react';
 
 type Step2Data = {
   height_cm: number | '';
@@ -18,8 +19,62 @@ interface Step2Props {
 
 export type { Step2Data };
 
-const COMPLEXION_OPTIONS = [
-  'Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark Brown', 'Dark',
+interface ComplexionOption {
+  value: string;
+  label: string;
+  swatch: string;
+  border: string;
+}
+
+const COMPLEXION_OPTIONS: ComplexionOption[] = [
+  {
+    value: 'Very Fair',
+    label: 'Very Fair',
+    swatch: 'radial-gradient(circle at 35% 35%, #FFF6F0 0%, #FCE7D9 100%)',
+    border: '#E8CFC0',
+  },
+  {
+    value: 'Fair',
+    label: 'Fair',
+    swatch: 'radial-gradient(circle at 35% 35%, #FDE7D5 0%, #F5CBAA 100%)',
+    border: '#DFB08D',
+  },
+  {
+    value: 'Whitish',
+    label: 'Whitish',
+    swatch: 'radial-gradient(circle at 35% 35%, #FCE2CE 0%, #EDC19E 100%)',
+    border: '#D4A27B',
+  },
+  {
+    value: 'Wheatish',
+    label: 'Wheatish',
+    swatch: 'radial-gradient(circle at 35% 35%, #ECC099 0%, #D49C69 100%)',
+    border: '#BA804D',
+  },
+  {
+    value: 'Wheatish Brown',
+    label: 'Wheatish Brown',
+    swatch: 'radial-gradient(circle at 35% 35%, #D69F74 0%, #B27445 100%)',
+    border: '#975A2E',
+  },
+  {
+    value: 'Brown',
+    label: 'Brown',
+    swatch: 'radial-gradient(circle at 35% 35%, #AC734C 0%, #884E29 100%)',
+    border: '#703C19',
+  },
+  {
+    value: 'Dark Brown',
+    label: 'Dark Brown',
+    swatch: 'radial-gradient(circle at 35% 35%, #7D4D2E 0%, #562E17 100%)',
+    border: '#41200E',
+  },
+  {
+    value: 'Dark',
+    label: 'Dark',
+    swatch: 'radial-gradient(circle at 35% 35%, #52301D 0%, #2E150A 100%)',
+    border: '#220C04',
+  },
 ];
 
 export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
@@ -112,21 +167,34 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
         <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
           Complexion
         </label>
-        <div className="grid grid-cols-3 gap-2">
-          {COMPLEXION_OPTIONS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => set('complexion', data.complexion === c ? '' : c)}
-              className={`py-2 px-3 rounded-[20px] text-[13px] font-semibold border transition-all ${
-                data.complexion === c
-                  ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md'
-                  : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
-              }`}
-            >
-              {c}
-            </button>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {COMPLEXION_OPTIONS.map((c) => {
+            const isSelected = data.complexion === c.value;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => set('complexion', isSelected ? '' : c.value)}
+                className={`group relative flex items-center gap-2.5 px-3.5 py-3 rounded-[20px] text-[13px] font-semibold border transition-all text-left ${
+                  isSelected
+                    ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md ring-2 ring-[#064e3b]/30'
+                    : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
+                }`}
+              >
+                <span
+                  className="w-5 h-5 rounded-full border shadow-inner shrink-0 transition-transform group-hover:scale-110"
+                  style={{
+                    background: c.swatch,
+                    borderColor: c.border,
+                  }}
+                />
+                <span className="truncate flex-1 font-medium">{c.label}</span>
+                {isSelected && (
+                  <Check size={14} className="text-emerald-400 shrink-0 ml-auto" strokeWidth={2.5} />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

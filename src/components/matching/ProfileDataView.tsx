@@ -10,7 +10,8 @@ export default function ProfileDataView({ data, prefs, isSource = false }: { dat
         <h4 className="text-xs font-bold text-[#16382E] uppercase tracking-wider mb-2 border-b border-[#EFE9DF] pb-1">{title}</h4>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-4 text-[13px]">
           {Object.entries(obj).map(([key, value]) => {
-            if (key === 'id' || key === 'profile_id' || key === 'preference_set_id' || key === 'created_at' || key === 'updated_at' || key === 'created_by') return null;
+            const lowerKey = key.toLowerCase();
+            if (key === 'id' || key === 'profile_id' || key === 'preference_set_id' || key === 'created_at' || key === 'updated_at' || key === 'created_by' || lowerKey.includes('picture') || lowerKey.includes('profile_url') || lowerKey.includes('avatar')) return null;
             if (value === null || value === undefined || value === '') return null;
             
             let displayValue = String(value);

@@ -1,6 +1,7 @@
 'use client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { AlertCircle } from 'lucide-react';
 
 import type { PreferenceImportance, MaritalStatus, YesNo, ReligiousPracticeLevel, SmokingStatus, FamilySetup, LivingWith, EmploymentType } from '@/lib/types/database.types';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
@@ -260,6 +261,17 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
         <p className="text-[12px] text-[#7D766C]">Define desired partner criteria and their importance level.</p>
       </div>
 
+      {/* Important Notice */}
+      <div className="flex items-start gap-3 p-4 rounded-2xl bg-[#FFF9F2] border border-[#F5C770]/80 shadow-xs">
+        <AlertCircle size={20} className="shrink-0 text-[#C86A4A] mt-0.5" />
+        <div>
+          <h4 className="text-[13px] font-bold text-[#2F3E51]">This section is very important</h4>
+          <p className="text-[12px] text-[#7A6B58] mt-0.5 leading-relaxed">
+            Please fill out this section carefully. The matching system uses these partner preferences to find and suggest the most suitable matches for this profile.
+          </p>
+        </div>
+      </div>
+
       {/* Basic */}
       <SectionCard title="Age & Marital Status">
         <ImportanceRow label={<>Age Importance <span className="text-red-500">*</span></>} value={data.pref_age_importance} onChange={(v) => handleImportanceChange('pref_age_importance', v, ['pref_min_age', 'pref_max_age'])} />
@@ -332,7 +344,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
               <SearchableSelect
                 value={data.pref_complexion || ''}
                 onChange={(val) => set('pref_complexion', val)}
-                options={['Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark Brown', 'Dark'].map(c => ({ label: c, value: c }))}
+                options={['Very Fair', 'Fair', 'Whitish', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark Brown', 'Dark'].map(c => ({ label: c, value: c }))}
                 placeholder="Select Complexion"
                 className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
               />

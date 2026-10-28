@@ -100,10 +100,6 @@ export default function Step9Review({ step1, step2, step3, step4, step5, step6, 
                 {age} yrs
               </span>
             )}
-            <span className="flex items-center gap-1 bg-[#FDF0D8] border border-[#F5C770]/40 text-[#D4AF37] text-[10px] uppercase font-bold px-2.5 py-1 rounded-full">
-              <CheckCircle size={10} />
-              DRAFT
-            </span>
           </div>
         </div>
       </div>
@@ -113,10 +109,9 @@ export default function Step9Review({ step1, step2, step3, step4, step5, step6, 
         <ReviewSection icon={User} title="Basic Information" step={1} onEdit={onGoToStep}>
           <ReviewRow label="Full Name" value={step1.full_name} />
           <ReviewRow label="Gender" value={step1.gender} />
-          <ReviewRow label="Date of Birth" value={step1.date_of_birth} />
-          <ReviewRow label="Age" value={age ? `${age} years` : null} />
+          <ReviewRow label="Age" value={age ? `${age} years` : (step1.date_of_birth ? `${new Date().getFullYear() - parseInt(step1.date_of_birth.split('-')[0], 10)} years` : null)} />
           <ReviewRow label="Marital Status" value={step1.marital_status?.replace(/_/g, ' ')} />
-          <ReviewRow label="Nationality" value={step1.nationality_country_id ? getCountryById(Number(step1.nationality_country_id))?.name_en : null} />
+          <ReviewRow label="Nationality" value={step1.nationality_country_id ? `${getCountryById(Number(step1.nationality_country_id))?.name_en || ''}${step1.multiple_nationality ? ' (Multiple)' : ''}` : null} />
           <ReviewRow label="Mother Tongue" value={step1.mother_tongue_id ? getMotherTongueById(Number(step1.mother_tongue_id))?.name_en : null} />
         </ReviewSection>
 

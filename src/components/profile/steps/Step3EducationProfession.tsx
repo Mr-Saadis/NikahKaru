@@ -1,5 +1,4 @@
 'use client';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
 import { Plus, Trash2 } from 'lucide-react';
@@ -37,9 +36,8 @@ const EMPLOYMENT_TYPES: { value: EmploymentType; label: string }[] = [
 const newEdu = (): PartialEducation => ({
   _tempId: crypto.randomUUID(),
   education_level_id: undefined,
-  qualification: '',
-  institution_name: '',
   field_of_study: '',
+  details: '',
   is_highest_qualification: false,
 });
 
@@ -47,9 +45,9 @@ const newEmp = (): PartialEmployment => ({
   _tempId: crypto.randomUUID(),
   occupation_id: undefined,
   job_title: '',
-  organization_name: '',
   employment_type: undefined,
   is_current: true,
+  details: '',
 });
 
 export default function Step3EducationProfession({ data, onChange }: Step3Props) {
@@ -111,7 +109,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 lg:gap-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Level <span className="text-red-500">*</span></label>
                 <SearchableSelect
@@ -123,56 +121,16 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Qualification</label>
-                <input
-                  type="text"
-                  value={edu.qualification ?? ''}
-                  onChange={(e) => updateEdu(idx, { qualification: e.target.value })}
-                  placeholder="e.g. B.Sc Computer Science"
-                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Institution</label>
-                <input
-                  type="text"
-                  value={edu.institution_name ?? ''}
-                  onChange={(e) => updateEdu(idx, { institution_name: e.target.value })}
-                  placeholder="School / University"
-                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
-                />
-              </div>
-              <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Field of Study</label>
                 <input
                   type="text"
                   value={edu.field_of_study ?? ''}
                   onChange={(e) => updateEdu(idx, { field_of_study: e.target.value })}
-                  placeholder="e.g. Engineering"
+                  placeholder="e.g. Computer Science, Medicine, Commerce"
                   className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Start Year</label>
-                <input
-                  type="number"
-                  value={edu.start_year || ''}
-                  onChange={(e) => updateEdu(idx, { start_year: e.target.value ? Number(e.target.value) : undefined })}
-                  placeholder="YYYY"
-                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">End Year</label>
-                <input
-                  type="number"
-                  value={edu.end_year || ''}
-                  onChange={(e) => updateEdu(idx, { end_year: e.target.value ? Number(e.target.value) : undefined })}
-                  placeholder="YYYY (or expected)"
-                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
-                />
-              </div>
-              <div className="space-y-1.5 col-span-2">
+              <div className="space-y-1.5 md:col-span-2">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Additional Details</label>
                 <input
                   type="text"
@@ -231,7 +189,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 lg:gap-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Occupation <span className="text-red-500">*</span></label>
                 <SearchableSelect
@@ -263,35 +221,6 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Organization</label>
-                <input
-                  type="text"
-                  value={emp.organization_name ?? ''}
-                  onChange={(e) => updateEmp(idx, { organization_name: e.target.value })}
-                  placeholder="Company / Org name"
-                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Start Date</label>
-                <input
-                  type="date"
-                  value={emp.start_date || ''}
-                  onChange={(e) => updateEmp(idx, { start_date: e.target.value })}
-                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">End Date</label>
-                <input
-                  type="date"
-                  value={emp.end_date || ''}
-                  onChange={(e) => updateEmp(idx, { end_date: e.target.value })}
-                  disabled={emp.is_current}
-                  className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 disabled:opacity-50 shadow-none"
-                />
-              </div>
-              <div className="space-y-1.5 col-span-2">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Additional Details</label>
                 <input
                   type="text"

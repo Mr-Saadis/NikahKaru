@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
         candidateName: displayName,
         candidateDob: r.candidateData?.personal_information?.date_of_birth || null,
         candidateCityId: r.candidateData?.profile_locations?.current_city_id || null,
-        candidateProfileUrl: r.candidateData?.profile_URL || null,
+        candidateProfileUrl: isManagerOrAdmin ? (r.candidateData?.profile_URL || null) : null,
         score: Math.round(r.finalScore),
         _realResult: {
           candidateProfileId: r.candidateProfileId,
