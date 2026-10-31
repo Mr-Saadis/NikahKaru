@@ -5,21 +5,56 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   UserPlus,
-  RefreshCw,
-  Clock,
   ExternalLink,
   Download,
   Eye,
   AlertCircle,
+  Users,
+  UserCheck,
+  FileEdit,
+  Send,
+  Share2,
+  Inbox,
+  GitBranch,
+  MessageSquare,
 } from 'lucide-react';
 import { DashboardService, type AgentOverviewData } from '@/lib/services/dashboard-service';
 import {
   formatRelativeTime,
   formatKarachiDate,
   formatKarachiTime,
-  getStatusBadge,
 } from '@/lib/utils/overview-helpers';
+import {
+  OverviewCard,
+  KpiCard,
+  PageHeader,
+  StatusPill,
+  AvatarInitials,
+  SemiCircleGauge,
+  OverviewSkeleton,
+  ErrorBlock,
+  EmptyBlock,
+  UntrackedBox,
+  RadialProgressRing,
+  StepChipsRow,
+  TodayActivityChart,
+  FIXED_STEP_SECTIONS,
+} from './overview-ui';
 import { toast } from 'sonner';
+
+function getNextStepNumber(nextStepName?: string | null): number {
+  if (!nextStepName) return 1;
+  const s = nextStepName.toLowerCase();
+  if (s.includes('personal') || s.includes('basic')) return 1;
+  if (s.includes('physical')) return 2;
+  if (s.includes('education') || s.includes('profession')) return 3;
+  if (s.includes('religion') || s.includes('culture')) return 4;
+  if (s.includes('location') || s.includes('residency')) return 5;
+  if (s.includes('family')) return 6;
+  if (s.includes('lifestyle')) return 7;
+  if (s.includes('preference')) return 8;
+  return 1;
+}
 
 export default function StaffOverview() {
   const router = useRouter();
@@ -28,63 +63,55 @@ export default function StaffOverview() {
   const [data, setData] = useState<AgentOverviewData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>('');
 
-  const loadData = async () => {
+  const fetchData = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
       const res = await DashboardService.getDashboardData('AGENT');
       if (!res) return;
       setData(res as AgentOverviewData);
       setLastUpdated(formatKarachiTime(new Date()));
+      setError(null);
       setLoading(false);
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
+    } catch (err: unknown) {
+      const e = err as { name?: string; message?: string };
+      if (e?.name === 'AbortError') return;
       console.error('[StaffOverview] load error:', err);
-      setError(err.message || 'Failed to load agent desk data');
+      setError(e?.message || 'Failed to load agent desk data');
       toast.error('Failed to load agent desk');
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    let isCancelled = false;
+    DashboardService.getDashboardData('AGENT')
+      .then((res) => {
+        if (isCancelled || !res) return;
+        setData(res as AgentOverviewData);
+        setLastUpdated(formatKarachiTime(new Date()));
+        setError(null);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (isCancelled) return;
+        const e = err as { name?: string; message?: string };
+        if (e?.name === 'AbortError') return;
+        console.error('[StaffOverview] load error:', err);
+        setError(e?.message || 'Failed to load agent desk data');
+        toast.error('Failed to load agent desk');
+        setLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   // --------------------------------------------------------------------------
-  // SKELETON STATE (Phase B Rule 2: Static flat grey blocks, no pulse/ping)
+  // SKELETON STATE
   // --------------------------------------------------------------------------
   if (loading && !data) {
-    return (
-      <div className="w-full min-w-0 space-y-5">
-        <div className="flex items-center justify-between pb-4 border-b border-[#E9E4DC]">
-          <div className="h-6 w-36 bg-[#E9E4DC]" />
-          <div className="h-8 w-28 bg-[#E9E4DC]" />
-        </div>
-        <div className="border border-[#E9E4DC] bg-white h-24 grid grid-cols-2 lg:grid-cols-6 divide-x divide-[#E9E4DC]">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="p-4 space-y-2">
-              <div className="h-3 w-16 bg-[#E9E4DC]" />
-              <div className="h-6 w-10 bg-[#E9E4DC]" />
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <div className="lg:col-span-8 min-w-0 space-y-5">
-            <div className="border border-[#E9E4DC] bg-white h-48 p-4 space-y-3">
-              <div className="h-4 w-32 bg-[#E9E4DC]" />
-              <div className="h-8 w-full bg-[#FAF8F5]" />
-              <div className="h-8 w-full bg-[#FAF8F5]" />
-            </div>
-          </div>
-          <div className="lg:col-span-4 min-w-0 space-y-5">
-            <div className="border border-[#E9E4DC] bg-white h-48 p-4 space-y-3">
-              <div className="h-4 w-28 bg-[#E9E4DC]" />
-              <div className="h-8 w-full bg-[#FAF8F5]" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <OverviewSkeleton />;
   }
 
   // --------------------------------------------------------------------------
@@ -92,18 +119,11 @@ export default function StaffOverview() {
   // --------------------------------------------------------------------------
   if (error || !data) {
     return (
-      <div className="w-full min-w-0 p-6 border border-[#DC2626] bg-[#FEF2F2] text-[#991B1B] space-y-3 rounded-[2px]">
-        <div className="flex items-center gap-2 font-bold text-sm">
-          <AlertCircle className="w-4 h-4 text-[#DC2626]" />
-          <span>Error Loading Agent Desk</span>
-        </div>
-        <p className="text-xs text-[#7F1D1D]">{error || 'Unable to load overview data.'}</p>
-        <button
-          onClick={loadData}
-          className="px-3 py-1.5 bg-[#1F3B34] text-white text-xs font-bold rounded-[2px] transition-colors duration-120 hover:bg-[#172E29] cursor-pointer"
-        >
-          Retry
-        </button>
+      <div className="w-full min-w-0">
+        <ErrorBlock
+          message={error || 'Unable to load agent desk overview'}
+          onRetry={() => void fetchData(true)}
+        />
       </div>
     );
   }
@@ -116,200 +136,194 @@ export default function StaffOverview() {
   const readyForDelivery = data.ready_for_delivery || [];
   const requests = data.requests || [];
   const tracking = data.tracking;
+  const todayActivity = data.today_activity;
+
+  // Total Pipeline calculation
+  const totalPipeline =
+    (pipeline?.with_manager || 0) +
+    (pipeline?.ready || 0) +
+    (pipeline?.downloaded || 0) +
+    (pipeline?.completed || 0);
+
+  const pipelineSegments = [
+    {
+      id: 'with_manager',
+      label: 'With Manager',
+      value: pipeline?.with_manager || 0,
+      color: '#1F3B34',
+    },
+    {
+      id: 'ready',
+      label: 'Ready',
+      value: pipeline?.ready || 0,
+      color: '#A3B18A',
+    },
+    {
+      id: 'downloaded',
+      label: 'Downloaded',
+      value: pipeline?.downloaded || 0,
+      color: '#C86A4A',
+    },
+    {
+      id: 'completed',
+      label: 'Completed',
+      value: pipeline?.completed || 0,
+      color: '#166534',
+    },
+  ];
 
   return (
     <div className="w-full min-w-0 space-y-5 font-sans">
       {/* ════════════════════════════════════════════════════════════════
-          ROW 1: TITLE LEFT, "NEW PROFILE" BUTTON RIGHT
+          1. PAGE HEADER (with greeting line & attention count)
       ════════════════════════════════════════════════════════════════ */}
-      <div className="flex items-center justify-between pb-4 border-b border-[#E9E4DC]">
-        <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="text-xl font-bold text-[#1F3B34] tracking-tight truncate">
-            Agent Desk
-          </h1>
-          {lastUpdated && (
-            <span className="text-[11px] text-[#7D766C] tabular-nums whitespace-nowrap">
-              Last updated {lastUpdated}
-            </span>
-          )}
-          <button
-            onClick={loadData}
-            aria-label="Refresh overview"
-            title="Refresh overview"
-            className="p-1 text-[#7D766C] hover:text-[#1F3B34] transition-colors duration-120 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+      <PageHeader
+        title="Agent Desk"
+        subtitle="Client assignments, matching pipeline & profile operations"
+        icon={Users}
+        lastUpdated={lastUpdated}
+        onRefresh={() => void fetchData(true)}
+        actionButton={
+          <Link
+            href="/add-profile"
+            className="rounded-full bg-[#1F3B34] hover:bg-[#172E29] text-white px-4 py-1.5 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all duration-120 active:scale-98"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-        </div>
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>New Profile</span>
+          </Link>
+        }
+      />
 
-        <Link
-          href="/add-profile"
-          className="px-3.5 py-1.5 bg-[#1F3B34] text-white text-xs font-bold rounded-[2px] inline-flex items-center gap-1.5 transition-colors duration-120 hover:bg-[#172E29] cursor-pointer shrink-0 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
-        >
-          <UserPlus className="w-3.5 h-3.5" />
-          <span>New Profile</span>
-        </Link>
+      {/* ════════════════════════════════════════════════════════════════
+          2. ROW OF 6 KPI CARDS (Most Actionable First)
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* 1. Awaiting Download */}
+        <KpiCard
+          icon={Download}
+          label="AWAITING DOWNLOAD"
+          numericValue={kpis.awaiting_download ?? 0}
+          value={kpis.awaiting_download ?? 0}
+          caption="Ready for family delivery"
+          isAlert={(kpis.awaiting_download ?? 0) > 0}
+          alertColor="amber"
+          onClick={() => router.push('/agent-requests')}
+        />
+        {/* 2. Open Requests */}
+        <KpiCard
+          icon={Inbox}
+          label="OPEN REQUESTS"
+          numericValue={kpis.open_requests ?? 0}
+          value={kpis.open_requests ?? 0}
+          caption="Submitted to manager"
+          onClick={() => router.push('/agent-requests')}
+        />
+        {/* 3. Drafts Pending */}
+        <KpiCard
+          icon={FileEdit}
+          label="DRAFTS PENDING"
+          numericValue={kpis.drafts_pending ?? 0}
+          value={kpis.drafts_pending ?? 0}
+          caption="Incomplete registrations"
+          onClick={() => router.push('/profiles')}
+        />
+        {/* 4. Assigned Profiles */}
+        <KpiCard
+          icon={UserCheck}
+          label="ASSIGNED PROFILES"
+          numericValue={kpis.assigned_profiles ?? 0}
+          value={kpis.assigned_profiles ?? 0}
+          caption="Active client roster"
+          onClick={() => router.push('/profiles')}
+        />
+        {/* 5. Released for Client */}
+        <KpiCard
+          icon={Send}
+          label="RELEASED FOR CLIENT"
+          numericValue={kpis.released_for_client ?? 0}
+          value={kpis.released_for_client ?? 0}
+          caption="Approved by manager"
+          onClick={() => router.push('/agent-requests')}
+        />
+        {/* 6. Shared with Family */}
+        <KpiCard
+          icon={Share2}
+          label="SHARED WITH FAMILY"
+          numericValue={kpis.shared_with_family ?? 0}
+          value={kpis.shared_with_family ?? 0}
+          caption="Dossiers delivered"
+          onClick={() => router.push('/agent-requests')}
+        />
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
-          ROW 2: ONE BORDERED BAND SPLIT INTO 6 EQUAL CELLS BY HAIRLINES
+          3. TODAY'S ACTIVITY — CONCENTRIC 270° RADIAL ARC CHART
       ════════════════════════════════════════════════════════════════ */}
-      <div className="w-full border border-[#E9E4DC] bg-white rounded-[2px] grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-x divide-y md:divide-y-0 divide-[#E9E4DC]">
-        {/* Cell 1: Assigned Profiles */}
-        <Link
-          href="/profiles"
-          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
-        >
-          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
-            Assigned Profiles
-          </span>
-          <div className="text-2xl font-bold text-[#1F3B34] tabular-nums mt-1">
-            {kpis.assigned_profiles ?? 0}
-          </div>
-          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Active in roster</span>
-        </Link>
-
-        {/* Cell 2: Drafts Pending */}
-        <Link
-          href="/profiles"
-          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
-        >
-          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
-            Drafts Pending
-          </span>
-          <div className="text-2xl font-bold text-[#C86A4A] tabular-nums mt-1">
-            {kpis.drafts_pending ?? 0}
-          </div>
-          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Incomplete entries</span>
-        </Link>
-
-        {/* Cell 3: Released for Client */}
-        <Link
-          href="/agent-requests"
-          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
-        >
-          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
-            Released for Client
-          </span>
-          <div className="text-2xl font-bold text-[#2F3E51] tabular-nums mt-1">
-            {kpis.released_for_client ?? 0}
-          </div>
-          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Candidates approved</span>
-        </Link>
-
-        {/* Cell 4: Shared with Family */}
-        <Link
-          href="/agent-requests"
-          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
-        >
-          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
-            Shared with Family
-          </span>
-          <div className="text-2xl font-bold text-[#166534] tabular-nums mt-1">
-            {kpis.shared_with_family ?? 0}
-          </div>
-          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Dossiers downloaded</span>
-        </Link>
-
-        {/* Cell 5: Open Requests */}
-        <Link
-          href="/agent-requests"
-          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
-        >
-          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
-            Open Requests
-          </span>
-          <div className="text-2xl font-bold text-[#8B6122] tabular-nums mt-1">
-            {kpis.open_requests ?? 0}
-          </div>
-          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Pending manager</span>
-        </Link>
-
-        {/* Cell 6: Awaiting Download */}
-        <Link
-          href="/agent-requests"
-          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
-        >
-          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
-            Awaiting Download
-          </span>
-          <div className="text-2xl font-bold text-[#1F3B34] tabular-nums mt-1">
-            {kpis.awaiting_download ?? 0}
-          </div>
-          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Ready for delivery</span>
-        </Link>
-      </div>
+      <TodayActivityChart
+        data={data.today_activity}
+        error={data.today_activity_error}
+        onRetry={() => void fetchData(false)}
+      />
 
       {/* ════════════════════════════════════════════════════════════════
-          ROW 3: 12-COLUMN GRID (LEFT 8, RIGHT 4)
+          4. 12-COLUMN MAIN CONTENT (LEFT 8, RIGHT 4)
       ════════════════════════════════════════════════════════════════ */}
-      <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-5">
-        
-        {/* ─── LEFT COLUMN (8 COLS) ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* ─── LEFT 8 COLUMNS: ACTIONABLE WORKLIST ─── */}
         <div className="lg:col-span-8 min-w-0 space-y-5">
-          
-          {/* 1. Needs Attention (Ruled List with hairlines) */}
-          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2.5 border-b border-[#E9E4DC]">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-                Needs Attention
-              </span>
-              <span className="text-[10px] text-[#7D766C] tabular-nums">
+          {/* A. Needs Attention */}
+          <OverviewCard
+            icon={AlertCircle}
+            title="Needs Attention"
+            badge={
+              <span className="text-[11px] text-[#7D766C] font-semibold bg-[#F4EFE7] px-2 py-0.5 rounded-full">
                 {attention.length} items
               </span>
-            </div>
-
+            }
+          >
             {attention.length === 0 ? (
-              <div className="py-6 text-center text-xs text-[#7D766C]">
-                No profiles or requests currently require attention.
-              </div>
+              <EmptyBlock message="No profiles or requests currently require attention." />
             ) : (
-              <div className="divide-y divide-[#E9E4DC]">
+              <div className="rounded-xl border border-[#E9E4DC]/80 overflow-hidden divide-y divide-[#E9E4DC]/70">
                 {attention.map((item, idx) => {
-                  let badgeText = 'ACTION';
-                  let badgeClass = 'bg-[#FAF8F5] text-[#1E2022] border-[#E9E4DC]';
-                  let actionText = 'Open';
+                  let kindLabel = 'ACTION';
                   let linkHref = '/agent-requests';
+                  let actionText = 'Open';
 
                   if (item.kind === 'release_ready') {
-                    badgeText = 'RELEASE READY';
-                    badgeClass = 'bg-[#EBF2F7] text-[#2F3E51] border-[#D0DFEA]';
-                    actionText = 'Open Request';
-                    linkHref = '/agent-requests';
+                    kindLabel = 'RELEASE READY';
+                    actionText = 'Deliver';
+                    linkHref = `/agent-requests?requestId=${item.entity_id}&profileId=${item.profile_id}`;
                   } else if (item.kind === 'assigned_to_you') {
-                    badgeText = 'ASSIGNED';
-                    badgeClass = 'bg-[#E5EFE9] text-[#1F3B34] border-[#C2DDD0]';
-                    actionText = 'View Request';
-                    linkHref = '/agent-requests';
+                    kindLabel = 'ASSIGNED';
+                    actionText = 'View';
+                    linkHref = `/agent-requests?requestId=${item.entity_id}&profileId=${item.profile_id}`;
                   } else if (item.kind === 'no_preferences') {
-                    badgeText = 'NO PREFERENCES';
-                    badgeClass = 'bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]';
-                    actionText = 'Add Preferences';
+                    kindLabel = 'NO PREFERENCES';
+                    actionText = 'Add Prefs';
                     linkHref = `/add-profile?profileId=${item.profile_id}&step=8`;
                   } else if (item.kind === 'stale_draft') {
-                    badgeText = 'STALE DRAFT';
-                    badgeClass = 'bg-[#FEF3C7] text-[#8B6122] border-[#FDE68A]';
+                    kindLabel = 'STALE DRAFT';
                     actionText = 'Continue';
                     linkHref = `/add-profile?profileId=${item.profile_id}`;
                   } else if (item.kind === 'ready_to_request') {
-                    badgeText = 'READY TO REQUEST';
-                    badgeClass = 'bg-[#FAF8F5] text-[#1E2022] border-[#E9E4DC]';
-                    actionText = 'Request Manager';
-                    linkHref = '/agent-requests';
+                    kindLabel = 'READY TO REQUEST';
+                    actionText = 'Request';
+                    linkHref = `/agent-requests?profileId=${item.profile_id}`;
                   }
 
                   return (
                     <div
                       key={`${item.kind}-${item.entity_id}-${idx}`}
-                      className="py-2.5 flex items-center justify-between gap-3 text-xs"
+                      className="p-3.5 flex items-center justify-between gap-3 text-xs bg-white hover:bg-[#FAF8F5]/80 transition-colors duration-120 group"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <AvatarInitials name={item.profile_name} size="sm" />
+                        <StatusPill label={kindLabel} size="xs" />
                         <span
-                          className={`px-1.5 py-0.5 border text-[9.5px] font-bold rounded-[2px] tracking-wider shrink-0 ${badgeClass}`}
+                          className="font-semibold text-[#1E2022] truncate max-w-[200px]"
+                          title={item.profile_name}
                         >
-                          {badgeText}
-                        </span>
-                        <span className="font-semibold text-[#1E2022] truncate" title={item.profile_name}>
                           {item.profile_name}
                         </span>
                         <span className="text-[11px] text-[#7D766C] tabular-nums shrink-0 whitespace-nowrap">
@@ -318,8 +332,14 @@ export default function StaffOverview() {
                       </div>
 
                       <button
-                        onClick={() => router.push(linkHref)}
-                        className="px-2.5 py-1 border border-[#1F3B34] text-[#1F3B34] text-[11px] font-bold rounded-[2px] transition-colors duration-120 hover:bg-[#1F3B34] hover:text-white shrink-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            if (item.entity_id) sessionStorage.setItem('target_open_request_id', item.entity_id);
+                            if (item.profile_id) sessionStorage.setItem('target_open_profile_id', item.profile_id);
+                          }
+                          router.push(linkHref);
+                        }}
+                        className="rounded-full px-3 py-1 border border-[#1F3B34] text-[#1F3B34] hover:bg-[#1F3B34] hover:text-white text-xs font-semibold shrink-0 transition-all duration-120 active:scale-95 cursor-pointer shadow-2xs"
                       >
                         {actionText}
                       </button>
@@ -328,340 +348,255 @@ export default function StaffOverview() {
                 })}
               </div>
             )}
-          </div>
+          </OverviewCard>
 
-          {/* 2. My Profiles (Table with 8-square segmented bar) */}
-          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2.5 border-b border-[#E9E4DC]">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-                My Profiles
-              </span>
-              <Link
-                href="/profiles"
-                className="text-[11px] font-bold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
-              >
-                <span>Directory</span>
-                <ExternalLink className="w-3 h-3" />
-              </Link>
-            </div>
-
-            {profiles.length === 0 ? (
-              <div className="py-8 text-center text-xs text-[#7D766C]">
-                No profiles assigned to your roster yet.
-              </div>
-            ) : (
-              <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-[#E9E4DC] text-[10px] font-bold uppercase tracking-wider text-[#7D766C]">
-                      <th className="pb-2 font-semibold">Name</th>
-                      <th className="pb-2 font-semibold">Gender</th>
-                      <th className="pb-2 font-semibold">Status</th>
-                      <th className="pb-2 font-semibold">Completion</th>
-                      <th className="pb-2 font-semibold">Preferences</th>
-                      <th className="pb-2 font-semibold text-right">Updated</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E9E4DC]">
-                    {profiles.map((p) => {
-                      const statusBadge = getStatusBadge(p.status);
-                      const missingTooltip = p.missing && p.missing.length > 0
-                        ? `Missing: ${p.missing.join(', ')}`
-                        : 'Complete';
-
-                      return (
-                        <tr
-                          key={p.id}
-                          onClick={() => router.push('/profiles')}
-                          className="hover:bg-[#FAF8F5] transition-colors duration-120 cursor-pointer"
-                        >
-                          <td className="py-2.5 pr-2 font-bold text-[#1E2022] truncate max-w-[150px]" title={p.full_name}>
-                            {p.full_name}
-                          </td>
-                          <td className="py-2.5 pr-2 text-[#4E473D]">
-                            {p.gender === 'MALE' ? 'Male' : p.gender === 'FEMALE' ? 'Female' : p.gender}
-                          </td>
-                          <td className="py-2.5 pr-2">
-                            <span
-                              className={`px-1.5 py-0.5 border text-[9.5px] font-bold rounded-[2px] ${statusBadge.bg} ${statusBadge.text} ${statusBadge.border}`}
-                            >
-                              {statusBadge.label}
-                            </span>
-                          </td>
-                          <td className="py-2.5 pr-2">
-                            <div className="flex items-center gap-1.5" title={missingTooltip}>
-                              {/* Segmented 8-square bar */}
-                              <div className="flex items-center gap-0.5">
-                                {Array.from({ length: p.steps_total || 8 }).map((_, sqIdx) => (
-                                  <span
-                                    key={sqIdx}
-                                    className={`w-2 h-2 rounded-[1px] ${
-                                      sqIdx < p.steps_done
-                                        ? 'bg-[#1F3B34]'
-                                        : 'bg-[#E9E4DC]'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-[10px] text-[#7D766C] tabular-nums">
-                                {p.steps_done}/{p.steps_total || 8}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 pr-2">
-                            {!p.has_preferences ? (
-                              <span
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/add-profile?profileId=${p.id}&step=8`);
-                                }}
-                                className="px-1.5 py-0.5 border text-[9.5px] font-bold rounded-[2px] bg-[#FEF3C7] text-[#92400E] border-[#FCD34D] hover:bg-[#FDE68A] cursor-pointer"
-                              >
-                                NO PREFERENCES
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-[#166534] font-semibold">
-                                SET
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2.5 text-right text-[11px] text-[#7D766C] tabular-nums whitespace-nowrap">
-                            {formatKarachiDate(p.updated_at, { day: '2-digit', month: 'short' })}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-        </div>
-
-        {/* ─── RIGHT RAIL (4 COLS) ─── */}
-        <div className="lg:col-span-4 min-w-0 space-y-5">
-          
-          {/* 3. Pipeline: Vertical 4-step stack joined by thin rule */}
-          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-              Pipeline
-            </span>
-
-            <div className="border-l border-[#E9E4DC] pl-3 space-y-2.5 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-[#4E473D]">With Manager</span>
-                <span className="font-bold text-[#8B6122] tabular-nums">{pipeline?.with_manager ?? 0}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#4E473D]">Ready</span>
-                <span className="font-bold text-[#2F3E51] tabular-nums">{pipeline?.ready ?? 0}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#4E473D]">Downloaded</span>
-                <span className="font-bold text-[#1F3B34] tabular-nums">{pipeline?.downloaded ?? 0}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#4E473D]">Completed</span>
-                <span className="font-bold text-[#166534] tabular-nums">{pipeline?.completed ?? 0}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 4. Drafts */}
-          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-                Drafts
-              </span>
-              <span className="text-[10px] text-[#7D766C] tabular-nums">
-                {drafts.length} pending
-              </span>
-            </div>
-
-            {drafts.length === 0 ? (
-              <div className="py-4 text-center text-xs text-[#7D766C]">
-                No incomplete drafts.
-              </div>
-            ) : (
-              <div className="space-y-2.5 text-xs">
-                {drafts.map((d) => (
-                  <div key={d.id} className="p-2.5 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-[#1E2022] truncate max-w-[180px]" title={d.full_name}>
-                        {d.full_name}
-                      </span>
-                      <span className="text-[10px] text-[#7D766C] tabular-nums">
-                        {d.steps_done}/{d.steps_total} steps
-                      </span>
-                    </div>
-
-                    {/* Segmented bar */}
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: d.steps_total || 8 }).map((_, i) => (
-                        <span
-                          key={i}
-                          className={`h-1.5 flex-1 rounded-[1px] ${
-                            i < d.steps_done ? 'bg-[#1F3B34]' : 'bg-[#E9E4DC]'
-                          }`}
-                        />
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-[10.5px] text-[#7D766C] truncate max-w-[140px]">
-                        Next: {d.next_step || 'Review'}
-                      </span>
-                      <button
-                        onClick={() => router.push(`/add-profile?profileId=${d.id}`)}
-                        className="px-2 py-0.5 border border-[#1F3B34] text-[#1F3B34] text-[10px] font-bold rounded-[2px] transition-colors duration-120 hover:bg-[#1F3B34] hover:text-white cursor-pointer"
-                      >
-                        Continue
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 5. Ready for Client Delivery */}
-          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-                Ready for Client Delivery
-              </span>
-              <span className="text-[10px] text-[#7D766C] tabular-nums">
+          {/* B. Ready for Client Delivery (Moved up to Main Column!) */}
+          <OverviewCard
+            icon={Send}
+            title="Ready for Client Delivery"
+            badge={
+              <span className="text-[11px] text-[#7D766C] font-semibold bg-[#F4EFE7] px-2 py-0.5 rounded-full">
                 {readyForDelivery.length} releases
               </span>
-            </div>
-
+            }
+          >
             {readyForDelivery.length === 0 ? (
-              <div className="py-4 text-center text-xs text-[#7D766C]">
-                No candidates approved for delivery.
-              </div>
+              <EmptyBlock message="No candidate dossiers awaiting delivery." />
             ) : (
               <div className="space-y-3 text-xs">
                 {readyForDelivery.map((rel) => (
-                  <div key={rel.release_id} className="p-3 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-[#1E2022] truncate max-w-[150px]" title={rel.full_name || '—'}>
-                        {rel.full_name || '—'}
-                      </span>
+                  <div
+                    key={rel.release_id}
+                    className="p-4 bg-[#FAF8F5] rounded-xl border border-[#E9E4DC]/80 space-y-3 transition-all duration-150 hover:bg-[#F4EFE7]/80 shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <AvatarInitials name={rel.full_name || 'Candidate'} size="sm" />
+                        <div className="min-w-0">
+                          <span
+                            className="font-bold text-sm text-[#1E2022] truncate block"
+                            title={rel.full_name || '—'}
+                          >
+                            {rel.full_name || '—'}
+                          </span>
+                          <span className="text-[11px] text-[#7D766C]">
+                            Approved by {rel.released_by_name || 'Manager'}
+                          </span>
+                        </div>
+                      </div>
+
                       {rel.score !== null && rel.score !== undefined ? (
-                        <span
-                          className="px-1.5 py-0.5 border border-[#E9E4DC] bg-white text-[10px] font-bold text-[#1F3B34] tabular-nums rounded-[2px] cursor-help"
+                        <div
+                          className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold tabular-nums rounded-full shadow-2xs cursor-help shrink-0"
                           title="Compatibility score, not a marriage probability"
                         >
-                          {rel.score}%
-                        </span>
+                          {rel.score}% Match
+                        </div>
                       ) : (
-                        <span className="text-[#7D766C] text-[10px]">—</span>
+                        <span className="text-[#7D766C] text-xs">—</span>
                       )}
                     </div>
 
-                    <div className="text-[11px] text-[#7D766C] space-y-0.5">
-                      <div>Age: {rel.age !== null ? `${rel.age}y` : '—'} | City: {rel.city || '—'}</div>
-                      <div>Caste: {rel.caste || '—'} | Edu: {rel.education || '—'}</div>
-                      <div className="text-[10px] text-[#A49C8F]">
-                        Approved by {rel.released_by_name || 'Manager'}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-white p-2.5 rounded-lg border border-[#E9E4DC]/60">
+                      <div>
+                        <span className="text-[#A49C8F] block text-[10px] uppercase">Age</span>
+                        <span className="font-semibold text-[#1E2022]">
+                          {rel.age !== null ? `${rel.age} yrs` : '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#A49C8F] block text-[10px] uppercase">City</span>
+                        <span className="font-semibold text-[#1E2022] truncate block">
+                          {rel.city || '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#A49C8F] block text-[10px] uppercase">Caste</span>
+                        <span className="font-semibold text-[#1E2022] truncate block">
+                          {rel.caste || '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#A49C8F] block text-[10px] uppercase">Education</span>
+                        <span className="font-semibold text-[#1E2022] truncate block">
+                          {rel.education || '—'}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="pt-1.5 border-t border-[#E9E4DC] flex items-center justify-between gap-2">
+                    <div className="pt-1 flex items-center justify-between gap-3">
                       <Link
-                        href="/agent-requests"
-                        className="text-[10.5px] font-bold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
+                        href={`/agent-requests?requestId=${rel.request_id}&profileId=${rel.candidate_profile_id}`}
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            if (rel.request_id) sessionStorage.setItem('target_open_request_id', rel.request_id);
+                            if (rel.candidate_profile_id) sessionStorage.setItem('target_open_profile_id', rel.candidate_profile_id);
+                          }
+                        }}
+                        className="text-xs font-semibold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
                       >
-                        <Eye className="w-3 h-3" />
-                        <span>View Board</span>
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View on Requests Board</span>
                       </Link>
 
                       <Link
-                        href="/agent-requests"
-                        className="px-2 py-0.5 bg-[#1F3B34] text-white text-[10.5px] font-bold rounded-[2px] inline-flex items-center gap-1 transition-colors duration-120 hover:bg-[#172E29]"
+                        href={`/agent-requests?requestId=${rel.request_id}&profileId=${rel.candidate_profile_id}`}
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            if (rel.request_id) sessionStorage.setItem('target_open_request_id', rel.request_id);
+                            if (rel.candidate_profile_id) sessionStorage.setItem('target_open_profile_id', rel.candidate_profile_id);
+                          }
+                        }}
+                        className="rounded-full px-4 py-1.5 bg-[#1F3B34] hover:bg-[#172E29] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition-all duration-120 active:scale-98"
                       >
-                        <Download className="w-3 h-3" />
-                        <span>Download</span>
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Dossier (PDF)</span>
                       </Link>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </OverviewCard>
 
-          {/* 6. Requests with Manager */}
-          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-                Requests with Manager
+        </div>
+
+        {/* ─── RIGHT 4 COLUMNS: WORKLIST SUPPORT ─── */}
+        <div className="lg:col-span-4 min-w-0 space-y-5">
+          {/* 1. Drafts (with 8-step Chips & Next step highlight) */}
+          <OverviewCard
+            icon={FileEdit}
+            title="Drafts"
+            badge={
+              <span className="text-[11px] text-[#7D766C] font-semibold bg-[#F4EFE7] px-2 py-0.5 rounded-full">
+                {drafts.length} pending
               </span>
-              <Link href="/agent-requests" className="text-[10px] font-bold text-[#1F3B34] hover:underline">
-                View All
-              </Link>
-            </div>
-
-            {requests.length === 0 ? (
-              <div className="py-4 text-center text-xs text-[#7D766C]">
-                No active requests.
-              </div>
+            }
+          >
+            {drafts.length === 0 ? (
+              <EmptyBlock message="No incomplete drafts in roster." />
             ) : (
-              <div className="divide-y divide-[#E9E4DC]">
-                {requests.map((req) => {
-                  const badge = getStatusBadge(req.status);
+              <div className="space-y-3">
+                {drafts.map((d) => {
+                  const missing = d.missing;
+                  const hasMissing = missing !== undefined && missing !== null && Array.isArray(missing);
+                  const stepsDone = hasMissing ? 8 - missing.length : d.steps_done;
+                  const nextStep = hasMissing
+                    ? (FIXED_STEP_SECTIONS.find((sec) => missing.includes(sec)) || null)
+                    : d.next_step;
 
                   return (
                     <div
-                      key={req.id}
-                      onClick={() => router.push('/agent-requests')}
-                      className="py-2 flex items-center justify-between gap-2 text-xs hover:bg-[#FAF8F5] transition-colors duration-120 cursor-pointer"
+                      key={d.id}
+                      className="p-3.5 bg-[#FAF8F5] rounded-xl border border-[#E9E4DC]/80 space-y-2.5 text-xs transition-all duration-120 hover:bg-[#F4EFE7]/80"
                     >
-                      <div className="min-w-0">
-                        <div className="font-semibold text-[#1E2022] truncate max-w-[140px]" title={req.profile_name || 'Client'}>
-                          {req.profile_name || 'Client'}
-                        </div>
-                        <div className="text-[10px] text-[#7D766C] truncate">
-                          {req.reviewed_by_name ? `Rev: ${req.reviewed_by_name}` : 'Unreviewed'}
-                        </div>
+                      <div className="flex items-center justify-between">
+                        <span
+                          className="font-semibold text-[#1E2022] truncate max-w-[170px]"
+                          title={d.full_name}
+                        >
+                          {d.full_name}
+                        </span>
+                        <span className="text-[10px] text-[#7D766C] tabular-nums font-semibold">
+                          {stepsDone}/{d.steps_total || 8} steps
+                        </span>
                       </div>
 
-                      <span
-                        className={`px-1.5 py-0.5 border text-[9px] font-bold rounded-[2px] shrink-0 ${badge.bg} ${badge.text} ${badge.border}`}
-                      >
-                        {badge.label}
-                      </span>
+                      {/* Compact row of 8 chips + Next step highlight */}
+                      <StepChipsRow
+                        stepsDone={stepsDone}
+                        stepsTotal={d.steps_total || 8}
+                        nextStep={nextStep}
+                        missing={missing}
+                      />
+
+                      <div className="flex items-center justify-end pt-1">
+                        <button
+                          onClick={() => {
+                            const stepNum = getNextStepNumber(nextStep);
+                            router.push(`/add-profile?draftId=${d.id}&profileId=${d.id}&step=${stepNum}`);
+                          }}
+                          className="rounded-full px-3 py-1 border border-[#1F3B34] text-[#1F3B34] hover:bg-[#1F3B34] hover:text-white text-xs font-semibold transition-all duration-120 active:scale-95 cursor-pointer shadow-2xs"
+                        >
+                          Continue
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
+          </OverviewCard>
 
-          {/* 7. Active Client Discussions */}
-          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-              Active Client Discussions
-            </span>
+          {/* 2. Pipeline Gauge Card */}
+          <OverviewCard icon={GitBranch} title="Request Pipeline">
+            <SemiCircleGauge
+              total={totalPipeline}
+              totalCaption="Total Requests"
+              segments={pipelineSegments}
+              ariaLabel="Agent Pipeline Gauge"
+            />
+          </OverviewCard>
 
-            {(!tracking || tracking.matches_active === 0) ? (
-              <div className="p-3 border border-[#E9E4DC] bg-[#FAF8F5] text-center text-xs text-[#7D766C] rounded-[2px]">
-                Not tracked yet
-              </div>
+          {/* 3. Requests with Manager */}
+          <OverviewCard
+            icon={Inbox}
+            title="Requests with Manager"
+            rightAction={
+              <Link
+                href="/agent-requests"
+                className="text-xs font-semibold text-[#1F3B34] hover:underline"
+              >
+                View All
+              </Link>
+            }
+          >
+            {requests.length === 0 ? (
+              <EmptyBlock message="No active requests submitted." />
             ) : (
-              <div className="p-3 border border-[#E9E4DC] bg-[#FAF8F5] flex items-center justify-between text-xs rounded-[2px]">
-                <span className="text-[#4E473D]">Active Discussions</span>
-                <span className="text-base font-bold text-[#1F3B34] tabular-nums">
+              <div className="divide-y divide-[#E9E4DC]/60">
+                {requests.slice(0, 10).map((req) => (
+                  <div
+                    key={req.id}
+                    onClick={() => router.push('/agent-requests')}
+                    className="py-2.5 flex items-center justify-between gap-2 text-xs hover:bg-[#FAF8F5]/80 transition-colors duration-120 cursor-pointer"
+                  >
+                    <div className="min-w-0">
+                      <div
+                        className="font-semibold text-[#1E2022] truncate max-w-[140px]"
+                        title={req.profile_name || 'Client'}
+                      >
+                        {req.profile_name || 'Client'}
+                      </div>
+                      <div className="text-[10px] text-[#7D766C] truncate">
+                        {req.reviewed_by_name
+                          ? `Rev: ${req.reviewed_by_name}`
+                          : 'Unreviewed'}
+                      </div>
+                    </div>
+
+                    <StatusPill label={req.status || 'PENDING'} size="xs" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </OverviewCard>
+
+          {/* 4. Active Client Discussions (Sinks to bottom when empty/untracked) */}
+          <OverviewCard icon={MessageSquare} title="Active Client Discussions">
+            {!tracking || tracking.matches_active === 0 ? (
+              <UntrackedBox message="Not tracked yet" />
+            ) : (
+              <div className="p-4 bg-[#FAF8F5] rounded-xl border border-[#E9E4DC]/80 flex items-center justify-between text-xs">
+                <span className="text-[#4E473D] font-medium">Active Discussions</span>
+                <span className="text-xl font-bold text-[#1F3B34] tabular-nums">
                   {tracking.matches_active}
                 </span>
               </div>
             )}
-          </div>
-
+          </OverviewCard>
         </div>
-
       </div>
-
     </div>
   );
 }

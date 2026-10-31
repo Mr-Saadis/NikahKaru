@@ -128,6 +128,7 @@ export class ProfileService {
     const sanitized = {
       full_name: data.full_name,
       cnic: data.cnic || null,
+      phone: data.phone || null,
       date_of_birth: data.date_of_birth || null,
       marital_status: data.marital_status || 'NEVER_MARRIED',
       number_of_children: data.number_of_children ? Number(data.number_of_children) : 0,
@@ -155,14 +156,26 @@ export class ProfileService {
   static async savePhysicalInfo(profileId: string, data: Partial<PhysicalInformation>): Promise<PhysicalInformation> {
     const supabase = createClient();
     const { data: existing } = await supabase.from('physical_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
-    
+
+    const h = (data.height_cm != null && (data.height_cm as any) !== '') ? Number(data.height_cm) : null;
+    const w = (data.weight_kg != null && (data.weight_kg as any) !== '') ? Number(data.weight_kg) : null;
+
+    const sanitized: Partial<PhysicalInformation> = {
+      ...data,
+      height_cm: (h !== null && !isNaN(h) && h >= 80 && h <= 250) ? h : null,
+      weight_kg: (w !== null && !isNaN(w) && w >= 20 && w <= 400) ? w : null,
+      complexion: data.complexion || null,
+      has_disability: Boolean(data.has_disability),
+      disability_details: data.has_disability ? (data.disability_details || null) : null,
+    };
+
     let result;
     if (existing) {
-      const { data: updated, error } = await supabase.from('physical_information').update(data).eq('profile_id', profileId).select().single();
+      const { data: updated, error } = await supabase.from('physical_information').update(sanitized).eq('profile_id', profileId).select().single();
       if (error) throw error;
       result = updated;
     } else {
-      const { data: inserted, error } = await supabase.from('physical_information').insert({ ...data, profile_id: profileId }).select().single();
+      const { data: inserted, error } = await supabase.from('physical_information').insert({ ...sanitized, profile_id: profileId }).select().single();
       if (error) throw error;
       result = inserted;
     }
@@ -298,14 +311,39 @@ export class ProfileService {
    */
   static async saveParents(profileId: string, records: Partial<Parent>[]): Promise<void> {
     const supabase = createClient();
-    await supabase.from('parents').delete().eq('profile_id', profileId);
-    if (records.length > 0) {
-      const sanitized = records.map(r => ({
+    
+    // Deduplicate by parent_type so there is never more than 1 FATHER and 1 MOTHER
+    const seen = new Set<string>();
+    const uniqueRecords: Partial<Parent>[] = [];
+    for (let i = records.length - 1; i >= 0; i--) {
+      const r = records[i];
+      const type = (r.parent_type as string)?.toUpperCase();
+      if ((type === 'FATHER' || type === 'MOTHER') && !seen.has(type)) {
+        seen.add(type);
+        uniqueRecords.unshift({ ...r, parent_type: type as 'FATHER' | 'MOTHER' });
+      }
+    }
+
+    if (uniqueRecords.length === 0) {
+      await supabase.from('parents').delete().eq('profile_id', profileId);
+      return;
+    }
+
+    // Delete any parent types that are no longer in the list
+    const typesPresent = uniqueRecords.map(r => r.parent_type!);
+    if (typesPresent.length === 1) {
+      const otherType = typesPresent[0] === 'FATHER' ? 'MOTHER' : 'FATHER';
+      await supabase.from('parents').delete().eq('profile_id', profileId).eq('parent_type', otherType);
+    }
+
+    const sanitized = uniqueRecords.map(r => {
+      const ageNum = (r.age != null && (r.age as any) !== '') ? Number(r.age) : null;
+      return {
         profile_id: profileId,
         parent_type: r.parent_type as 'FATHER' | 'MOTHER',
         status: (r.status || 'ALIVE') as 'ALIVE' | 'DECEASED',
         full_name: r.full_name || null,
-        age: r.age ? Number(r.age) : null,
+        age: (ageNum !== null && !isNaN(ageNum) && ageNum >= 18 && ageNum <= 120) ? ageNum : null,
         profession: r.profession || null,
         education: r.education || null,
         country_id: r.country_id ? Number(r.country_id) : null,
@@ -313,10 +351,12 @@ export class ProfileService {
         living_arrangement: r.living_arrangement || null,
         social_background: r.social_background || null,
         additional_details: r.additional_details || null,
-      }));
-      const { error } = await supabase.from('parents').insert(sanitized);
-      if (error) throw error;
-    }
+      };
+    });
+
+    // Use upsert to eliminate race conditions and avoid duplicate key errors
+    const { error } = await supabase.from('parents').upsert(sanitized, { onConflict: 'profile_id,parent_type' });
+    if (error) throw error;
   }
 
   /**
@@ -452,10 +492,18 @@ export class ProfileService {
     const supabase = createClient();
     const { error } = await supabase
       .from('profiles')
-      .update({ status })
+      .update({ status, updated_at: new Date().toISOString() })
       .eq('id', profileId);
 
     if (error) throw error;
+  }
+
+  static async touchProfile(profileId: string): Promise<void> {
+    const supabase = createClient();
+    await supabase
+      .from('profiles')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', profileId);
   }
 
   /**

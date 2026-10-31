@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface AutoSaveProps<T> {
   data: T;
@@ -10,11 +10,17 @@ interface AutoSaveProps<T> {
 export function useAutoSave<T extends Record<string, any>>({
   data,
   onSave,
-  delay = 30000,
+  delay = 1500,
   enabled = true,
 }: AutoSaveProps<T>) {
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSavedData, setLastSavedData] = useState<T>(data);
+  const lastSavedDataRef = useRef<T>(data);
+  const dataRef = useRef<T>(data);
+  dataRef.current = data;
+
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const wasEnabledRef = useRef(enabled);
 
@@ -22,17 +28,42 @@ export function useAutoSave<T extends Record<string, any>>({
   // initialize lastSavedData with current data so loaded data is not treated as dirty
   useEffect(() => {
     if (!wasEnabledRef.current && enabled) {
-      setLastSavedData(data);
+      lastSavedDataRef.current = data;
     }
     wasEnabledRef.current = enabled;
   }, [enabled, data]);
+
+  // Flush pending changes immediately
+  const flush = useCallback(async () => {
+    if (!enabled) return;
+    const currentData = dataRef.current;
+    const dirtyKeys = Object.keys(currentData).filter(
+      (key) => JSON.stringify(currentData[key]) !== JSON.stringify(lastSavedDataRef.current[key])
+    );
+
+    if (dirtyKeys.length > 0) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setIsSaving(true);
+      try {
+        await onSaveRef.current(currentData, dirtyKeys);
+        lastSavedDataRef.current = currentData;
+      } catch (error: any) {
+        console.error("Auto-save flush failed:", error?.message || error);
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) return;
 
     // Determine what has changed since last save
     const dirtyKeys = Object.keys(data).filter(
-      (key) => JSON.stringify(data[key]) !== JSON.stringify(lastSavedData[key])
+      (key) => JSON.stringify(data[key]) !== JSON.stringify(lastSavedDataRef.current[key])
     );
 
     if (dirtyKeys.length > 0) {
@@ -41,8 +72,8 @@ export function useAutoSave<T extends Record<string, any>>({
       timerRef.current = setTimeout(async () => {
         setIsSaving(true);
         try {
-          await onSave(data, dirtyKeys);
-          setLastSavedData(data); // Update last saved data to prevent re-saving
+          await onSaveRef.current(data, dirtyKeys);
+          lastSavedDataRef.current = data;
         } catch (error: any) {
           const msg = error instanceof Error ? error.message : (error?.message || JSON.stringify(error));
           console.error("Auto-save failed:", msg, error);
@@ -52,10 +83,29 @@ export function useAutoSave<T extends Record<string, any>>({
       }, delay);
     }
 
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flush();
+      }
     };
-  }, [data, enabled, onSave, delay, lastSavedData]);
 
-  return { isSaving };
+    const handleBeforeUnload = () => {
+      flush();
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+        flush();
+      }
+    };
+  }, [data, enabled, delay, flush]);
+
+  return { isSaving, flush };
 }

@@ -1,3 +1,6 @@
+import type { TodayActivity } from '@/components/dashboard/overview-ui/TodayActivityChart';
+export type { TodayActivity } from '@/components/dashboard/overview-ui/TodayActivityChart';
+
 // ============================================================================
 // Overview RPC Types for Agent, Manager, and Admin Dashboards
 // Mirroring the responses from overview_rpcs.sql
@@ -53,6 +56,7 @@ export interface AgentDraftItem {
   steps_done: number;
   steps_total: number;
   next_step: string | null;
+  missing?: string[];
   updated_at: string;
 }
 
@@ -90,6 +94,12 @@ export interface AgentOverviewData {
   drafts: AgentDraftItem[];
   ready_for_delivery: AgentReadyForDeliveryItem[];
   requests: AgentRequestItem[];
+  today_activity?: TodayActivity | null;
+  today_activity_error?: {
+    message: string;
+    code?: string;
+    details?: string;
+  } | null;
   tracking: {
     matches_active: number;
   };

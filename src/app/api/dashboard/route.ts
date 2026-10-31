@@ -26,26 +26,52 @@ export async function GET(request: NextRequest) {
     }
 
     // =========================================================================
-    // ROLE: AGENT / STAFF -> get_agent_overview()
+    // ROLE: AGENT / STAFF -> get_agent_overview() + get_agent_today_activity()
     // =========================================================================
     if (userRole === 'AGENT') {
-      const { data, error } = await supabase.rpc('get_agent_overview', {});
-      if (error) {
+      const [overviewRes, todayRes] = await Promise.all([
+        supabase.rpc('get_agent_overview', {}),
+        supabase.rpc('get_agent_today_activity', {}),
+      ]);
+
+      if (overviewRes.error) {
         console.error('[API /api/dashboard] get_agent_overview RPC error:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
+          message: overviewRes.error.message,
+          code: overviewRes.error.code,
+          details: overviewRes.error.details,
+          hint: overviewRes.error.hint,
         });
         return NextResponse.json({
-          error: error.message,
-          code: error.code,
-          details: error.details || error.hint,
+          error: overviewRes.error.message,
+          code: overviewRes.error.code,
+          details: overviewRes.error.details || overviewRes.error.hint,
         }, { status: 500 });
       }
+
+      let todayActivity = null;
+      let todayActivityError = null;
+
+      if (todayRes.error) {
+        console.error('[API /api/dashboard] get_agent_today_activity RPC error:', {
+          message: todayRes.error.message,
+          code: todayRes.error.code,
+          details: todayRes.error.details,
+          hint: todayRes.error.hint,
+        });
+        todayActivityError = {
+          message: todayRes.error.message,
+          code: todayRes.error.code,
+          details: todayRes.error.details || todayRes.error.hint,
+        };
+      } else {
+        todayActivity = todayRes.data;
+      }
+
       return NextResponse.json({
         role: 'AGENT',
-        ...data,
+        ...overviewRes.data,
+        today_activity: todayActivity,
+        today_activity_error: todayActivityError,
       });
     }
 

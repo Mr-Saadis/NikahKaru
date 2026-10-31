@@ -178,7 +178,7 @@ begin
     'drafts', coalesce((
       select jsonb_agg(jsonb_build_object('id', id, 'full_name', full_name, 'gender', gender,
                'completion_pct', round(100 * (8 - cardinality(missing)) / 8.0), 'steps_done', 8 - cardinality(missing),
-               'steps_total', 8, 'next_step', missing[1], 'updated_at', updated_at) order by updated_at desc)
+               'steps_total', 8, 'next_step', missing[1], 'missing', to_jsonb(missing), 'updated_at', updated_at) order by updated_at desc)
       from (select * from prof where status = 'DRAFT' order by updated_at desc limit 5) x
     ), '[]'::jsonb),
     'ready_for_delivery', coalesce((select jsonb_agg(to_jsonb(r) order by r.released_at desc) from ready r), '[]'::jsonb),

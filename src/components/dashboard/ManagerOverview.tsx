@@ -4,26 +4,46 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Play,
-  RefreshCw,
   Clock,
   AlertTriangle,
   ExternalLink,
   AlertCircle,
   Flame,
-  ArrowUpRight,
-  ArrowDownRight,
+  Sliders,
+  ShieldAlert,
+  Send,
+  Cpu,
+  CheckCircle2,
+  FileCheck,
+  Timer,
+  Inbox,
+  ListFilter,
+  Users,
+  Activity,
+  MessageSquare,
 } from 'lucide-react';
 import { DashboardService, type ManagerOverviewData } from '@/lib/services/dashboard-service';
 import { COLUMNS } from '@/components/requests/constants';
 import {
   formatWaitingHours,
+  formatRelativeTime,
   formatKarachiDate,
   formatKarachiTime,
   formatDelta,
-  getSlaBadge,
-  getLoadBadge,
 } from '@/lib/utils/overview-helpers';
+import {
+  OverviewCard,
+  KpiCard,
+  PageHeader,
+  StatusPill,
+  AvatarInitials,
+  SemiCircleGauge,
+  OverviewSkeleton,
+  ErrorBlock,
+  EmptyBlock,
+  UntrackedBox,
+  AlertStrip,
+} from './overview-ui';
 import { toast } from 'sonner';
 
 export default function ManagerOverview() {
@@ -34,46 +54,55 @@ export default function ManagerOverview() {
   const [selectedDays, setSelectedDays] = useState<number>(7);
   const [lastUpdated, setLastUpdated] = useState<string>('');
 
-  const loadData = async (days: number) => {
+  const fetchData = async (days: number, showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
       const res = await DashboardService.getDashboardData('MANAGER', days, 24);
       if (!res) return;
       setData(res as ManagerOverviewData);
       setLastUpdated(formatKarachiTime(new Date()));
+      setError(null);
       setLoading(false);
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
+    } catch (err: unknown) {
+      const e = err as { name?: string; message?: string };
+      if (e?.name === 'AbortError') return;
       console.error('[ManagerOverview] load error:', err);
-      setError(err.message || 'Failed to load manager desk data');
+      setError(e?.message || 'Failed to load manager desk data');
       toast.error('Failed to load operations desk');
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData(selectedDays);
+    let isCancelled = false;
+    DashboardService.getDashboardData('MANAGER', selectedDays, 24)
+      .then((res) => {
+        if (isCancelled || !res) return;
+        setData(res as ManagerOverviewData);
+        setLastUpdated(formatKarachiTime(new Date()));
+        setError(null);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (isCancelled) return;
+        const e = err as { name?: string; message?: string };
+        if (e?.name === 'AbortError') return;
+        console.error('[ManagerOverview] load error:', err);
+        setError(e?.message || 'Failed to load manager desk data');
+        toast.error('Failed to load operations desk');
+        setLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [selectedDays]);
 
   // --------------------------------------------------------------------------
-  // SKELETON STATE (Rule 2: Flat static blocks)
+  // SKELETON STATE
   // --------------------------------------------------------------------------
   if (loading && !data) {
-    return (
-      <div className="w-full min-w-0 space-y-5">
-        <div className="flex items-center justify-between pb-4 border-b border-[#E9E4DC]">
-          <div className="h-6 w-44 bg-[#E9E4DC]" />
-          <div className="h-7 w-48 bg-[#E9E4DC]" />
-        </div>
-        <div className="h-24 bg-[#E9E4DC] border border-[#E9E4DC]" />
-        <div className="h-16 bg-[#E9E4DC] border border-[#E9E4DC]" />
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <div className="lg:col-span-7 h-64 bg-[#E9E4DC]" />
-          <div className="lg:col-span-5 h-64 bg-[#E9E4DC]" />
-        </div>
-      </div>
-    );
+    return <OverviewSkeleton />;
   }
 
   // --------------------------------------------------------------------------
@@ -81,18 +110,11 @@ export default function ManagerOverview() {
   // --------------------------------------------------------------------------
   if (error || !data) {
     return (
-      <div className="w-full min-w-0 p-6 border border-[#DC2626] bg-[#FEF2F2] text-[#991B1B] space-y-3 rounded-[2px]">
-        <div className="flex items-center gap-2 font-bold text-sm">
-          <AlertCircle className="w-4 h-4 text-[#DC2626]" />
-          <span>Error Loading Operations Desk</span>
-        </div>
-        <p className="text-xs text-[#7F1D1D]">{error || 'Unable to connect to operations RPC'}</p>
-        <button
-          onClick={() => loadData(selectedDays)}
-          className="px-3 py-1.5 bg-[#1F3B34] text-white text-xs font-bold rounded-[2px] transition-colors duration-120 hover:bg-[#172E29] cursor-pointer"
-        >
-          Retry
-        </button>
+      <div className="w-full min-w-0">
+        <ErrorBlock
+          message={error || 'Unable to connect to operations RPC'}
+          onRetry={() => void fetchData(selectedDays, true)}
+        />
       </div>
     );
   }
@@ -111,577 +133,609 @@ export default function ManagerOverview() {
 
   const oldestWaitingHours = kpis.oldest_waiting_hours ?? 0;
   const isOldestOverdue = oldestWaitingHours > (data.sla_hours || 24);
-  const releasesDelta = selectedDays > 0 ? formatDelta(kpis.releases_in_range, kpis.releases_prev_range) : null;
+  const releasesDelta =
+    selectedDays > 0
+      ? formatDelta(kpis.releases_in_range, kpis.releases_prev_range)
+      : null;
 
-  // Score quality percentages
-  const totalScores = (scoreQuality.excellent || 0) + (scoreQuality.good || 0) + (scoreQuality.borderline || 0);
-  const excellentPct = totalScores > 0 ? Math.round((scoreQuality.excellent / totalScores) * 100) : 0;
-  const goodPct = totalScores > 0 ? Math.round((scoreQuality.good / totalScores) * 100) : 0;
-  const borderlinePct = totalScores > 0 ? 100 - excellentPct - goodPct : 0;
+  // Score quality gauge segments
+  const scoreQualitySegments = [
+    {
+      id: 'excellent',
+      label: 'Excellent (>80%)',
+      value: scoreQuality.excellent || 0,
+      color: '#166534',
+    },
+    {
+      id: 'good',
+      label: 'Good (65-80%)',
+      value: scoreQuality.good || 0,
+      color: '#A3B18A',
+    },
+    {
+      id: 'borderline',
+      label: 'Borderline (<65%)',
+      value: scoreQuality.borderline || 0,
+      color: '#C86A4A',
+    },
+  ];
 
   return (
     <div className="w-full min-w-0 space-y-5 font-sans">
       {/* ════════════════════════════════════════════════════════════════
-          TOP: FULL-WIDTH SLA BAND WITH THREE FIGURES + RANGE SELECTOR
+          1. PAGE HEADER (with range pill tabs)
       ════════════════════════════════════════════════════════════════ */}
-      <div className="w-full border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Three Figures Separated by Hairlines */}
-        <div className="flex items-center divide-x divide-[#E9E4DC] min-w-0">
-          {/* 1. Oldest Waiting */}
-          <div className="pr-6 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D766C] block">
-              Oldest Waiting
-            </span>
-            <div
-              className={`text-2xl font-bold tabular-nums mt-0.5 ${
-                isOldestOverdue ? 'text-[#DC2626]' : 'text-[#1E2022]'
-              }`}
-            >
-              {formatWaitingHours(kpis.oldest_waiting_hours)}
-            </div>
-            <span className="text-[10px] text-[#7D766C]">SLA: {data.sla_hours || 24}h</span>
-          </div>
+      <PageHeader
+        title="Manager Control Room"
+        subtitle="Queue triage, operational SLAs & candidate release telemetry"
+        icon={Sliders}
+        lastUpdated={lastUpdated}
+        onRefresh={() => void fetchData(selectedDays, true)}
+        selectedDays={selectedDays}
+        onRangeChange={setSelectedDays}
+      />
 
-          {/* 2. Overdue */}
-          <div className="px-6 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D766C] block">
-              Overdue
+      {/* ════════════════════════════════════════════════════════════════
+          2. ACTION-FIRST ALERT STRIPS
+      ════════════════════════════════════════════════════════════════ */}
+      {(kpis.overdue ?? 0) > 0 && (
+        <AlertStrip
+          variant="rose"
+          icon={AlertTriangle}
+          message={
+            <span>
+              <strong>{kpis.overdue} request(s)</strong> have exceeded the SLA threshold
+              of {data.sla_hours || 24} hours. Immediate triage required.
             </span>
-            <div
-              className={`text-2xl font-bold tabular-nums mt-0.5 ${
-                (kpis.overdue ?? 0) > 0 ? 'text-[#DC2626]' : 'text-[#1E2022]'
-              }`}
-            >
-              {kpis.overdue ?? 0}
-            </div>
-            <span className="text-[10px] text-[#7D766C]">&gt;{data.sla_hours || 24}h limit</span>
-          </div>
+          }
+          actionText="Triage Overdue"
+          actionHref="/release-requests"
+        />
+      )}
 
-          {/* 3. Pending */}
-          <div className="pl-6 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D766C] block">
-              Pending Queue
+      {orphaned.count > 0 && (
+        <AlertStrip
+          variant="rose"
+          icon={ShieldAlert}
+          message={
+            <span>
+              <strong>{orphaned.count} active profile(s)</strong> currently have no assigned
+              agent in roster.
             </span>
-            <div className="text-2xl font-bold text-[#1F3B34] tabular-nums mt-0.5">
-              {kpis.pending ?? 0}
-            </div>
-            <span className="text-[10px] text-[#7D766C]">Awaiting match run</span>
-          </div>
-        </div>
+          }
+          actionText="Reassign Profiles"
+          actionHref="/profiles"
+        />
+      )}
 
-        {/* Right side: Last Updated + Refresh + Joined Segmented Control */}
-        <div className="flex items-center gap-3 shrink-0 self-end md:self-center">
-          {lastUpdated && (
-            <span className="text-[11px] text-[#7D766C] tabular-nums whitespace-nowrap">
-              {lastUpdated}
+      {stuckReleases.length > 0 && (
+        <AlertStrip
+          variant="amber"
+          icon={Clock}
+          message={
+            <span>
+              <strong>{stuckReleases.length} approved release(s)</strong> have been waiting for agent
+              download past 48 hours.
             </span>
-          )}
-          <button
-            onClick={() => loadData(selectedDays)}
-            aria-label="Refresh overview"
-            title="Refresh overview"
-            className="p-1 text-[#7D766C] hover:text-[#1F3B34] transition-colors duration-120 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
+          }
+          actionText="Inspect Releases"
+          actionHref="/release-requests"
+        />
+      )}
 
-          {/* Joined Segmented Control of Square Buttons */}
-          <div className="inline-flex border border-[#E9E4DC] divide-x divide-[#E9E4DC] bg-white rounded-[2px] text-xs font-bold">
-            {[
-              { label: '7d', days: 7 },
-              { label: '30d', days: 30 },
-              { label: '90d', days: 90 },
-              { label: 'All', days: 0 },
-            ].map((tab) => (
-              <button
-                key={tab.days}
-                onClick={() => setSelectedDays(tab.days)}
-                className={`px-3 py-1 transition-colors duration-120 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1F3B34] ${
-                  selectedDays === tab.days
-                    ? 'bg-[#1F3B34] text-white'
-                    : 'text-[#7D766C] hover:bg-[#FAF8F5] hover:text-[#1E2022]'
-                }`}
+      {/* ════════════════════════════════════════════════════════════════
+          3. HERO SLA BAND: 3 LARGE CARDS
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <KpiCard
+          icon={Clock}
+          label="OLDEST WAITING"
+          value={formatWaitingHours(kpis.oldest_waiting_hours)}
+          isAlert={isOldestOverdue}
+          alertColor="red"
+          caption={`SLA threshold: ${data.sla_hours || 24}h`}
+          onClick={() => router.push('/release-requests')}
+        />
+        <KpiCard
+          icon={AlertTriangle}
+          label="OVERDUE REQUESTS"
+          numericValue={kpis.overdue ?? 0}
+          value={kpis.overdue ?? 0}
+          isAlert={(kpis.overdue ?? 0) > 0}
+          alertColor="red"
+          caption="Exceeded SLA waiting time"
+          onClick={() => router.push('/release-requests')}
+        />
+        <KpiCard
+          icon={Inbox}
+          label="PENDING REQUESTS"
+          numericValue={kpis.pending ?? 0}
+          value={kpis.pending ?? 0}
+          caption="Currently in triage queue"
+          onClick={() => router.push('/release-requests')}
+        />
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════
+          4. MAIN GRID: WAITING QUEUE (LEFT 7) + AGENT WORKLOAD & STUCK (RIGHT 5)
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* ─── LEFT 7 COLS: WAITING QUEUE ─── */}
+        <div className="lg:col-span-7 min-w-0">
+          <OverviewCard
+            icon={ListFilter}
+            title="Waiting Queue"
+            badge={
+              <span className="text-[11px] text-[#7D766C] font-semibold bg-[#F4EFE7] px-2 py-0.5 rounded-full">
+                {queue.length} in queue
+              </span>
+            }
+            rightAction={
+              <Link
+                href="/release-requests"
+                className="text-xs font-semibold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
               >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-          PIPELINE STRIP: ONE ROW OF JOINED EQUAL BOXES (NO GAPS)
-      ════════════════════════════════════════════════════════════════ */}
-      <div className="w-full border border-[#E9E4DC] bg-white rounded-[2px] grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 divide-x divide-y sm:divide-y-0 divide-[#E9E4DC]">
-        {COLUMNS.slice(0, 7).map((col) => {
-          const count = pipeline[col.key] || 0;
-          return (
-            <Link
-              key={col.key}
-              href="/requests"
-              className="p-3 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
-            >
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D766C] truncate" title={col.label}>
-                {col.label}
-              </span>
-              <div className="text-xl font-bold text-[#1E2022] tabular-nums mt-1">
-                {count}
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-          SECONDARY STATS IN ONE HAIRLINE ROW
-      ════════════════════════════════════════════════════════════════ */}
-      <div className="w-full border border-[#E9E4DC] bg-white rounded-[2px] p-3 flex flex-wrap items-center justify-between gap-4 text-xs">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[#7D766C]">Released Awaiting Agent:</span>
-          <strong className="text-[#2F3E51] font-bold tabular-nums">{kpis.released_awaiting_agent ?? 0}</strong>
-        </div>
-        <div className="h-3 w-px bg-[#E9E4DC] hidden sm:block" />
-        <div className="flex items-center gap-1.5">
-          <span className="text-[#7D766C]">Completed in Period:</span>
-          <strong className="text-[#166534] font-bold tabular-nums">{kpis.completed_in_range ?? 0}</strong>
-        </div>
-        <div className="h-3 w-px bg-[#E9E4DC] hidden sm:block" />
-        <div className="flex items-center gap-1.5">
-          <span className="text-[#7D766C]">Releases in Period:</span>
-          <strong className="text-[#1F3B34] font-bold tabular-nums">{kpis.releases_in_range ?? 0}</strong>
-          {releasesDelta && (
-            <span
-              className={`px-1 py-0.5 border text-[9.5px] font-bold rounded-[2px] inline-flex items-center gap-0.5 ${
-                releasesDelta.isPositive ? 'bg-[#E5EFE9] text-[#166534] border-[#C2DDD0]' : 'bg-[#FEE2E2] text-[#DC2626] border-[#FCA5A5]'
-              }`}
-            >
-              {releasesDelta.isPositive ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
-              {releasesDelta.text}
-            </span>
-          )}
-        </div>
-        <div className="h-3 w-px bg-[#E9E4DC] hidden sm:block" />
-        <div className="flex items-center gap-1.5">
-          <span className="text-[#7D766C]">Match Runs in Period:</span>
-          <strong className="text-[#1E2022] font-bold tabular-nums">{kpis.runs_in_range ?? 0}</strong>
-        </div>
-        <div className="h-3 w-px bg-[#E9E4DC] hidden sm:block" />
-        <div className="flex items-center gap-1.5">
-          <span className="text-[#7D766C]">Avg Release Time:</span>
-          <strong className="text-[#1E2022] font-bold tabular-nums">
-            {kpis.avg_release_hours !== null ? `${kpis.avg_release_hours}h` : '—'}
-          </strong>
-        </div>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-          MAIN GRID 12 COLUMNS: LEFT 7 / RIGHT 5
-      ════════════════════════════════════════════════════════════════ */}
-      <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-5">
-        
-        {/* LEFT: Waiting Queue (7 Cols) */}
-        <div className="lg:col-span-7 min-w-0 border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
-          <div className="flex items-center justify-between pb-2.5 border-b border-[#E9E4DC]">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-              Waiting Queue (Priority Ledger)
-            </span>
-            <Link
-              href="/requests"
-              className="text-[11px] font-bold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
-            >
-              <span>Board</span>
-              <ExternalLink className="w-3 h-3" />
-            </Link>
-          </div>
-
-          {queue.length === 0 ? (
-            <div className="py-8 text-center text-xs text-[#7D766C]">
-              Queue clear. No requests waiting for matching runs.
-            </div>
-          ) : (
-            <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[#E9E4DC] text-[10px] font-bold uppercase tracking-wider text-[#7D766C]">
-                    <th className="pb-2 font-semibold">Candidate</th>
-                    <th className="pb-2 font-semibold">Details</th>
-                    <th className="pb-2 font-semibold">Agent</th>
-                    <th className="pb-2 font-semibold">SLA Status</th>
-                    <th className="pb-2 font-semibold text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E9E4DC]">
-                  {queue.map((item) => {
-                    const sla = getSlaBadge(item.sla_state);
-
-                    return (
-                      <tr key={item.request_id} className="hover:bg-[#FAF8F5] transition-colors duration-120">
-                        <td className="py-2.5 pr-2 font-bold text-[#1E2022]">
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate max-w-[130px]" title={item.full_name || 'Candidate'}>
-                              {item.full_name || 'Candidate'}
-                            </span>
-                            {item.is_repeat && (
-                              <span className="px-1 py-0.5 border text-[9px] font-bold rounded-[2px] bg-[#EBF2F7] text-[#2F3E51] border-[#D0DFEA]">
-                                REPEAT
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-2.5 pr-2 text-[#4E473D] whitespace-nowrap">
-                          {item.age !== null ? `${item.age}y` : '—'}, {item.city || '—'}, {item.caste || '—'}
-                        </td>
-                        <td className="py-2.5 pr-2 text-[#7D766C] truncate max-w-[100px]" title={item.agent_name || 'Staff'}>
-                          {item.agent_name || 'Staff'}
-                        </td>
-                        <td className="py-2.5 pr-2 whitespace-nowrap">
-                          <span className={`px-1.5 py-0.5 border text-[9.5px] font-bold rounded-[2px] ${sla.bg} ${sla.text} ${sla.border}`}>
-                            {sla.label} ({formatWaitingHours(item.waiting_hours)})
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-right whitespace-nowrap">
-                          <button
-                            onClick={() => router.push(`/matching?profileId=${item.profile_id}`)}
-                            className="px-2.5 py-1 bg-[#1F3B34] text-white text-[11px] font-bold rounded-[2px] inline-flex items-center gap-1 transition-colors duration-120 hover:bg-[#172E29] cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
-                          >
-                            <Play className="w-2.5 h-2.5 fill-white" />
-                            <span>Run Match</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT: Agent Workload & Stuck Releases (5 Cols) */}
-        <div className="lg:col-span-5 min-w-0 space-y-5">
-          
-          {/* Agent Workload */}
-          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-                Agent Workload
-              </span>
-              <span className="text-[10px] text-[#7D766C] tabular-nums">
-                {workload.length} agents
-              </span>
-            </div>
-
-            {workload.length === 0 ? (
-              <div className="py-4 text-center text-xs text-[#7D766C]">
-                No active staff members.
-              </div>
+                <span>Full Board</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+            }
+          >
+            {queue.length === 0 ? (
+              <EmptyBlock message="No pending requests currently waiting in queue." />
             ) : (
-              <div className="space-y-2.5 text-xs">
-                {workload.map((agent) => {
-                  const badge = getLoadBadge(agent.load);
-                  const total = agent.active_profiles + agent.drafts;
-                  const maxCap = Math.max(total, 20);
-                  const activeWidth = Math.round((agent.active_profiles / maxCap) * 100);
-                  const draftsWidth = Math.round((agent.drafts / maxCap) * 100);
+              <div className="rounded-xl border border-[#E9E4DC]/80 overflow-hidden">
+                <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-[#FAF8F5] border-b border-[#E9E4DC] text-[11px] font-semibold uppercase tracking-wider text-[#7D766C]">
+                        <th className="py-2.5 px-4 font-semibold">Client</th>
+                        <th className="py-2.5 px-3 font-semibold">Agent</th>
+                        <th className="py-2.5 px-3 font-semibold">SLA</th>
+                        <th className="py-2.5 px-3 font-semibold">Waiting</th>
+                        <th className="py-2.5 px-4 font-semibold text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E9E4DC]/60 bg-white">
+                      {queue.map((req) => (
+                        <tr
+                          key={req.request_id}
+                          className="hover:bg-[#FAF8F5]/80 transition-colors duration-120"
+                        >
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <AvatarInitials name={req.full_name || ''} size="sm" />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className="font-semibold text-[#1E2022] truncate max-w-[130px]"
+                                    title={req.full_name || 'Client'}
+                                  >
+                                    {req.full_name || 'Client'}
+                                  </span>
+                                  {req.is_repeat && (
+                                    <span className="rounded-full px-1.5 py-0.2 bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-bold">
+                                      REPEAT
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-[#7D766C] truncate">
+                                  {req.age ? `${req.age}y` : '—'} • {req.city || '—'}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-[#4E473D] truncate max-w-[110px]">
+                            {req.agent_name || 'Unassigned'}
+                          </td>
+                          <td className="py-3 px-3">
+                            <StatusPill label={req.sla_state || 'FRESH'} size="xs" />
+                          </td>
+                          <td className="py-3 px-3 tabular-nums font-semibold text-[#1E2022]">
+                            {formatWaitingHours(req.waiting_hours)}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => router.push('/release-requests')}
+                              className="rounded-full px-3 py-1 bg-[#1F3B34] hover:bg-[#172E29] text-white text-[11px] font-semibold transition-all duration-120 active:scale-95 cursor-pointer shadow-2xs"
+                            >
+                              Run Match
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </OverviewCard>
+        </div>
+
+        {/* ─── RIGHT 5 COLS: AGENT WORKLOAD & STUCK RELEASES ─── */}
+        <div className="lg:col-span-5 min-w-0 space-y-5">
+          {/* A. Agent Workload */}
+          <OverviewCard icon={Users} title="Agent Workload">
+            {workload.length === 0 ? (
+              <EmptyBlock message="No active agents found in workload." />
+            ) : (
+              <div className="space-y-3.5">
+                {workload.map((w) => {
+                  const totalProfiles = (w.active_profiles || 0) + (w.drafts || 0);
+                  const activePct =
+                    totalProfiles > 0
+                      ? Math.round((w.active_profiles / totalProfiles) * 100)
+                      : 0;
+                  const isOverloaded = w.load === 'OVERLOADED';
 
                   return (
-                    <div key={agent.id} className="p-2 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] space-y-1.5">
+                    <div
+                      key={w.id}
+                      className={`p-2.5 rounded-xl transition-all duration-150 ${
+                        isOverloaded
+                          ? 'bg-rose-50/60 border border-rose-200 ring-1 ring-rose-200'
+                          : 'bg-[#FAF8F5] border border-[#E9E4DC]/70'
+                      } space-y-1.5 text-xs`}
+                    >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-[#1E2022] truncate max-w-[150px]" title={agent.full_name}>
-                          {agent.full_name}
-                        </span>
-                        <span className={`px-1.5 py-0.2 border text-[9px] font-bold rounded-[2px] ${badge.bg} ${badge.text} ${badge.border}`}>
-                          {badge.label}
-                        </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <AvatarInitials name={w.full_name || ''} size="sm" />
+                          <span
+                            className="font-semibold text-[#1E2022] truncate max-w-[140px]"
+                            title={w.full_name}
+                          >
+                            {w.full_name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] text-[#7D766C] tabular-nums font-medium">
+                            {w.open_requests || 0} reqs
+                          </span>
+                          <StatusPill label={w.load || 'BALANCED'} size="xs" />
+                        </div>
                       </div>
 
-                      {/* Horizontal stacked bar */}
-                      <div className="w-full bg-[#E9E4DC] h-2 flex rounded-none overflow-hidden">
+                      {/* Stacked Rounded Bar (h-3) */}
+                      <div className="w-full bg-[#E9E4DC] h-3 rounded-full overflow-hidden flex">
                         <div
-                          className="bg-[#1F3B34] h-full"
-                          style={{ width: `${activeWidth}%` }}
-                          title={`Active: ${agent.active_profiles}`}
+                          className="bg-[#1F3B34] h-full transition-all duration-500 ease-out"
+                          style={{ width: `${activePct}%` }}
+                          title={`Active: ${w.active_profiles}`}
                         />
                         <div
-                          className="bg-[#C86A4A] h-full"
-                          style={{ width: `${draftsWidth}%` }}
-                          title={`Drafts: ${agent.drafts}`}
+                          className="bg-[#C86A4A] h-full transition-all duration-500 ease-out"
+                          style={{ width: `${100 - activePct}%` }}
+                          title={`Drafts: ${w.drafts}`}
                         />
                       </div>
 
-                      <div className="flex items-center justify-between text-[10.5px] text-[#7D766C] tabular-nums">
-                        <span>{agent.active_profiles} active, {agent.drafts} drafts</span>
-                        <span className="font-bold text-[#1E2022]">{agent.open_requests} open reqs</span>
+                      <div className="flex items-center justify-between text-[10px] text-[#7D766C] font-medium">
+                        <span>{w.active_profiles || 0} active</span>
+                        <span>{w.drafts || 0} drafts</span>
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
+          </OverviewCard>
 
-          {/* Stuck Releases */}
-          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-                Stuck Releases (&gt;7 Days)
-              </span>
-              <span className="text-[10px] text-[#7D766C] tabular-nums">
+          {/* B. Stuck Releases */}
+          <OverviewCard
+            icon={AlertTriangle}
+            title="Stuck Releases"
+            badge={
+              <span className="text-[11px] text-[#7D766C] font-semibold bg-[#F4EFE7] px-2 py-0.5 rounded-full">
                 {stuckReleases.length} stuck
               </span>
-            </div>
-
+            }
+          >
             {stuckReleases.length === 0 ? (
-              <div className="py-4 text-center text-xs text-[#7D766C]">
-                No stuck releases. All dossiers downloaded on time.
-              </div>
+              <EmptyBlock message="No releases awaiting agent download past 48h." />
             ) : (
-              <div className="divide-y divide-[#E9E4DC] text-xs">
-                {stuckReleases.map((s) => (
-                  <div key={s.release_id} className="py-2 flex items-center justify-between gap-2">
+              <div className="space-y-2.5 text-xs">
+                {stuckReleases.map((rel) => (
+                  <div
+                    key={rel.release_id}
+                    className="p-3 bg-[#FAF8F5] rounded-xl border border-[#E9E4DC]/80 flex items-center justify-between gap-2 transition-all duration-120 hover:bg-[#F4EFE7]"
+                  >
                     <div className="min-w-0">
-                      <div className="font-semibold text-[#1E2022] truncate max-w-[160px]" title={`${s.candidate_name || 'Candidate'} for ${s.source_name || 'Client'}`}>
-                        {s.candidate_name || 'Candidate'} for {s.source_name || 'Client'}
+                      <div className="font-semibold text-[#1E2022] truncate">
+                        {rel.candidate_name || 'Candidate'} → {rel.source_name || 'Client'}
                       </div>
-                      <div className="text-[10px] text-[#7D766C]">
-                        Agent: {s.agent_name || 'Staff'}
+                      <div className="text-[10px] text-[#7D766C] truncate">
+                        Agent: {rel.agent_name || 'Unassigned'} •{' '}
+                        <span className="text-rose-600 font-semibold">
+                          {rel.days_waiting}d waiting
+                        </span>
                       </div>
                     </div>
-                    <span className="px-1.5 py-0.5 border border-[#FCA5A5] bg-[#FEE2E2] text-[#DC2626] text-[10px] font-bold rounded-[2px] shrink-0 tabular-nums">
-                      {s.days_waiting}d waiting
-                    </span>
+                    <button
+                      onClick={() => router.push('/release-requests')}
+                      className="rounded-full px-3 py-1 border border-[#E9E4DC] bg-white text-[11px] font-semibold text-[#1F3B34] hover:bg-[#FAF8F5] shrink-0 transition-all duration-120 active:scale-95 cursor-pointer shadow-2xs"
+                    >
+                      Inspect
+                    </button>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-
+          </OverviewCard>
         </div>
-
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
-          BOTTOM: 4-COLUMN ROW OF EQUAL MODULES
+          5. PIPELINE STRIP & SECONDARY STATS
       ════════════════════════════════════════════════════════════════ */}
-      <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Module 1: Hot Candidates */}
-        <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3 min-w-0">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-              Hot Candidates
-            </span>
-            <Flame className="w-3.5 h-3.5 text-[#C86A4A]" />
-          </div>
-
-          {hotCandidates.length === 0 ? (
-            <div className="py-4 text-center text-xs text-[#7D766C]">
-              No high-frequency candidates.
-            </div>
-          ) : (
-            <div className="space-y-2 text-xs">
-              {hotCandidates.map((h) => (
-                <div key={h.candidate_profile_id} className="p-2 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] flex items-center justify-between gap-1">
-                  <span className="font-semibold text-[#1E2022] truncate max-w-[120px]" title={h.candidate_name || 'Candidate'}>
-                    {h.candidate_name || 'Candidate'}
-                  </span>
-                  <span className="px-1.5 py-0.5 border border-[#FCD34D] bg-[#FEF3C7] text-[#92400E] text-[10px] font-bold rounded-[2px] shrink-0 tabular-nums">
-                    in {h.requests_count} reqs
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+      <OverviewCard
+        icon={Activity}
+        title="Request Pipeline"
+        rightAction={
+          <Link
+            href="/release-requests"
+            className="text-xs font-semibold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
+          >
+            <span>Open Board</span>
+            <ExternalLink className="w-3 h-3" />
+          </Link>
+        }
+      >
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2">
+          {COLUMNS.map((col) => {
+            const count = pipeline[col.key] || 0;
+            return (
+              <Link
+                key={col.key}
+                href="/release-requests"
+                className="p-3 bg-[#FAF8F5] hover:bg-[#F4EFE7] rounded-xl border border-[#E9E4DC]/80 flex flex-col justify-between transition-all duration-120 hover:-translate-y-0.5 group shadow-2xs"
+              >
+                <span
+                  className="text-[11px] font-semibold text-[#7D766C] truncate group-hover:text-[#1E2022]"
+                  title={col.label}
+                >
+                  {col.label}
+                </span>
+                <span className="text-xl md:text-2xl font-bold text-[#1E2022] tabular-nums mt-1.5">
+                  {count}
+                </span>
+              </Link>
+            );
+          })}
         </div>
+      </OverviewCard>
 
-        {/* Module 2: Score Quality */}
-        <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3 min-w-0">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-              Score Quality
-            </span>
-            <span className="text-xs font-bold text-[#1F3B34] tabular-nums">
-              {scoreQuality.avg !== null ? `${scoreQuality.avg}% avg` : '—'}
-            </span>
-          </div>
+      {/* Secondary Stats: 5 small KPI cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <KpiCard
+          icon={FileCheck}
+          label="AWAITING AGENT"
+          numericValue={kpis.released_awaiting_agent ?? 0}
+          value={kpis.released_awaiting_agent ?? 0}
+          caption="Ready for download"
+        />
+        <KpiCard
+          icon={CheckCircle2}
+          label="COMPLETED"
+          numericValue={kpis.completed_in_range ?? 0}
+          value={kpis.completed_in_range ?? 0}
+          caption={`In ${selectedDays > 0 ? `${selectedDays}d` : 'all-time'}`}
+        />
+        <KpiCard
+          icon={Send}
+          label="RELEASES"
+          numericValue={kpis.releases_in_range ?? 0}
+          value={kpis.releases_in_range ?? 0}
+          delta={releasesDelta}
+          caption={`In ${selectedDays > 0 ? `${selectedDays}d` : 'all-time'}`}
+        />
+        <KpiCard
+          icon={Cpu}
+          label="MATCH RUNS"
+          numericValue={kpis.runs_in_range ?? 0}
+          value={kpis.runs_in_range ?? 0}
+          caption="Algorithm executions"
+        />
+        <KpiCard
+          icon={Timer}
+          label="AVG RESOLUTION"
+          value={formatWaitingHours(kpis.avg_release_hours)}
+          caption="Turnaround speed"
+        />
+      </div>
 
-          {totalScores === 0 ? (
-            <div className="py-4 text-center text-xs text-[#7D766C]">
-              No runs in period.
-            </div>
+      {/* ════════════════════════════════════════════════════════════════
+          6. ANALYTICS ROW: 4 CARDS (SCORE QUALITY, HOT CANDIDATES, LOW-MATCH, ORPHANED)
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* A. Score Quality (Gauge) */}
+        <OverviewCard icon={Sliders} title="Score Quality">
+          <SemiCircleGauge
+            total={`${scoreQuality.avg || 0}%`}
+            totalCaption="Avg Compatibility"
+            segments={scoreQualitySegments}
+            ariaLabel="Match Score Quality Gauge"
+          />
+        </OverviewCard>
+
+        {/* B. Hot Candidates */}
+        <OverviewCard icon={Flame} title="Hot Candidates">
+          {hotCandidates.length === 0 ? (
+            <EmptyBlock message="No recurring candidates in current queue." />
           ) : (
             <div className="space-y-2.5 text-xs">
-              {/* Single segmented bar */}
-              <div className="w-full bg-[#E9E4DC] h-2.5 flex rounded-none overflow-hidden">
-                <div className="bg-[#166534] h-full" style={{ width: `${excellentPct}%` }} title={`Excellent: ${scoreQuality.excellent}`} />
-                <div className="bg-[#D97706] h-full" style={{ width: `${goodPct}%` }} title={`Good: ${scoreQuality.good}`} />
-                <div className="bg-[#C86A4A] h-full" style={{ width: `${borderlinePct}%` }} title={`Borderline: ${scoreQuality.borderline}`} />
-              </div>
-
-              <div className="space-y-1 text-[11px] tabular-nums">
-                <div className="flex justify-between">
-                  <span className="text-[#166534] font-semibold">Excellent (85+)</span>
-                  <strong>{scoreQuality.excellent}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#D97706] font-semibold">Good (70-84)</span>
-                  <strong>{scoreQuality.good}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#C86A4A] font-semibold">Borderline (&lt;70)</span>
-                  <strong>{scoreQuality.borderline}</strong>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Module 3: Low-Match Desk */}
-        <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3 min-w-0">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-              Low-Match Desk
-            </span>
-            <span className="text-[10px] text-[#7D766C] tabular-nums">
-              {lowMatch.length}
-            </span>
-          </div>
-
-          {lowMatch.length === 0 ? (
-            <div className="py-4 text-center text-xs text-[#7D766C]">
-              No low-match bottlenecks.
-            </div>
-          ) : (
-            <div className="space-y-2 text-xs">
-              {lowMatch.map((l) => (
+              {hotCandidates.slice(0, 5).map((c) => (
                 <div
-                  key={l.profile_id}
-                  onClick={() => router.push(`/matching?profileId=${l.profile_id}`)}
-                  className="p-2 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] flex items-center justify-between gap-1 cursor-pointer hover:bg-white transition-colors duration-120"
+                  key={c.candidate_profile_id}
+                  className="flex items-center justify-between gap-2 p-2 bg-[#FAF8F5] rounded-xl border border-[#E9E4DC]/60"
                 >
-                  <div className="min-w-0 truncate" title={l.full_name || 'Client'}>
-                    <div className="font-bold text-[#1E2022] truncate">{l.full_name || 'Client'}</div>
-                    <div className="text-[10px] text-[#7D766C]">{formatKarachiDate(l.executed_at, { day: '2-digit', month: 'short' })}</div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <AvatarInitials name={c.candidate_name || ''} size="sm" />
+                    <span
+                      className="font-semibold text-[#1E2022] truncate max-w-[110px]"
+                      title={c.candidate_name || 'Candidate'}
+                    >
+                      {c.candidate_name || 'Candidate'}
+                    </span>
                   </div>
-                  <span className="px-1.5 py-0.5 border border-[#E9E4DC] bg-white text-[10px] font-bold text-[#C86A4A] rounded-[2px] shrink-0 tabular-nums">
-                    {l.candidates} found
+                  <span className="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold shrink-0">
+                    in {c.requests_count} reqs
                   </span>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </OverviewCard>
 
-        {/* Module 4: Orphaned Profiles (Red outline when count > 0) */}
-        <div
-          className={`bg-white rounded-[2px] p-4 space-y-3 min-w-0 border ${
-            orphaned.count > 0 ? 'border-[#DC2626]' : 'border-[#E9E4DC]'
-          }`}
-        >
-          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-              Orphaned Profiles
-            </span>
+        {/* C. Low-Match Desk */}
+        <OverviewCard icon={AlertCircle} title="Low-Match Desk">
+          {lowMatch.length === 0 ? (
+            <EmptyBlock message="All profiles have healthy match candidate pools." />
+          ) : (
+            <div className="space-y-2.5 text-xs">
+              {lowMatch.slice(0, 5).map((lm) => (
+                <div
+                  key={lm.profile_id}
+                  onClick={() => router.push('/release-requests')}
+                  className="p-2.5 bg-[#FAF8F5] rounded-xl border border-[#E9E4DC]/60 flex items-center justify-between gap-2 hover:bg-[#F4EFE7] transition-colors duration-120 cursor-pointer"
+                >
+                  <div className="min-w-0">
+                    <div
+                      className="font-semibold text-[#1E2022] truncate max-w-[120px]"
+                      title={lm.full_name || 'Profile'}
+                    >
+                      {lm.full_name || 'Profile'}
+                    </div>
+                    <div className="text-[10px] text-[#7D766C]">
+                      {formatRelativeTime(lm.executed_at)}
+                    </div>
+                  </div>
+                  <span className="rounded-full px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold shrink-0">
+                    {lm.candidates} found
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </OverviewCard>
+
+        {/* D. Orphaned Profiles */}
+        <OverviewCard
+          icon={ShieldAlert}
+          title="Orphaned Profiles"
+          className={
+            orphaned.count > 0 ? 'border-rose-300 ring-1 ring-rose-200' : ''
+          }
+          badge={
             <span
-              className={`px-1.5 py-0.5 border text-[10px] font-bold rounded-[2px] tabular-nums ${
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                 orphaned.count > 0
-                  ? 'bg-[#FEE2E2] text-[#DC2626] border-[#FCA5A5]'
-                  : 'bg-[#FAF8F5] text-[#7D766C] border-[#E9E4DC]'
+                  ? 'bg-rose-100 text-rose-800'
+                  : 'bg-[#F4EFE7] text-[#7D766C]'
               }`}
             >
               {orphaned.count}
             </span>
-          </div>
-
+          }
+        >
           {orphaned.count === 0 ? (
-            <div className="py-4 text-center text-xs text-[#7D766C]">
-              All profiles assigned to active staff.
-            </div>
+            <EmptyBlock message="All active profiles have assigned agents." />
           ) : (
-            <div className="space-y-1.5 text-xs">
-              {orphaned.items.map((o) => (
+            <div className="space-y-2 text-xs">
+              {orphaned.items.slice(0, 4).map((p) => (
                 <div
-                  key={o.id}
-                  onClick={() => router.push('/directory')}
-                  className="p-1.5 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] truncate font-semibold text-[#1E2022] cursor-pointer hover:bg-white transition-colors duration-120"
-                  title={o.full_name || 'Profile'}
+                  key={p.id}
+                  onClick={() => router.push('/profiles')}
+                  className="p-2 bg-rose-50/60 border border-rose-200/60 rounded-xl flex items-center justify-between text-xs hover:bg-rose-100/60 transition-colors duration-120 cursor-pointer"
                 >
-                  {o.full_name || 'Profile'}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-          LAST ROW: 2 COLUMNS (RECENT RELEASES & FAMILY FEEDBACK)
-      ════════════════════════════════════════════════════════════════ */}
-      <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-5">
-        
-        {/* Recent Releases */}
-        <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3 min-w-0">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-              Recent Releases
-            </span>
-            <Link href="/requests" className="text-[10px] font-bold text-[#1F3B34] hover:underline">
-              Board
-            </Link>
-          </div>
-
-          {recentReleases.length === 0 ? (
-            <div className="py-6 text-center text-xs text-[#7D766C]">
-              No release history in selected period.
-            </div>
-          ) : (
-            <div className="divide-y divide-[#E9E4DC] text-xs">
-              {recentReleases.map((r) => (
-                <div key={r.release_id} className="py-2.5 flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-semibold text-[#1E2022] truncate max-w-[240px]">
-                      {r.candidate_name || 'Candidate'} for {r.source_name || 'Client'}
-                    </div>
-                    <div className="text-[10px] text-[#7D766C]">
-                      Agent: {r.agent_name || 'Staff'}
-                    </div>
-                  </div>
-                  <span className="text-[11px] text-[#7D766C] tabular-nums shrink-0 whitespace-nowrap">
-                    {formatKarachiDate(r.released_at, { day: '2-digit', month: 'short' })}
+                  <span
+                    className="font-semibold text-[#1E2022] truncate max-w-[130px]"
+                    title={p.full_name || 'Profile'}
+                  >
+                    {p.full_name || 'Profile'}
+                  </span>
+                  <span className="text-[10px] text-rose-700 font-bold">
+                    Reassign
                   </span>
                 </div>
               ))}
             </div>
           )}
-        </div>
-
-        {/* Recent Family Feedback + Top Rejection Reasons */}
-        <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3 min-w-0">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
-              Family Feedback Telemetry
-            </span>
-          </div>
-
-          {(!feedback || !feedback.tracking_active) ? (
-            <div className="p-6 border border-[#E9E4DC] bg-[#FAF8F5] text-center text-xs text-[#7D766C] rounded-[2px]">
-              Not tracked yet
-            </div>
-          ) : (
-            <div className="space-y-3 text-xs">
-              {feedback.top_reasons?.map((tr) => (
-                <div key={tr.reason} className="flex justify-between border-b border-[#E9E4DC] pb-1.5">
-                  <span className="text-[#4E473D]">{tr.reason}</span>
-                  <strong className="text-[#1E2022] tabular-nums">{tr.n}</strong>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
+        </OverviewCard>
       </div>
 
+      {/* ════════════════════════════════════════════════════════════════
+          7. RECENT RELEASES & FEEDBACK/REJECTIONS (Untracked sinks to bottom)
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Recent Releases */}
+        <OverviewCard
+          icon={Send}
+          title="Recent Releases"
+          rightAction={
+            <Link
+              href="/release-requests"
+              className="text-xs font-semibold text-[#1F3B34] hover:underline"
+            >
+              View All
+            </Link>
+          }
+        >
+          {recentReleases.length === 0 ? (
+            <EmptyBlock message="No recent releases completed in this period." />
+          ) : (
+            <div className="rounded-xl border border-[#E9E4DC]/80 overflow-hidden">
+              <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-[#FAF8F5] border-b border-[#E9E4DC] text-[11px] font-semibold uppercase tracking-wider text-[#7D766C]">
+                      <th className="py-2.5 px-4 font-semibold">Candidate</th>
+                      <th className="py-2.5 px-3 font-semibold">Client</th>
+                      <th className="py-2.5 px-3 font-semibold">Agent</th>
+                      <th className="py-2.5 px-4 font-semibold text-right">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E9E4DC]/60 bg-white">
+                    {recentReleases.slice(0, 6).map((rel) => (
+                      <tr
+                        key={rel.release_id}
+                        className="hover:bg-[#FAF8F5]/80 transition-colors duration-120"
+                      >
+                        <td className="py-2.5 px-4 font-semibold text-[#1E2022] truncate max-w-[130px]">
+                          {rel.candidate_name || 'Candidate'}
+                        </td>
+                        <td className="py-2.5 px-3 text-[#4E473D] truncate max-w-[130px]">
+                          {rel.source_name || 'Client'}
+                        </td>
+                        <td className="py-2.5 px-3 text-[#7D766C] truncate max-w-[120px]">
+                          {rel.agent_name || '—'}
+                        </td>
+                        <td className="py-2.5 px-4 text-right text-[11px] text-[#7D766C] tabular-nums whitespace-nowrap">
+                          {formatKarachiDate(rel.released_at, {
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </OverviewCard>
+
+        {/* Family Feedback & Rejections */}
+        <OverviewCard icon={MessageSquare} title="Family Feedback & Rejections">
+          {!feedback || !feedback.tracking_active ? (
+            <UntrackedBox message="Not tracked yet" />
+          ) : (
+            <div className="space-y-3">
+              <div className="text-xs text-[#7D766C]">
+                Structured feedback tracking active
+              </div>
+            </div>
+          )}
+        </OverviewCard>
+      </div>
     </div>
   );
 }

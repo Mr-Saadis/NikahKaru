@@ -18,15 +18,19 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch from the views
+    // Fetch from the views and auxiliary tables
     const [
       { data: coreData, error: coreError },
-      { data: nestedData, error: nestedError },
-      { data: prefData, error: prefError }
+      { data: nestedData },
+      { data: prefData },
+      { data: piData },
+      { data: reloData }
     ] = await Promise.all([
       supabase.from('vw_profile_core').select('*').eq('profile_id', id).single(),
       supabase.from('vw_profile_nested_arrays').select('*').eq('profile_id', id).single(),
-      supabase.from('vw_profile_active_preferences').select('*').eq('profile_id', id).maybeSingle()
+      supabase.from('vw_profile_active_preferences').select('*').eq('profile_id', id).maybeSingle(),
+      supabase.from('personal_information').select('*').eq('profile_id', id).maybeSingle(),
+      supabase.from('relocation_information').select('*').eq('profile_id', id).maybeSingle()
     ]);
 
     if (coreError || !coreData) {
@@ -63,17 +67,19 @@ export async function GET(
       archived_at: coreData.archived_at,
       profile_URL: coreData.profile_url,
 
-      personal_information: coreData.full_name ? {
-        full_name: coreData.full_name,
-        date_of_birth: coreData.date_of_birth,
-        marital_status: coreData.marital_status,
-        number_of_children: coreData.number_of_children,
-        cnic: coreData.cnic,
-        nationality_country_id: coreData.nationality_country_id,
-        mother_tongue_id: coreData.mother_tongue_id,
+      personal_information: (coreData.full_name || piData?.full_name) ? {
+        full_name: piData?.full_name || coreData.full_name,
+        date_of_birth: piData?.date_of_birth || coreData.date_of_birth,
+        marital_status: piData?.marital_status || coreData.marital_status,
+        number_of_children: piData?.number_of_children ?? coreData.number_of_children,
+        cnic: piData?.cnic || coreData.cnic,
+        phone: piData?.phone || coreData.phone,
+        nationality_country_id: piData?.nationality_country_id || coreData.nationality_country_id,
+        multiple_nationality: Boolean(piData?.multiple_nationality ?? coreData.multiple_nationality),
+        mother_tongue_id: piData?.mother_tongue_id || coreData.mother_tongue_id,
       } : null,
 
-      physical_information: coreData.height_cm ? {
+      physical_information: (coreData.height_cm != null || coreData.weight_kg != null || coreData.complexion || coreData.has_disability) ? {
         height_cm: coreData.height_cm,
         weight_kg: coreData.weight_kg,
         complexion: coreData.complexion,
@@ -81,7 +87,7 @@ export async function GET(
         disability_details: coreData.disability_details,
       } : null,
 
-      religion_information: coreData.religion_id ? {
+      religion_information: (coreData.religion_id || coreData.sect_id || coreData.caste_id || coreData.other_caste_text) ? {
         religion_id: coreData.religion_id,
         sect_id: coreData.sect_id,
         caste_id: coreData.caste_id,
@@ -99,7 +105,7 @@ export async function GET(
         permanent_location_text: coreData.permanent_location_text,
       } : null,
 
-      residency_information: coreData.house_status ? {
+      residency_information: (coreData.house_status || coreData.property_type || coreData.family_setup || coreData.living_with) ? {
         house_status: coreData.house_status,
         property_type: coreData.property_type,
         family_setup: coreData.family_setup,
@@ -107,14 +113,14 @@ export async function GET(
         living_with_other_details: coreData.living_with_other_details,
       } : null,
 
-      income_information: coreData.monthly_income_min ? {
+      income_information: (coreData.monthly_income_min != null || coreData.monthly_income_max != null) ? {
         monthly_income_min: coreData.monthly_income_min,
         monthly_income_max: coreData.monthly_income_max,
         currency_code: coreData.currency_code,
         income_period: coreData.income_period,
       } : null,
 
-      family_information: coreData.family_profession_business ? {
+      family_information: (coreData.family_profession_business || coreData.social_background || coreData.family_values || coreData.family_introduction || coreData.important_family_circumstances || coreData.family_additional_details) ? {
         family_profession_business: coreData.family_profession_business,
         social_background: coreData.social_background,
         family_values: coreData.family_values,
@@ -123,12 +129,20 @@ export async function GET(
         additional_details: coreData.family_additional_details,
       } : null,
 
-      lifestyle_information: coreData.religious_practice ? {
+      lifestyle_information: (coreData.religious_practice || coreData.beard || coreData.hijab || coreData.smoking || coreData.other_lifestyle_information) ? {
         beard: coreData.beard,
         hijab: coreData.hijab,
         religious_practice: coreData.religious_practice,
         smoking: coreData.smoking,
         other_lifestyle_information: coreData.other_lifestyle_information,
+      } : null,
+
+      relocation_information: reloData ? {
+        willing_to_relocate: reloData.willing_to_relocate,
+        preferred_country_id: reloData.preferred_country_id,
+        preferred_province_id: reloData.preferred_province_id,
+        preferred_city_id: reloData.preferred_city_id,
+        relocation_details: reloData.relocation_details,
       } : null,
 
       // Arrays from nested view
@@ -138,9 +152,6 @@ export async function GET(
       siblings: nestedData?.siblings || [],
       children: nestedData?.children || [],
       previous_marriages: nestedData?.previous_marriages || [],
-
-      // We don't populate relocation_information currently from coreData as it's missing in view, 
-      // but it's optional. Preference sets can be sent if needed.
     };
 
     return NextResponse.json(profile);
@@ -149,4 +160,3 @@ export async function GET(
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
-

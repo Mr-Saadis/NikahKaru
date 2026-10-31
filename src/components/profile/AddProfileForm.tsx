@@ -65,19 +65,25 @@ export default function AddProfileForm() {
   const searchParams = useSearchParams();
   const { user, role } = useAuth();
 
-  const [profileId, setProfileId] = useState<string | null>(searchParams.get('draftId') || searchParams.get('edit'));
+  const initialProfileId =
+    searchParams.get('draftId') ||
+    searchParams.get('edit') ||
+    searchParams.get('profileId');
+  const [profileId, setProfileId] = useState<string | null>(initialProfileId);
   const isEditingRef = useRef<boolean>(Boolean(searchParams.get('edit')));
 
-  useEffect(() => {
-    const editId = searchParams.get('edit');
-    if (editId) isEditingRef.current = true;
-    setProfileId(searchParams.get('draftId') || editId);
-  }, [searchParams]);
+
 
   // Helper to get profile-specific localStorage key
   const getLocalStorageKey = (pid: string | null) => `nikahkaro_draft_${pid || 'new'}`;
 
-  const [currentStep, setCurrentStep] = useState(1);
+  const initialStepParam = searchParams.get('step');
+  const initialStepNum = initialStepParam
+    ? Math.min(Math.max(1, parseInt(initialStepParam, 10)), 9)
+    : 1;
+  const [currentStep, setCurrentStep] = useState(initialStepNum);
+
+
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
@@ -138,12 +144,12 @@ export default function AddProfileForm() {
                 profile_picture: profile.profile_URL || undefined,
                 full_name: pi.full_name || '',
                 cnic: pi.cnic || '',
-                phone: pi.phone || '',
+                phone: pi.phone || localData?.step1?.phone || '',
                 date_of_birth: pi.date_of_birth ? pi.date_of_birth.split('T')[0] : '',
                 marital_status: pi.marital_status || 'NEVER_MARRIED',
                 number_of_children: pi.number_of_children?.toString() || '',
                 nationality_country_id: pi.nationality_country_id?.toString() || '',
-                multiple_nationality: Boolean(pi.multiple_nationality),
+                multiple_nationality: Boolean(pi.multiple_nationality ?? localData?.step1?.multiple_nationality ?? false),
                 mother_tongue_id: pi.mother_tongue_id?.toString() || '',
                 children: (profile.children || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), age: r.age != null ? String(r.age) : '', living_with_profile: r.living_with_profile ? 'YES' : 'NO' })),
                 previous_marriages: (profile.previous_marriages || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID(), marriage_year: r.marriage_year != null ? String(r.marriage_year) : '', end_year: r.end_year != null ? String(r.end_year) : '', children_count: r.children_count != null ? String(r.children_count) : '0', children_live_with_profile: r.children_live_with_profile ? 'YES' : 'NO' }))
@@ -335,6 +341,32 @@ export default function AddProfileForm() {
               })
             }));
           }
+          if (localData) {
+            if (localData.step1) setStep1(prev => ({ ...prev, ...localData.step1 }));
+            if (localData.step2) setStep2(prev => ({ ...prev, ...localData.step2 }));
+            if (localData.step3) setStep3(prev => ({ ...prev, ...localData.step3 }));
+            if (localData.step4) setStep4(prev => ({ ...prev, ...localData.step4 }));
+            if (localData.step5) setStep5(prev => ({ ...prev, ...localData.step5 }));
+            if (localData.step6) setStep6(prev => ({ ...prev, ...localData.step6 }));
+            if (localData.step7) setStep7(prev => ({ ...prev, ...localData.step7 }));
+            if (localData.step8) setStep8(prev => ({ ...prev, ...localData.step8 }));
+          }
+
+          // Auto-resume to the next step if not explicitly forced via step query param
+          if (!initialStepParam) {
+            let resumeStep = 1;
+            if (profile.personal_information) resumeStep = 2;
+            if (profile.physical_information) resumeStep = 3;
+            if ((profile.education_records && profile.education_records.length > 0) || (profile.employment_records && profile.employment_records.length > 0)) resumeStep = 4;
+            if (profile.religion_information) resumeStep = 5;
+            if (profile.profile_locations || profile.residency_information) resumeStep = 6;
+            if (profile.family_information || (profile.parents && profile.parents.length > 0)) resumeStep = 7;
+            if (profile.lifestyle_information) resumeStep = 8;
+            if (localData?.currentStep && localData.currentStep > resumeStep) {
+              resumeStep = localData.currentStep;
+            }
+            setCurrentStep(resumeStep);
+          }
         } catch (e) {
           console.error('Failed to load draft from DB', e);
           if (localData) {
@@ -365,6 +397,16 @@ export default function AddProfileForm() {
           if (localData.step6) setStep6(localData.step6);
           if (localData.step7) setStep7(localData.step7);
           if (localData.step8) setStep8(localData.step8);
+          if (localData) {
+            if (localData.step1) setStep1(prev => ({ ...prev, ...localData.step1 }));
+            if (localData.step2) setStep2(prev => ({ ...prev, ...localData.step2 }));
+            if (localData.step3) setStep3(prev => ({ ...prev, ...localData.step3 }));
+            if (localData.step4) setStep4(prev => ({ ...prev, ...localData.step4 }));
+            if (localData.step5) setStep5(prev => ({ ...prev, ...localData.step5 }));
+            if (localData.step6) setStep6(prev => ({ ...prev, ...localData.step6 }));
+            if (localData.step7) setStep7(prev => ({ ...prev, ...localData.step7 }));
+            if (localData.step8) setStep8(prev => ({ ...prev, ...localData.step8 }));
+          }
         } catch (e) {
           console.error('Failed to recover from local storage', e);
         }
@@ -378,7 +420,7 @@ export default function AddProfileForm() {
   useEffect(() => {
     if (!isInitialLoadDone) return;
     // Exclude profile_picture_file from local storage to save space
-    const dataToSave = { ...formData };
+    const dataToSave = { ...formData, currentStep };
     if (dataToSave.step1.profile_picture_file) {
       dataToSave.step1 = { ...dataToSave.step1, profile_picture_file: undefined };
     }
@@ -386,11 +428,11 @@ export default function AddProfileForm() {
     localStorage.setItem(key, JSON.stringify(dataToSave));
   }, [formData, profileId, isInitialLoadDone]);
 
-  // 30-second AutoSave to DB
-  useAutoSave({
+  // AutoSave to DB with flush capability
+  const { flush: flushAutoSave } = useAutoSave({
     data: formData,
     enabled: !!profileId && isInitialLoadDone, // Only auto-save after initial data load completes
-    delay: 30000,
+    delay: 1500,
     onSave: async (data, dirtyKeys) => {
       if (!profileId) return;
       console.log('Auto-saving dirty steps to DB:', dirtyKeys);
@@ -427,11 +469,13 @@ export default function AddProfileForm() {
       }
 
       if (dirtyKeys.includes('step2')) {
+        const h = (data.step2.height_cm != null && (data.step2.height_cm as any) !== '') ? Number(data.step2.height_cm) : null;
+        const w = (data.step2.weight_kg != null && (data.step2.weight_kg as any) !== '') ? Number(data.step2.weight_kg) : null;
         tasks.push(ProfileService.savePhysicalInfo(pid, {
-          height_cm: data.step2.height_cm && data.step2.height_cm >= 80 && data.step2.height_cm <= 250 ? Number(data.step2.height_cm) : null,
-          weight_kg: data.step2.weight_kg && data.step2.weight_kg >= 20 && data.step2.weight_kg <= 400 ? Number(data.step2.weight_kg) : null,
+          height_cm: (h !== null && !isNaN(h) && h >= 80 && h <= 250) ? h : null,
+          weight_kg: (w !== null && !isNaN(w) && w >= 20 && w <= 400) ? w : null,
           complexion: data.step2.complexion || null,
-          has_disability: data.step2.has_disability,
+          has_disability: Boolean(data.step2.has_disability),
           disability_details: data.step2.has_disability ? data.step2.disability_details : null,
         }));
       }
@@ -638,6 +682,7 @@ export default function AddProfileForm() {
         }, user.id));
       }
 
+      tasks.push(ProfileService.touchProfile(pid));
       if (tasks.length > 0) {
         const results = await Promise.allSettled(tasks);
         const failures = results
@@ -794,10 +839,146 @@ export default function AddProfileForm() {
       }
     }
 
+    // Persist current step immediately when moving steps on an existing draft
+    if (profileId && currentStep !== step) {
+      saveStepData(profileId, currentStep, formData).catch((err) => {
+        console.warn('Step auto-persist error:', err);
+      });
+    }
+
     if (step >= 1 && step <= STEPS.length) {
       setCompletedSteps((prev) => new Set([...prev, currentStep]));
       setCurrentStep(step);
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('step', String(step));
+        window.history.replaceState(null, '', url.toString());
+      }
     }
+  };
+
+  const saveStepData = async (pid: string, stepNum: number, data: typeof formData) => {
+    if (!pid) return;
+    const tasks: Promise<any>[] = [];
+
+    if (stepNum === 1) {
+      tasks.push(ProfileService.savePersonalInfo(pid, {
+        full_name: data.step1.full_name,
+        cnic: data.step1.cnic || null,
+        phone: data.step1.phone || null,
+        date_of_birth: data.step1.date_of_birth || null,
+        marital_status: data.step1.marital_status || 'NEVER_MARRIED',
+        nationality_country_id: data.step1.nationality_country_id ? Number(data.step1.nationality_country_id) : null,
+        multiple_nationality: Boolean(data.step1.multiple_nationality),
+        mother_tongue_id: data.step1.mother_tongue_id ? Number(data.step1.mother_tongue_id) : null,
+        number_of_children: data.step1.number_of_children ? Number(data.step1.number_of_children) : 0,
+      }));
+      if (data.step1.marital_status && data.step1.marital_status !== 'NEVER_MARRIED') {
+        tasks.push(ProfileService.saveChildren(pid, data.step1.children.map(({ _tempId, ...rest }: any) => ({
+          ...rest,
+          age: rest.age ? Number(rest.age) : null,
+          living_with_profile: rest.living_with_profile === 'YES'
+        }))));
+        tasks.push(ProfileService.savePreviousMarriages(pid, data.step1.previous_marriages.map(({ _tempId, ...rest }: any) => ({
+          ...rest,
+          marriage_year: rest.marriage_year ? Number(rest.marriage_year) : null,
+          end_year: rest.end_year ? Number(rest.end_year) : null,
+          children_count: rest.children_count ? Number(rest.children_count) : 0,
+          children_live_with_profile: rest.children_live_with_profile === 'YES'
+        }))));
+      }
+    } else if (stepNum === 2) {
+      const h = (data.step2.height_cm != null && (data.step2.height_cm as any) !== '') ? Number(data.step2.height_cm) : null;
+      const w = (data.step2.weight_kg != null && (data.step2.weight_kg as any) !== '') ? Number(data.step2.weight_kg) : null;
+      tasks.push(ProfileService.savePhysicalInfo(pid, {
+        height_cm: (h !== null && !isNaN(h) && h >= 80 && h <= 250) ? h : null,
+        weight_kg: (w !== null && !isNaN(w) && w >= 20 && w <= 400) ? w : null,
+        complexion: data.step2.complexion || null,
+        has_disability: Boolean(data.step2.has_disability),
+        disability_details: data.step2.has_disability ? data.step2.disability_details : null,
+      }));
+    } else if (stepNum === 3) {
+      const validEdus = data.step3.education_records.filter((e: any) => e.education_level_id).map(({ _tempId, ...rest }: any) => rest);
+      tasks.push(ProfileService.saveEducationRecords(pid, validEdus));
+      const validEmps = data.step3.employment_records.filter((e: any) => e.occupation_id && e.employment_type).map(({ _tempId, ...rest }: any) => rest);
+      tasks.push(ProfileService.saveEmploymentRecords(pid, validEmps));
+      if (data.step3.monthly_income_min || data.step3.monthly_income_max) {
+        tasks.push(ProfileService.saveIncomeInfo(pid, {
+          monthly_income_min: data.step3.monthly_income_min ? Number(data.step3.monthly_income_min) : null,
+          monthly_income_max: data.step3.monthly_income_max ? Number(data.step3.monthly_income_max) : null,
+          currency_code: 'PKR',
+          income_period: 'MONTHLY',
+        }));
+      }
+    } else if (stepNum === 4) {
+      tasks.push(ProfileService.saveReligionInfo(pid, {
+        religion_id: data.step4.religion_id ? Number(data.step4.religion_id) : null,
+        sect_id: data.step4.sect_id ? Number(data.step4.sect_id) : null,
+        caste_id: data.step4.caste_id ? Number(data.step4.caste_id) : null,
+        other_caste_text: data.step4.other_caste_text || null,
+      }));
+    } else if (stepNum === 5) {
+      const isCurrentPak = Number(data.step5.current_country_id) === 131;
+      const isPermPak = Number(data.step5.permanent_country_id) === 131;
+      tasks.push(ProfileService.saveLocations(pid, {
+        current_country_id: data.step5.current_country_id ? Number(data.step5.current_country_id) : null,
+        current_province_id: isCurrentPak && data.step5.current_province_id ? Number(data.step5.current_province_id) : null,
+        current_city_id: isCurrentPak && data.step5.current_city_id ? Number(data.step5.current_city_id) : null,
+        permanent_country_id: data.step5.permanent_country_id ? Number(data.step5.permanent_country_id) : null,
+        permanent_province_id: isPermPak && data.step5.permanent_province_id ? Number(data.step5.permanent_province_id) : null,
+        permanent_city_id: isPermPak && data.step5.permanent_city_id ? Number(data.step5.permanent_city_id) : null,
+        current_location_text: (!isCurrentPak ? [data.step5.current_city_text, data.step5.current_province_text, data.step5.current_location_text].filter(Boolean).join(', ') : data.step5.current_location_text) || null,
+        permanent_location_text: (!isPermPak ? [data.step5.permanent_city_text, data.step5.permanent_province_text, data.step5.permanent_location_text].filter(Boolean).join(', ') : data.step5.permanent_location_text) || null,
+      }));
+      tasks.push(ProfileService.saveResidencyInfo(pid, {
+        house_status: data.step5.house_status || null,
+        property_type: data.step5.property_type || null,
+        family_setup: data.step5.family_setup || null,
+        living_with: data.step5.living_with || null,
+        living_with_other_details: data.step5.living_with === 'OTHER' ? data.step5.living_with_other_details : null,
+      }));
+    } else if (stepNum === 6) {
+      tasks.push(ProfileService.saveParents(pid, data.step6.parents.map(({ _tempId, ...rest }: any) => ({
+        ...rest,
+        age: rest.age ? Number(rest.age) : null,
+        country_id: rest.country_id || null,
+        city_id: rest.city_id || null,
+      }))));
+      tasks.push(ProfileService.saveSiblings(pid, data.step6.siblings.map(({ _tempId, ...rest }: any) => ({
+        ...rest,
+        gender: rest.gender || 'MALE',
+        age: rest.age ? Number(rest.age) : null,
+        marital_status: rest.marital_status || null,
+        country_id: rest.country_id || null,
+        city_id: rest.city_id || null,
+      }))));
+      tasks.push(ProfileService.saveFamilyInfo(pid, {
+        family_profession_business: data.step6.family_profession_business || null,
+        social_background: data.step6.social_background || null,
+        family_values: data.step6.family_values || null,
+        family_introduction: data.step6.family_introduction || null,
+        important_family_circumstances: data.step6.important_family_circumstances || null,
+        additional_details: data.step6.additional_details || null,
+      }));
+    } else if (stepNum === 7) {
+      tasks.push(ProfileService.saveLifestyleInfo(pid, {
+        beard: data.step7.beard || null,
+        hijab: data.step7.hijab || null,
+        religious_practice: data.step7.religious_practice || null,
+        smoking: data.step7.smoking || null,
+        other_lifestyle_information: data.step7.other_lifestyle_information || null,
+      }));
+      tasks.push(ProfileService.saveRelocationInfo(pid, {
+        willing_to_relocate: data.step7.willing_to_relocate || null,
+        preferred_country_id: data.step7.preferred_country_id ? Number(data.step7.preferred_country_id) : null,
+        preferred_province_id: data.step7.preferred_province_id ? Number(data.step7.preferred_province_id) : null,
+        preferred_city_id: data.step7.preferred_city_id ? Number(data.step7.preferred_city_id) : null,
+        relocation_details: data.step7.relocation_details || null,
+      }));
+    }
+
+    tasks.push(ProfileService.touchProfile(pid));
+    await Promise.allSettled(tasks);
   };
 
   const next = () => goToStep(currentStep + 1);
