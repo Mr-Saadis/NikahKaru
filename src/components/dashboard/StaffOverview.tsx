@@ -1,502 +1,659 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  Heart,
+  UserPlus,
+  RefreshCw,
+  Clock,
+  ExternalLink,
   Download,
   Eye,
-  CheckCircle2,
-  XCircle,
-  ExternalLink,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
+  AlertCircle,
 } from 'lucide-react';
-import OverviewHeader from './OverviewHeader';
-import { DashboardService, type StaffDashboardData, type ReleaseItem } from '@/lib/services/dashboard-service';
+import { DashboardService, type AgentOverviewData } from '@/lib/services/dashboard-service';
+import {
+  formatRelativeTime,
+  formatKarachiDate,
+  formatKarachiTime,
+  getStatusBadge,
+} from '@/lib/utils/overview-helpers';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 export default function StaffOverview() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<StaffDashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<AgentOverviewData | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
 
-  // Pagination for Ready for Client Delivery (5-7 limit)
-  const [releasesPage, setReleasesPage] = useState<number>(1);
-  const [releasesPageSize, setReleasesPageSize] = useState<number>(5);
-
-  // Pagination for Requests with Manager (5-7 limit)
-  const [requestsPage, setRequestsPage] = useState<number>(1);
-  const [requestsPageSize, setRequestsPageSize] = useState<number>(5);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await DashboardService.getDashboardData('AGENT');
+      if (!res) return;
+      setData(res as AgentOverviewData);
+      setLastUpdated(formatKarachiTime(new Date()));
+      setLoading(false);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      console.error('[StaffOverview] load error:', err);
+      setError(err.message || 'Failed to load agent desk data');
+      toast.error('Failed to load agent desk');
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    async function loadData() {
-      try {
-        setLoading(true);
-        const res = await DashboardService.getDashboardData('AGENT');
-        if (isMounted) {
-          setData(res as StaffDashboardData);
-        }
-      } catch (err: any) {
-        console.error('Error loading staff dashboard:', err);
-        toast.error('Failed to load dashboard data');
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
     loadData();
-    return () => { isMounted = false; };
   }, []);
 
-  if (loading) {
+  // --------------------------------------------------------------------------
+  // SKELETON STATE (Phase B Rule 2: Static flat grey blocks, no pulse/ping)
+  // --------------------------------------------------------------------------
+  if (loading && !data) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex items-center gap-2.5 text-[#7D766C] text-sm font-medium">
-          <Loader2 className="w-5 h-5 animate-spin text-[#1F3B34]" />
-          <span>Loading staff overview...</span>
+      <div className="w-full min-w-0 space-y-5">
+        <div className="flex items-center justify-between pb-4 border-b border-[#E9E4DC]">
+          <div className="h-6 w-36 bg-[#E9E4DC]" />
+          <div className="h-8 w-28 bg-[#E9E4DC]" />
+        </div>
+        <div className="border border-[#E9E4DC] bg-white h-24 grid grid-cols-2 lg:grid-cols-6 divide-x divide-[#E9E4DC]">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="p-4 space-y-2">
+              <div className="h-3 w-16 bg-[#E9E4DC]" />
+              <div className="h-6 w-10 bg-[#E9E4DC]" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="lg:col-span-8 min-w-0 space-y-5">
+            <div className="border border-[#E9E4DC] bg-white h-48 p-4 space-y-3">
+              <div className="h-4 w-32 bg-[#E9E4DC]" />
+              <div className="h-8 w-full bg-[#FAF8F5]" />
+              <div className="h-8 w-full bg-[#FAF8F5]" />
+            </div>
+          </div>
+          <div className="lg:col-span-4 min-w-0 space-y-5">
+            <div className="border border-[#E9E4DC] bg-white h-48 p-4 space-y-3">
+              <div className="h-4 w-28 bg-[#E9E4DC]" />
+              <div className="h-8 w-full bg-[#FAF8F5]" />
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  const releases = data?.releases || [];
-  const requests = data?.requestsPipeline || [];
-  const drafts = data?.drafts || [];
-  const stats = data?.stats || {
-    assignedProfiles: 0,
-    releasedForClient: 0,
-    activeInTalks: 0,
-    draftsPending: 0,
-  };
+  // --------------------------------------------------------------------------
+  // ERROR STATE
+  // --------------------------------------------------------------------------
+  if (error || !data) {
+    return (
+      <div className="w-full min-w-0 p-6 border border-[#DC2626] bg-[#FEF2F2] text-[#991B1B] space-y-3 rounded-[2px]">
+        <div className="flex items-center gap-2 font-bold text-sm">
+          <AlertCircle className="w-4 h-4 text-[#DC2626]" />
+          <span>Error Loading Agent Desk</span>
+        </div>
+        <p className="text-xs text-[#7F1D1D]">{error || 'Unable to load overview data.'}</p>
+        <button
+          onClick={loadData}
+          className="px-3 py-1.5 bg-[#1F3B34] text-white text-xs font-bold rounded-[2px] transition-colors duration-120 hover:bg-[#172E29] cursor-pointer"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
-  // Sliced data for pagination
-  const totalReleasePages = Math.max(1, Math.ceil(releases.length / releasesPageSize));
-  const releaseStartIndex = (releasesPage - 1) * releasesPageSize;
-  const paginatedReleases = releases.slice(releaseStartIndex, releaseStartIndex + releasesPageSize);
-
-  const totalRequestPages = Math.max(1, Math.ceil(requests.length / requestsPageSize));
-  const requestStartIndex = (requestsPage - 1) * requestsPageSize;
-  const paginatedRequests = requests.slice(requestStartIndex, requestStartIndex + requestsPageSize);
+  const kpis = data.kpis;
+  const pipeline = data.pipeline;
+  const attention = data.attention || [];
+  const profiles = data.profiles || [];
+  const drafts = data.drafts || [];
+  const readyForDelivery = data.ready_for_delivery || [];
+  const requests = data.requests || [];
+  const tracking = data.tracking;
 
   return (
-    <div className="space-y-7">
-      
+    <div className="w-full min-w-0 space-y-5 font-sans">
       {/* ════════════════════════════════════════════════════════════════
-          PAGE HEADER (Native Notification Flow & Real DB Stats)
+          ROW 1: TITLE LEFT, "NEW PROFILE" BUTTON RIGHT
       ════════════════════════════════════════════════════════════════ */}
-      <OverviewHeader
-        title="Overview"
-        subtitle="Your assigned profiles, released candidates & relationship progress"
-        stats={[
-          { label: 'Assigned Profiles', value: stats.assignedProfiles },
-          { label: 'Released for Client', value: stats.releasedForClient, color: '#2F3E51' },
-          { label: 'Active in Talks', value: stats.activeInTalks, color: '#1F3B34' },
-          { label: 'Drafts Pending', value: stats.draftsPending, color: '#C86A4A' },
-        ]}
-      />
+      <div className="flex items-center justify-between pb-4 border-b border-[#E9E4DC]">
+        <div className="flex items-baseline gap-3 min-w-0">
+          <h1 className="text-xl font-bold text-[#1F3B34] tracking-tight truncate">
+            Agent Desk
+          </h1>
+          {lastUpdated && (
+            <span className="text-[11px] text-[#7D766C] tabular-nums whitespace-nowrap">
+              Last updated {lastUpdated}
+            </span>
+          )}
+          <button
+            onClick={loadData}
+            aria-label="Refresh overview"
+            title="Refresh overview"
+            className="p-1 text-[#7D766C] hover:text-[#1F3B34] transition-colors duration-120 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <Link
+          href="/add-profile"
+          className="px-3.5 py-1.5 bg-[#1F3B34] text-white text-xs font-bold rounded-[2px] inline-flex items-center gap-1.5 transition-colors duration-120 hover:bg-[#172E29] cursor-pointer shrink-0 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+        >
+          <UserPlus className="w-3.5 h-3.5" />
+          <span>New Profile</span>
+        </Link>
+      </div>
 
       {/* ════════════════════════════════════════════════════════════════
-          MAIN 2-COLUMN WORKSPACE
+          ROW 2: ONE BORDERED BAND SPLIT INTO 6 EQUAL CELLS BY HAIRLINES
       ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-7">
+      <div className="w-full border border-[#E9E4DC] bg-white rounded-[2px] grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-x divide-y md:divide-y-0 divide-[#E9E4DC]">
+        {/* Cell 1: Assigned Profiles */}
+        <Link
+          href="/profiles"
+          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+        >
+          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
+            Assigned Profiles
+          </span>
+          <div className="text-2xl font-bold text-[#1F3B34] tabular-nums mt-1">
+            {kpis.assigned_profiles ?? 0}
+          </div>
+          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Active in roster</span>
+        </Link>
+
+        {/* Cell 2: Drafts Pending */}
+        <Link
+          href="/profiles"
+          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+        >
+          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
+            Drafts Pending
+          </span>
+          <div className="text-2xl font-bold text-[#C86A4A] tabular-nums mt-1">
+            {kpis.drafts_pending ?? 0}
+          </div>
+          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Incomplete entries</span>
+        </Link>
+
+        {/* Cell 3: Released for Client */}
+        <Link
+          href="/agent-requests"
+          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+        >
+          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
+            Released for Client
+          </span>
+          <div className="text-2xl font-bold text-[#2F3E51] tabular-nums mt-1">
+            {kpis.released_for_client ?? 0}
+          </div>
+          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Candidates approved</span>
+        </Link>
+
+        {/* Cell 4: Shared with Family */}
+        <Link
+          href="/agent-requests"
+          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+        >
+          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
+            Shared with Family
+          </span>
+          <div className="text-2xl font-bold text-[#166534] tabular-nums mt-1">
+            {kpis.shared_with_family ?? 0}
+          </div>
+          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Dossiers downloaded</span>
+        </Link>
+
+        {/* Cell 5: Open Requests */}
+        <Link
+          href="/agent-requests"
+          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+        >
+          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
+            Open Requests
+          </span>
+          <div className="text-2xl font-bold text-[#8B6122] tabular-nums mt-1">
+            {kpis.open_requests ?? 0}
+          </div>
+          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Pending manager</span>
+        </Link>
+
+        {/* Cell 6: Awaiting Download */}
+        <Link
+          href="/agent-requests"
+          className="p-3.5 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+        >
+          <span className="text-[10px] font-bold text-[#7D766C] uppercase tracking-wider truncate">
+            Awaiting Download
+          </span>
+          <div className="text-2xl font-bold text-[#1F3B34] tabular-nums mt-1">
+            {kpis.awaiting_download ?? 0}
+          </div>
+          <span className="text-[10px] text-[#7D766C] mt-1 truncate">Ready for delivery</span>
+        </Link>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════
+          ROW 3: 12-COLUMN GRID (LEFT 8, RIGHT 4)
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-5">
         
-        {/* ─── LEFT COLUMN: Core Workflows (8 Cols) ─── */}
-        <div className="xl:col-span-8 space-y-7">
+        {/* ─── LEFT COLUMN (8 COLS) ─── */}
+        <div className="lg:col-span-8 min-w-0 space-y-5">
           
-          {/* Section 1: Ready for Client Delivery */}
-          <div className="bg-white rounded-[24px] p-6 border border-[#E9E4DC] shadow-xs space-y-4">
-            
-            <div className="flex items-center justify-between border-b border-[#F0EBE2] pb-4">
-              <div>
-                <h2 className="text-[16px] font-bold text-[#1F3B34] tracking-tight">
-                  Ready for Client Delivery
-                </h2>
-                <p className="text-[12px] text-[#7D766C] mt-0.5">
-                  The manager has reviewed and released these candidates. Download the PDF dossier to share with the family:
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#E5EFE9] text-[#1F3B34]">
-                  {releases.length} Candidates
-                </span>
-                <Link
-                  href="/agent-requests"
-                  className="hidden sm:inline-flex items-center gap-1 text-[11.5px] font-bold text-[#1F3B34] hover:underline"
-                >
-                  <span>Requests Board</span>
-                  <ExternalLink className="w-3 h-3" />
-                </Link>
-              </div>
+          {/* 1. Needs Attention (Ruled List with hairlines) */}
+          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#E9E4DC]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+                Needs Attention
+              </span>
+              <span className="text-[10px] text-[#7D766C] tabular-nums">
+                {attention.length} items
+              </span>
             </div>
 
-            {releases.length === 0 ? (
-              <div className="py-12 text-center bg-[#FAF8F5] rounded-2xl border border-[#E9E4DC] text-[#7D766C] text-[13px] space-y-2">
-                <div className="font-semibold text-[#1F3B34]">No pending releases right now</div>
-                <p className="text-xs text-[#A49C8F]">
-                  Once the manager reviews and approves candidate dossiers for your requests, they will appear here.
-                </p>
-                <div className="pt-2">
-                  <Link
-                    href="/agent-requests"
-                    className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-[#1F3B34] text-white text-xs font-bold hover:bg-[#172E29] transition-colors"
-                  >
-                    <span>View Requests Board</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
+            {attention.length === 0 ? (
+              <div className="py-6 text-center text-xs text-[#7D766C]">
+                No profiles or requests currently require attention.
               </div>
             ) : (
-              <div className="space-y-3.5">
-                {paginatedReleases.map((rel: ReleaseItem) => (
-                  <div
-                    key={rel.id}
-                    className="p-5 rounded-[20px] bg-[#FAF8F5] border border-[#E9E4DC] hover:border-[#1F3B34]/30 transition-all space-y-3.5"
-                  >
-                    {/* Header info */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-[14.5px] text-[#1F3B34]">
-                            {rel.source_profile.full_name}
-                          </span>
-                          <span className="text-[#A49C8F] text-xs">for</span>
-                          <span className="font-bold text-[14.5px] text-[#1E2022]">
-                            {rel.candidate_profile.full_name}
-                          </span>
-                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border border-[#E9E4DC] text-[#1F3B34]">
-                            {rel.compatibility_score}% Match
-                          </span>
-                        </div>
+              <div className="divide-y divide-[#E9E4DC]">
+                {attention.map((item, idx) => {
+                  let badgeText = 'ACTION';
+                  let badgeClass = 'bg-[#FAF8F5] text-[#1E2022] border-[#E9E4DC]';
+                  let actionText = 'Open';
+                  let linkHref = '/agent-requests';
 
-                        <div className="text-[12px] text-[#7D766C] mt-1 flex items-center gap-2 flex-wrap">
-                          <span>{rel.candidate_profile.age} yrs</span>
-                          <span>•</span>
-                          <span>{rel.candidate_profile.city}</span>
-                          <span>•</span>
-                          <span className="font-medium text-[#1E2022]">{rel.candidate_profile.caste}</span>
-                          <span>•</span>
-                          <span>{rel.candidate_profile.education}</span>
-                        </div>
-                      </div>
+                  if (item.kind === 'release_ready') {
+                    badgeText = 'RELEASE READY';
+                    badgeClass = 'bg-[#EBF2F7] text-[#2F3E51] border-[#D0DFEA]';
+                    actionText = 'Open Request';
+                    linkHref = '/agent-requests';
+                  } else if (item.kind === 'assigned_to_you') {
+                    badgeText = 'ASSIGNED';
+                    badgeClass = 'bg-[#E5EFE9] text-[#1F3B34] border-[#C2DDD0]';
+                    actionText = 'View Request';
+                    linkHref = '/agent-requests';
+                  } else if (item.kind === 'no_preferences') {
+                    badgeText = 'NO PREFERENCES';
+                    badgeClass = 'bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]';
+                    actionText = 'Add Preferences';
+                    linkHref = `/add-profile?profileId=${item.profile_id}&step=8`;
+                  } else if (item.kind === 'stale_draft') {
+                    badgeText = 'STALE DRAFT';
+                    badgeClass = 'bg-[#FEF3C7] text-[#8B6122] border-[#FDE68A]';
+                    actionText = 'Continue';
+                    linkHref = `/add-profile?profileId=${item.profile_id}`;
+                  } else if (item.kind === 'ready_to_request') {
+                    badgeText = 'READY TO REQUEST';
+                    badgeClass = 'bg-[#FAF8F5] text-[#1E2022] border-[#E9E4DC]';
+                    actionText = 'Request Manager';
+                    linkHref = '/agent-requests';
+                  }
 
-                      <div className="text-[11px] text-[#7D766C] md:text-right">
-                        <span>Approved by <strong>{rel.approved_by_manager}</strong></span>
-                        <div className="text-[10.5px] text-[#A49C8F] mt-0.5">{rel.approved_at_relative}</div>
-                      </div>
-                    </div>
-
-                    {/* Actions — Pure Redirections to Original Working Pages */}
-                    <div className="pt-3 border-t border-[#EAE2D5] flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => router.push('/agent-requests')}
-                          className="px-3.5 py-1.5 rounded-full bg-white hover:bg-[#F2EDE1] border border-[#E9E4DC] text-[#1F3B34] text-[11.5px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  return (
+                    <div
+                      key={`${item.kind}-${item.entity_id}-${idx}`}
+                      className="py-2.5 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={`px-1.5 py-0.5 border text-[9.5px] font-bold rounded-[2px] tracking-wider shrink-0 ${badgeClass}`}
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View on Requests Board</span>
-                        </button>
-
-                        <button
-                          onClick={() => router.push('/agent-requests')}
-                          className="px-3.5 py-1.5 rounded-full bg-[#1F3B34] hover:bg-[#172E29] text-white text-[11.5px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>Download Dossier</span>
-                        </button>
+                          {badgeText}
+                        </span>
+                        <span className="font-semibold text-[#1E2022] truncate" title={item.profile_name}>
+                          {item.profile_name}
+                        </span>
+                        <span className="text-[11px] text-[#7D766C] tabular-nums shrink-0 whitespace-nowrap">
+                          {formatRelativeTime(item.since)}
+                        </span>
                       </div>
 
                       <button
-                        onClick={() => router.push('/agent-requests')}
-                        className="px-4 py-1.5 rounded-full bg-white hover:bg-[#E5EFE9] border border-[#1F3B34] text-[#1F3B34] text-[11.5px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        onClick={() => router.push(linkHref)}
+                        className="px-2.5 py-1 border border-[#1F3B34] text-[#1F3B34] text-[11px] font-bold rounded-[2px] transition-colors duration-120 hover:bg-[#1F3B34] hover:text-white shrink-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
                       >
-                        <Heart className="w-3.5 h-3.5 fill-[#1F3B34]/20" />
-                        <span>Manage in Requests</span>
+                        {actionText}
                       </button>
                     </div>
-                  </div>
-                ))}
-
-                {/* ─── PAGINATION BAR FOR RELEASES (5-7 Limit as requested) ─── */}
-                {releases.length > 0 && (
-                  <div className="pt-3 border-t border-[#F0EBE2] flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px]">
-                    
-                    {/* Counter & Limit Selector */}
-                    <div className="flex items-center gap-3 text-[#7D766C]">
-                      <span>
-                        Showing <strong className="text-[#1E2022]">{releaseStartIndex + 1}</strong>–<strong className="text-[#1E2022]">{Math.min(releaseStartIndex + releasesPageSize, releases.length)}</strong> of <strong className="text-[#1E2022]">{releases.length}</strong>
-                      </span>
-                      
-                      <div className="h-3.5 w-px bg-[#E9E4DC]" />
-
-                      <div className="flex items-center gap-1.5 text-[11px]">
-                        <span>Per page:</span>
-                        {[5, 7].map((size) => (
-                          <button
-                            key={size}
-                            onClick={() => {
-                              setReleasesPageSize(size);
-                              setReleasesPage(1);
-                            }}
-                            className={`px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
-                              releasesPageSize === size
-                                ? 'bg-[#1F3B34] text-white shadow-xs'
-                                : 'bg-[#FAF8F5] text-[#7D766C] hover:text-[#1F3B34] border border-[#E9E4DC]'
-                            }`}
-                          >
-                            {size}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Pagination Nav Buttons */}
-                    {totalReleasePages > 1 && (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => setReleasesPage((p) => Math.max(p - 1, 1))}
-                          disabled={releasesPage === 1}
-                          className="p-1.5 rounded-full border border-[#E9E4DC] hover:bg-[#FAF8F5] text-[#1E2022] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                          title="Previous page"
-                        >
-                          <ChevronLeft className="w-3.5 h-3.5" />
-                        </button>
-
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: totalReleasePages }, (_, i) => i + 1).map((page) => (
-                            <button
-                              key={page}
-                              onClick={() => setReleasesPage(page)}
-                              className={`w-7 h-7 rounded-full text-[11.5px] font-bold transition-all cursor-pointer ${
-                                releasesPage === page
-                                ? 'bg-[#1F3B34] text-white shadow-xs'
-                                : 'text-[#7D766C] hover:bg-[#FAF8F5] hover:text-[#1E2022]'
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          ))}
-                        </div>
-
-                        <button
-                          onClick={() => setReleasesPage((p) => Math.min(p + 1, totalReleasePages))}
-                          disabled={releasesPage === totalReleasePages}
-                          className="p-1.5 rounded-full border border-[#E9E4DC] hover:bg-[#FAF8F5] text-[#1E2022] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                          title="Next page"
-                        >
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-
-                  </div>
-                )}
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Section 2: Active Discussions (In-Progress) */}
-          <div className="bg-white rounded-[24px] p-6 border border-[#E9E4DC] shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-[#F0EBE2] pb-4">
-              <div>
-                <h2 className="text-[16px] font-bold text-[#1F3B34] tracking-tight">
-                  Active Client Discussions
-                </h2>
-                <p className="text-[12px] text-[#7D766C] mt-0.5">
-                  Keep notes updated. Record whether families agreed to proceed or declined:
-                </p>
-              </div>
-
+          {/* 2. My Profiles (Table with 8-square segmented bar) */}
+          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#E9E4DC]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+                My Profiles
+              </span>
               <Link
                 href="/profiles"
-                className="text-[11.5px] font-bold text-[#1F3B34] hover:underline flex items-center gap-1"
+                className="text-[11px] font-bold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
               >
-                <span>Profiles Directory</span>
-                <ChevronRight className="w-3 h-3" />
+                <span>Directory</span>
+                <ExternalLink className="w-3 h-3" />
               </Link>
             </div>
 
-            <div className="py-8 text-center bg-[#FAF8F5] rounded-2xl border border-[#E9E4DC] text-[#7D766C] text-[13px] space-y-2">
-              <div className="font-semibold text-[#1F3B34]">No active match discussions yet</div>
-              <p className="text-xs text-[#A49C8F]">
-                When families start direct communication on released candidates, tracking appears here.
-              </p>
-              <div className="pt-2">
-                <Link
-                  href="/agent-requests"
-                  className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-white border border-[#E9E4DC] text-[#1F3B34] text-xs font-bold hover:bg-[#FAF8F5] transition-colors"
-                >
-                  <span>Open Requests Board</span>
-                  <ChevronRight className="w-3 h-3" />
-                </Link>
+            {profiles.length === 0 ? (
+              <div className="py-8 text-center text-xs text-[#7D766C]">
+                No profiles assigned to your roster yet.
               </div>
-            </div>
+            ) : (
+              <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-[#E9E4DC] text-[10px] font-bold uppercase tracking-wider text-[#7D766C]">
+                      <th className="pb-2 font-semibold">Name</th>
+                      <th className="pb-2 font-semibold">Gender</th>
+                      <th className="pb-2 font-semibold">Status</th>
+                      <th className="pb-2 font-semibold">Completion</th>
+                      <th className="pb-2 font-semibold">Preferences</th>
+                      <th className="pb-2 font-semibold text-right">Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E9E4DC]">
+                    {profiles.map((p) => {
+                      const statusBadge = getStatusBadge(p.status);
+                      const missingTooltip = p.missing && p.missing.length > 0
+                        ? `Missing: ${p.missing.join(', ')}`
+                        : 'Complete';
+
+                      return (
+                        <tr
+                          key={p.id}
+                          onClick={() => router.push('/profiles')}
+                          className="hover:bg-[#FAF8F5] transition-colors duration-120 cursor-pointer"
+                        >
+                          <td className="py-2.5 pr-2 font-bold text-[#1E2022] truncate max-w-[150px]" title={p.full_name}>
+                            {p.full_name}
+                          </td>
+                          <td className="py-2.5 pr-2 text-[#4E473D]">
+                            {p.gender === 'MALE' ? 'Male' : p.gender === 'FEMALE' ? 'Female' : p.gender}
+                          </td>
+                          <td className="py-2.5 pr-2">
+                            <span
+                              className={`px-1.5 py-0.5 border text-[9.5px] font-bold rounded-[2px] ${statusBadge.bg} ${statusBadge.text} ${statusBadge.border}`}
+                            >
+                              {statusBadge.label}
+                            </span>
+                          </td>
+                          <td className="py-2.5 pr-2">
+                            <div className="flex items-center gap-1.5" title={missingTooltip}>
+                              {/* Segmented 8-square bar */}
+                              <div className="flex items-center gap-0.5">
+                                {Array.from({ length: p.steps_total || 8 }).map((_, sqIdx) => (
+                                  <span
+                                    key={sqIdx}
+                                    className={`w-2 h-2 rounded-[1px] ${
+                                      sqIdx < p.steps_done
+                                        ? 'bg-[#1F3B34]'
+                                        : 'bg-[#E9E4DC]'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-[10px] text-[#7D766C] tabular-nums">
+                                {p.steps_done}/{p.steps_total || 8}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 pr-2">
+                            {!p.has_preferences ? (
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/add-profile?profileId=${p.id}&step=8`);
+                                }}
+                                className="px-1.5 py-0.5 border text-[9.5px] font-bold rounded-[2px] bg-[#FEF3C7] text-[#92400E] border-[#FCD34D] hover:bg-[#FDE68A] cursor-pointer"
+                              >
+                                NO PREFERENCES
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-[#166534] font-semibold">
+                                SET
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 text-right text-[11px] text-[#7D766C] tabular-nums whitespace-nowrap">
+                            {formatKarachiDate(p.updated_at, { day: '2-digit', month: 'short' })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
         </div>
 
-        {/* ─── RIGHT COLUMN: Requests & Incomplete Profiles (4 Cols) ─── */}
-        <div className="xl:col-span-4 space-y-7">
+        {/* ─── RIGHT RAIL (4 COLS) ─── */}
+        <div className="lg:col-span-4 min-w-0 space-y-5">
           
-          {/* Requests Status */}
-          <div className="bg-white rounded-[24px] p-5 border border-[#E9E4DC] shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-[#F0EBE2] pb-3">
-              <div>
-                <h3 className="text-[14px] font-bold text-[#1F3B34]">
-                  Requests with Manager
-                </h3>
-                <p className="text-[11px] text-[#7D766C]">
-                  Track progress of submitted requests
-                </p>
-              </div>
+          {/* 3. Pipeline: Vertical 4-step stack joined by thin rule */}
+          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+              Pipeline
+            </span>
 
-              <Link
-                href="/agent-requests"
-                className="text-[11px] font-bold text-[#1F3B34] flex items-center gap-1 hover:underline"
-              >
-                <span>View All</span>
-                <ChevronRight className="w-3 h-3" />
-              </Link>
+            <div className="border-l border-[#E9E4DC] pl-3 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[#4E473D]">With Manager</span>
+                <span className="font-bold text-[#8B6122] tabular-nums">{pipeline?.with_manager ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#4E473D]">Ready</span>
+                <span className="font-bold text-[#2F3E51] tabular-nums">{pipeline?.ready ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#4E473D]">Downloaded</span>
+                <span className="font-bold text-[#1F3B34] tabular-nums">{pipeline?.downloaded ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#4E473D]">Completed</span>
+                <span className="font-bold text-[#166534] tabular-nums">{pipeline?.completed ?? 0}</span>
+              </div>
             </div>
-
-            {requests.length === 0 ? (
-              <div className="py-6 text-center text-[#7D766C] text-xs">
-                No active requests submitted yet.
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {paginatedRequests.map((req: any) => (
-                  <div
-                    key={req.id}
-                    onClick={() => router.push('/agent-requests')}
-                    className="p-3 rounded-[16px] bg-[#FAF8F5] border border-[#E9E4DC] hover:border-[#1F3B34]/30 transition-all flex items-center justify-between gap-3 text-[12px] cursor-pointer"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-bold text-[#1E2022] truncate">
-                        {req.profile_name}
-                      </div>
-                      <div className="text-[10.5px] text-[#7D766C] mt-0.5">
-                        {req.submitted_date} • {req.assigned_manager}
-                      </div>
-                    </div>
-
-                    <span
-                      className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 ${
-                        req.status === 'COMPLETED' || req.status === 'DOWNLOADED'
-                          ? 'bg-[#E5EFE9] text-[#166534]'
-                          : req.status === 'IN_REVIEW'
-                          ? 'bg-[#F2EDE1] text-[#2F3E51]'
-                          : 'bg-[#FEF3C7] text-[#8B6122]'
-                      }`}
-                    >
-                      {req.status === 'PENDING' ? 'With Manager' : req.status === 'IN_REVIEW' ? 'Matching Ready' : req.status === 'DOWNLOADED' ? 'Downloaded' : 'Completed'}
-                    </span>
-                  </div>
-                ))}
-
-                {/* ─── PAGINATION BAR FOR REQUESTS (5-7 Limit as requested) ─── */}
-                {requests.length > requestsPageSize && (
-                  <div className="pt-2 border-t border-[#F0EBE2] flex items-center justify-between text-[11px] text-[#7D766C]">
-                    <div className="flex items-center gap-1.5">
-                      <span>Per page:</span>
-                      {[5, 7].map((size) => (
-                        <button
-                          key={size}
-                          onClick={() => {
-                            setRequestsPageSize(size);
-                            setRequestsPage(1);
-                          }}
-                          className={`px-1.5 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
-                            requestsPageSize === size
-                              ? 'bg-[#1F3B34] text-white shadow-xs'
-                              : 'bg-[#FAF8F5] text-[#7D766C] hover:text-[#1F3B34] border border-[#E9E4DC]'
-                          }`}
-                        >
-                          {size}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setRequestsPage((p) => Math.max(p - 1, 1))}
-                        disabled={requestsPage === 1}
-                        className="p-1 rounded-full border border-[#E9E4DC] hover:bg-[#FAF8F5] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                        title="Previous page"
-                      >
-                        <ChevronLeft className="w-3 h-3" />
-                      </button>
-                      <span className="font-semibold text-[#1E2022] px-1">
-                        {requestsPage} / {totalRequestPages}
-                      </span>
-                      <button
-                        onClick={() => setRequestsPage((p) => Math.min(p + 1, totalRequestPages))}
-                        disabled={requestsPage === totalRequestPages}
-                        className="p-1 rounded-full border border-[#E9E4DC] hover:bg-[#FAF8F5] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                        title="Next page"
-                      >
-                        <ChevronRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* Incomplete Profiles (Drafts) */}
-          <div className="bg-white rounded-[24px] p-5 border border-[#E9E4DC] shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-[#F0EBE2] pb-3">
-              <div>
-                <h3 className="text-[14px] font-bold text-[#1F3B34]">
-                  Draft Profiles
-                </h3>
-                <p className="text-[11px] text-[#7D766C]">
-                  Finish required details to enable matching
-                </p>
-              </div>
-
-              <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#8B6122]">
-                {drafts.length} Pending
+          {/* 4. Drafts */}
+          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+                Drafts
+              </span>
+              <span className="text-[10px] text-[#7D766C] tabular-nums">
+                {drafts.length} pending
               </span>
             </div>
 
             {drafts.length === 0 ? (
-              <div className="py-6 text-center text-[#7D766C] text-xs">
-                No draft profiles pending completion.
+              <div className="py-4 text-center text-xs text-[#7D766C]">
+                No incomplete drafts.
               </div>
             ) : (
-              <div className="space-y-3">
-                {drafts.map((draft: any) => (
-                  <div
-                    key={draft.id}
-                    className="p-3.5 rounded-[16px] bg-[#FAF8F5] border border-[#E9E4DC] space-y-2 text-[12px]"
-                  >
+              <div className="space-y-2.5 text-xs">
+                {drafts.map((d) => (
+                  <div key={d.id} className="p-2.5 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-[#1E2022]">{draft.name}</span>
-                      <span className="text-[10.5px] text-[#A49C8F]">{draft.updated_at}</span>
+                      <span className="font-bold text-[#1E2022] truncate max-w-[180px]" title={d.full_name}>
+                        {d.full_name}
+                      </span>
+                      <span className="text-[10px] text-[#7D766C] tabular-nums">
+                        {d.steps_done}/{d.steps_total} steps
+                      </span>
                     </div>
 
-                    <div className="text-[11px] text-[#7D766C]">
-                      {draft.age}y • {draft.city} • <span className="font-medium text-[#1F3B34]">{draft.step_name}</span>
+                    {/* Segmented bar */}
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: d.steps_total || 8 }).map((_, i) => (
+                        <span
+                          key={i}
+                          className={`h-1.5 flex-1 rounded-[1px] ${
+                            i < d.steps_done ? 'bg-[#1F3B34]' : 'bg-[#E9E4DC]'
+                          }`}
+                        />
+                      ))}
                     </div>
 
-                    <div className="pt-1 flex items-center justify-between">
-                      <span className="text-[10.5px] text-[#7D766C]">
-                        Step {draft.current_step} of {draft.total_steps}
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10.5px] text-[#7D766C] truncate max-w-[140px]">
+                        Next: {d.next_step || 'Review'}
                       </span>
                       <button
-                        onClick={() => router.push('/add-profile')}
-                        className="px-3 py-1 rounded-full bg-[#1F3B34] hover:bg-[#172E29] text-white text-[11px] font-bold transition-all cursor-pointer shadow-xs"
+                        onClick={() => router.push(`/add-profile?profileId=${d.id}`)}
+                        className="px-2 py-0.5 border border-[#1F3B34] text-[#1F3B34] text-[10px] font-bold rounded-[2px] transition-colors duration-120 hover:bg-[#1F3B34] hover:text-white cursor-pointer"
                       >
                         Continue
                       </button>
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* 5. Ready for Client Delivery */}
+          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+                Ready for Client Delivery
+              </span>
+              <span className="text-[10px] text-[#7D766C] tabular-nums">
+                {readyForDelivery.length} releases
+              </span>
+            </div>
+
+            {readyForDelivery.length === 0 ? (
+              <div className="py-4 text-center text-xs text-[#7D766C]">
+                No candidates approved for delivery.
+              </div>
+            ) : (
+              <div className="space-y-3 text-xs">
+                {readyForDelivery.map((rel) => (
+                  <div key={rel.release_id} className="p-3 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[#1E2022] truncate max-w-[150px]" title={rel.full_name || '—'}>
+                        {rel.full_name || '—'}
+                      </span>
+                      {rel.score !== null && rel.score !== undefined ? (
+                        <span
+                          className="px-1.5 py-0.5 border border-[#E9E4DC] bg-white text-[10px] font-bold text-[#1F3B34] tabular-nums rounded-[2px] cursor-help"
+                          title="Compatibility score, not a marriage probability"
+                        >
+                          {rel.score}%
+                        </span>
+                      ) : (
+                        <span className="text-[#7D766C] text-[10px]">—</span>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] text-[#7D766C] space-y-0.5">
+                      <div>Age: {rel.age !== null ? `${rel.age}y` : '—'} | City: {rel.city || '—'}</div>
+                      <div>Caste: {rel.caste || '—'} | Edu: {rel.education || '—'}</div>
+                      <div className="text-[10px] text-[#A49C8F]">
+                        Approved by {rel.released_by_name || 'Manager'}
+                      </div>
+                    </div>
+
+                    <div className="pt-1.5 border-t border-[#E9E4DC] flex items-center justify-between gap-2">
+                      <Link
+                        href="/agent-requests"
+                        className="text-[10.5px] font-bold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>View Board</span>
+                      </Link>
+
+                      <Link
+                        href="/agent-requests"
+                        className="px-2 py-0.5 bg-[#1F3B34] text-white text-[10.5px] font-bold rounded-[2px] inline-flex items-center gap-1 transition-colors duration-120 hover:bg-[#172E29]"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Download</span>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 6. Requests with Manager */}
+          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+                Requests with Manager
+              </span>
+              <Link href="/agent-requests" className="text-[10px] font-bold text-[#1F3B34] hover:underline">
+                View All
+              </Link>
+            </div>
+
+            {requests.length === 0 ? (
+              <div className="py-4 text-center text-xs text-[#7D766C]">
+                No active requests.
+              </div>
+            ) : (
+              <div className="divide-y divide-[#E9E4DC]">
+                {requests.map((req) => {
+                  const badge = getStatusBadge(req.status);
+
+                  return (
+                    <div
+                      key={req.id}
+                      onClick={() => router.push('/agent-requests')}
+                      className="py-2 flex items-center justify-between gap-2 text-xs hover:bg-[#FAF8F5] transition-colors duration-120 cursor-pointer"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold text-[#1E2022] truncate max-w-[140px]" title={req.profile_name || 'Client'}>
+                          {req.profile_name || 'Client'}
+                        </div>
+                        <div className="text-[10px] text-[#7D766C] truncate">
+                          {req.reviewed_by_name ? `Rev: ${req.reviewed_by_name}` : 'Unreviewed'}
+                        </div>
+                      </div>
+
+                      <span
+                        className={`px-1.5 py-0.5 border text-[9px] font-bold rounded-[2px] shrink-0 ${badge.bg} ${badge.text} ${badge.border}`}
+                      >
+                        {badge.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 7. Active Client Discussions */}
+          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+              Active Client Discussions
+            </span>
+
+            {(!tracking || tracking.matches_active === 0) ? (
+              <div className="p-3 border border-[#E9E4DC] bg-[#FAF8F5] text-center text-xs text-[#7D766C] rounded-[2px]">
+                Not tracked yet
+              </div>
+            ) : (
+              <div className="p-3 border border-[#E9E4DC] bg-[#FAF8F5] flex items-center justify-between text-xs rounded-[2px]">
+                <span className="text-[#4E473D]">Active Discussions</span>
+                <span className="text-base font-bold text-[#1F3B34] tabular-nums">
+                  {tracking.matches_active}
+                </span>
               </div>
             )}
           </div>

@@ -1,644 +1,683 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Play,
-  ShieldCheck,
+  RefreshCw,
+  Clock,
+  AlertTriangle,
   ExternalLink,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
-  FolderKanban,
-  UserPlus,
-  ArrowRight,
+  AlertCircle,
+  Flame,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react';
-import OverviewHeader from './OverviewHeader';
-import { DashboardService, type ManagerDashboardData } from '@/lib/services/dashboard-service';
-import { mockSmartRejectionFeed } from './mockData'; // Retained only for feedback as requested
+import { DashboardService, type ManagerOverviewData } from '@/lib/services/dashboard-service';
+import { COLUMNS } from '@/components/requests/constants';
+import {
+  formatWaitingHours,
+  formatKarachiDate,
+  formatKarachiTime,
+  formatDelta,
+  getSlaBadge,
+  getLoadBadge,
+} from '@/lib/utils/overview-helpers';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 export default function ManagerOverview() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<ManagerDashboardData | null>(null);
-  const [filterMode, setFilterMode] = useState<'ALL' | 'URGENT' | 'FIRST' | 'IN_REVIEW'>('ALL');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(5); // 5-7 items per page
-  const [staffPage, setStaffPage] = useState<number>(1);
-  const [staffPageSize, setStaffPageSize] = useState<number>(5); // 5-7 items per page
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<ManagerOverviewData | null>(null);
+  const [selectedDays, setSelectedDays] = useState<number>(7);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
 
-  const handleFilterChange = (mode: 'ALL' | 'URGENT' | 'FIRST' | 'IN_REVIEW') => {
-    setFilterMode(mode);
-    setCurrentPage(1);
+  const loadData = async (days: number) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await DashboardService.getDashboardData('MANAGER', days, 24);
+      if (!res) return;
+      setData(res as ManagerOverviewData);
+      setLastUpdated(formatKarachiTime(new Date()));
+      setLoading(false);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      console.error('[ManagerOverview] load error:', err);
+      setError(err.message || 'Failed to load manager desk data');
+      toast.error('Failed to load operations desk');
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    let isMounted = true;
-    async function loadData() {
-      try {
-        setLoading(true);
-        const res = await DashboardService.getDashboardData('MANAGER');
-        if (isMounted) {
-          setData(res as ManagerDashboardData);
-        }
-      } catch (err: any) {
-        console.error('Error loading manager dashboard:', err);
-        toast.error('Failed to load manager dashboard data');
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
-    loadData();
-    return () => { isMounted = false; };
-  }, []);
+    loadData(selectedDays);
+  }, [selectedDays]);
 
-  if (loading) {
+  // --------------------------------------------------------------------------
+  // SKELETON STATE (Rule 2: Flat static blocks)
+  // --------------------------------------------------------------------------
+  if (loading && !data) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex items-center gap-2.5 text-[#7D766C] text-sm font-medium">
-          <Loader2 className="w-5 h-5 animate-spin text-[#1F3B34]" />
-          <span>Loading operations overview...</span>
+      <div className="w-full min-w-0 space-y-5">
+        <div className="flex items-center justify-between pb-4 border-b border-[#E9E4DC]">
+          <div className="h-6 w-44 bg-[#E9E4DC]" />
+          <div className="h-7 w-48 bg-[#E9E4DC]" />
+        </div>
+        <div className="h-24 bg-[#E9E4DC] border border-[#E9E4DC]" />
+        <div className="h-16 bg-[#E9E4DC] border border-[#E9E4DC]" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="lg:col-span-7 h-64 bg-[#E9E4DC]" />
+          <div className="lg:col-span-5 h-64 bg-[#E9E4DC]" />
         </div>
       </div>
     );
   }
 
-  const requests = data?.requests || [];
-  const staffWorkload = data?.staffWorkload || [];
-  const stats = data?.stats || {
-    pendingRequests: 0,
-    releasedToday: 0,
-    activeInTalks: 0,
-    staffHandled: 0,
-  };
+  // --------------------------------------------------------------------------
+  // ERROR STATE
+  // --------------------------------------------------------------------------
+  if (error || !data) {
+    return (
+      <div className="w-full min-w-0 p-6 border border-[#DC2626] bg-[#FEF2F2] text-[#991B1B] space-y-3 rounded-[2px]">
+        <div className="flex items-center gap-2 font-bold text-sm">
+          <AlertCircle className="w-4 h-4 text-[#DC2626]" />
+          <span>Error Loading Operations Desk</span>
+        </div>
+        <p className="text-xs text-[#7F1D1D]">{error || 'Unable to connect to operations RPC'}</p>
+        <button
+          onClick={() => loadData(selectedDays)}
+          className="px-3 py-1.5 bg-[#1F3B34] text-white text-xs font-bold rounded-[2px] transition-colors duration-120 hover:bg-[#172E29] cursor-pointer"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
-  const filteredRequests = requests.filter((r) => {
-    if (filterMode === 'URGENT') return r.is_urgent;
-    if (filterMode === 'FIRST') return r.status === 'PENDING';
-    if (filterMode === 'IN_REVIEW') return r.status === 'IN_REVIEW';
-    return true;
-  });
+  const kpis = data.kpis;
+  const pipeline = data.pipeline || {};
+  const queue = data.queue || [];
+  const workload = data.agent_workload || [];
+  const stuckReleases = data.stuck_releases || [];
+  const hotCandidates = data.hot_candidates || [];
+  const scoreQuality = data.score_quality;
+  const lowMatch = data.low_match || [];
+  const orphaned = data.orphaned_profiles || { count: 0, items: [] };
+  const recentReleases = data.recent_releases || [];
+  const feedback = data.feedback;
 
-  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / pageSize));
-  const startIndex = (currentPage - 1) * pageSize;
-  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + pageSize);
+  const oldestWaitingHours = kpis.oldest_waiting_hours ?? 0;
+  const isOldestOverdue = oldestWaitingHours > (data.sla_hours || 24);
+  const releasesDelta = selectedDays > 0 ? formatDelta(kpis.releases_in_range, kpis.releases_prev_range) : null;
 
-  const totalStaffPages = Math.max(1, Math.ceil(staffWorkload.length / staffPageSize));
-  const staffStartIndex = (staffPage - 1) * staffPageSize;
-  const paginatedStaff = staffWorkload.slice(staffStartIndex, staffStartIndex + staffPageSize);
-
-  const pendingCount = requests.filter((r) => r.status === 'PENDING').length;
-  const inReviewCount = requests.filter((r) => r.status === 'IN_REVIEW').length;
-  const urgentCount = requests.filter((r) => r.is_urgent).length;
+  // Score quality percentages
+  const totalScores = (scoreQuality.excellent || 0) + (scoreQuality.good || 0) + (scoreQuality.borderline || 0);
+  const excellentPct = totalScores > 0 ? Math.round((scoreQuality.excellent / totalScores) * 100) : 0;
+  const goodPct = totalScores > 0 ? Math.round((scoreQuality.good / totalScores) * 100) : 0;
+  const borderlinePct = totalScores > 0 ? 100 - excellentPct - goodPct : 0;
 
   return (
-    <div className="space-y-7">
-      
+    <div className="w-full min-w-0 space-y-5 font-sans">
       {/* ════════════════════════════════════════════════════════════════
-          PAGE HEADER (Native Notification Flow & Real DB Stats)
+          TOP: FULL-WIDTH SLA BAND WITH THREE FIGURES + RANGE SELECTOR
       ════════════════════════════════════════════════════════════════ */}
-      <OverviewHeader
-        title="Overview"
-        subtitle="Incoming staff requests, matching runs & case distribution"
-        stats={[
-          { label: 'Pending Requests', value: stats.pendingRequests, color: '#D4AF37' },
-          { label: 'Total Releases', value: stats.releasedToday, color: '#2F3E51' },
-          { label: 'In Review / Ready', value: stats.activeInTalks, color: '#1F3B34' },
-          { label: 'Active Staff', value: stats.staffHandled, color: '#7D766C' },
-        ]}
-      />
-
-      {/* ════════════════════════════════════════════════════════════════
-          MAIN 2-COLUMN WORKSPACE
-      ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-7">
-        
-        {/* ─── LEFT COLUMN: Requests Queue (8 Cols) ─── */}
-        <div className="xl:col-span-8 space-y-7">
-          
-          <div className="bg-white rounded-[24px] p-6 border border-[#E9E4DC] shadow-xs space-y-4">
-            
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F0EBE2] pb-4">
-              <div>
-                <h2 className="text-[16px] font-bold text-[#1F3B34] tracking-tight">
-                  Incoming Requests Queue
-                </h2>
-                <p className="text-[12px] text-[#7D766C] mt-0.5">
-                  Client matching requests submitted by staff members:
-                </p>
-              </div>
-
-              {/* Filter Tabs & Redirect to Board */}
-              <div className="flex items-center gap-2">
-                <div className="bg-[#FAF8F5] p-1 rounded-full flex items-center border border-[#E9E4DC]">
-                  <button
-                    onClick={() => handleFilterChange('ALL')}
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
-                      filterMode === 'ALL'
-                        ? 'bg-[#1F3B34] text-white shadow-xs'
-                        : 'text-[#7D766C] hover:text-[#1F3B34]'
-                    }`}
-                  >
-                    All ({requests.length})
-                  </button>
-                  <button
-                    onClick={() => handleFilterChange('URGENT')}
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
-                      filterMode === 'URGENT'
-                        ? 'bg-[#991B1B] text-white shadow-xs'
-                        : 'text-[#991B1B] hover:bg-[#FEE2E2]'
-                    }`}
-                  >
-                    Urgent ({urgentCount})
-                  </button>
-                  <button
-                    onClick={() => handleFilterChange('FIRST')}
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
-                      filterMode === 'FIRST'
-                        ? 'bg-[#1F3B34] text-white shadow-xs'
-                        : 'text-[#7D766C] hover:text-[#1F3B34]'
-                    }`}
-                  >
-                    Pending ({pendingCount})
-                  </button>
-                  <button
-                    onClick={() => handleFilterChange('IN_REVIEW')}
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
-                      filterMode === 'IN_REVIEW'
-                        ? 'bg-[#2F3E51] text-white shadow-xs'
-                        : 'text-[#7D766C] hover:text-[#1F3B34]'
-                    }`}
-                  >
-                    Reviewed ({inReviewCount})
-                  </button>
-                </div>
-
-                <Link
-                  href="/requests"
-                  className="hidden sm:inline-flex items-center gap-1 text-[11.5px] font-bold text-[#1F3B34] hover:underline"
-                >
-                  <span>Operations Board</span>
-                  <ExternalLink className="w-3 h-3" />
-                </Link>
-              </div>
+      <div className="w-full border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Three Figures Separated by Hairlines */}
+        <div className="flex items-center divide-x divide-[#E9E4DC] min-w-0">
+          {/* 1. Oldest Waiting */}
+          <div className="pr-6 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D766C] block">
+              Oldest Waiting
+            </span>
+            <div
+              className={`text-2xl font-bold tabular-nums mt-0.5 ${
+                isOldestOverdue ? 'text-[#DC2626]' : 'text-[#1E2022]'
+              }`}
+            >
+              {formatWaitingHours(kpis.oldest_waiting_hours)}
             </div>
+            <span className="text-[10px] text-[#7D766C]">SLA: {data.sla_hours || 24}h</span>
+          </div>
 
-            {/* Request items */}
-            {filteredRequests.length === 0 ? (
-              <div className="py-12 text-center bg-[#FAF8F5] rounded-2xl border border-[#E9E4DC] text-[#7D766C] text-[13px]">
-                No matching requests found in this queue.
+          {/* 2. Overdue */}
+          <div className="px-6 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D766C] block">
+              Overdue
+            </span>
+            <div
+              className={`text-2xl font-bold tabular-nums mt-0.5 ${
+                (kpis.overdue ?? 0) > 0 ? 'text-[#DC2626]' : 'text-[#1E2022]'
+              }`}
+            >
+              {kpis.overdue ?? 0}
+            </div>
+            <span className="text-[10px] text-[#7D766C]">&gt;{data.sla_hours || 24}h limit</span>
+          </div>
+
+          {/* 3. Pending */}
+          <div className="pl-6 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D766C] block">
+              Pending Queue
+            </span>
+            <div className="text-2xl font-bold text-[#1F3B34] tabular-nums mt-0.5">
+              {kpis.pending ?? 0}
+            </div>
+            <span className="text-[10px] text-[#7D766C]">Awaiting match run</span>
+          </div>
+        </div>
+
+        {/* Right side: Last Updated + Refresh + Joined Segmented Control */}
+        <div className="flex items-center gap-3 shrink-0 self-end md:self-center">
+          {lastUpdated && (
+            <span className="text-[11px] text-[#7D766C] tabular-nums whitespace-nowrap">
+              {lastUpdated}
+            </span>
+          )}
+          <button
+            onClick={() => loadData(selectedDays)}
+            aria-label="Refresh overview"
+            title="Refresh overview"
+            className="p-1 text-[#7D766C] hover:text-[#1F3B34] transition-colors duration-120 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Joined Segmented Control of Square Buttons */}
+          <div className="inline-flex border border-[#E9E4DC] divide-x divide-[#E9E4DC] bg-white rounded-[2px] text-xs font-bold">
+            {[
+              { label: '7d', days: 7 },
+              { label: '30d', days: 30 },
+              { label: '90d', days: 90 },
+              { label: 'All', days: 0 },
+            ].map((tab) => (
+              <button
+                key={tab.days}
+                onClick={() => setSelectedDays(tab.days)}
+                className={`px-3 py-1 transition-colors duration-120 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1F3B34] ${
+                  selectedDays === tab.days
+                    ? 'bg-[#1F3B34] text-white'
+                    : 'text-[#7D766C] hover:bg-[#FAF8F5] hover:text-[#1E2022]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════
+          PIPELINE STRIP: ONE ROW OF JOINED EQUAL BOXES (NO GAPS)
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="w-full border border-[#E9E4DC] bg-white rounded-[2px] grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 divide-x divide-y sm:divide-y-0 divide-[#E9E4DC]">
+        {COLUMNS.slice(0, 7).map((col) => {
+          const count = pipeline[col.key] || 0;
+          return (
+            <Link
+              key={col.key}
+              href="/requests"
+              className="p-3 min-w-0 flex flex-col justify-between hover:bg-[#FAF8F5] transition-colors duration-120 focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D766C] truncate" title={col.label}>
+                {col.label}
+              </span>
+              <div className="text-xl font-bold text-[#1E2022] tabular-nums mt-1">
+                {count}
               </div>
-            ) : (
-              <div className="space-y-3.5">
-                {paginatedRequests.map((req) => {
-                  const isPending = req.status === 'PENDING';
-                  const isInReview = req.status === 'IN_REVIEW';
-                  const p = req.source_profile;
+            </Link>
+          );
+        })}
+      </div>
 
-                  return (
-                    <div
-                      key={req.id}
-                      onClick={() => router.push('/requests')}
-                      className="p-5 rounded-[20px] bg-[#FAF8F5] border border-[#E9E4DC] hover:border-[#1F3B34]/30 transition-all space-y-3 cursor-pointer"
-                    >
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-[14.5px] text-[#1E2022]">
-                              {p.full_name}
-                            </span>
-                            <span className="font-mono text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-white border border-[#E9E4DC] text-[#717972]">
-                              {p.profile_code}
-                            </span>
+      {/* ════════════════════════════════════════════════════════════════
+          SECONDARY STATS IN ONE HAIRLINE ROW
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="w-full border border-[#E9E4DC] bg-white rounded-[2px] p-3 flex flex-wrap items-center justify-between gap-4 text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#7D766C]">Released Awaiting Agent:</span>
+          <strong className="text-[#2F3E51] font-bold tabular-nums">{kpis.released_awaiting_agent ?? 0}</strong>
+        </div>
+        <div className="h-3 w-px bg-[#E9E4DC] hidden sm:block" />
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#7D766C]">Completed in Period:</span>
+          <strong className="text-[#166534] font-bold tabular-nums">{kpis.completed_in_range ?? 0}</strong>
+        </div>
+        <div className="h-3 w-px bg-[#E9E4DC] hidden sm:block" />
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#7D766C]">Releases in Period:</span>
+          <strong className="text-[#1F3B34] font-bold tabular-nums">{kpis.releases_in_range ?? 0}</strong>
+          {releasesDelta && (
+            <span
+              className={`px-1 py-0.5 border text-[9.5px] font-bold rounded-[2px] inline-flex items-center gap-0.5 ${
+                releasesDelta.isPositive ? 'bg-[#E5EFE9] text-[#166534] border-[#C2DDD0]' : 'bg-[#FEE2E2] text-[#DC2626] border-[#FCA5A5]'
+              }`}
+            >
+              {releasesDelta.isPositive ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+              {releasesDelta.text}
+            </span>
+          )}
+        </div>
+        <div className="h-3 w-px bg-[#E9E4DC] hidden sm:block" />
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#7D766C]">Match Runs in Period:</span>
+          <strong className="text-[#1E2022] font-bold tabular-nums">{kpis.runs_in_range ?? 0}</strong>
+        </div>
+        <div className="h-3 w-px bg-[#E9E4DC] hidden sm:block" />
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#7D766C]">Avg Release Time:</span>
+          <strong className="text-[#1E2022] font-bold tabular-nums">
+            {kpis.avg_release_hours !== null ? `${kpis.avg_release_hours}h` : '—'}
+          </strong>
+        </div>
+      </div>
 
-                            <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${
-                              isPending ? 'bg-[#FEF3C7] text-[#8B6122]' : 'bg-[#E5EFE9] text-[#166534]'
-                            }`}>
-                              {isPending ? 'Pending Match Run' : 'Scored • Ready to Release'}
-                            </span>
+      {/* ════════════════════════════════════════════════════════════════
+          MAIN GRID 12 COLUMNS: LEFT 7 / RIGHT 5
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        {/* LEFT: Waiting Queue (7 Cols) */}
+        <div className="lg:col-span-7 min-w-0 border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
+          <div className="flex items-center justify-between pb-2.5 border-b border-[#E9E4DC]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+              Waiting Queue (Priority Ledger)
+            </span>
+            <Link
+              href="/requests"
+              className="text-[11px] font-bold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
+            >
+              <span>Board</span>
+              <ExternalLink className="w-3 h-3" />
+            </Link>
+          </div>
 
-                            {req.is_urgent && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FEE2E2] text-[#991B1B]">
-                                Waiting {req.created_at_relative}
+          {queue.length === 0 ? (
+            <div className="py-8 text-center text-xs text-[#7D766C]">
+              Queue clear. No requests waiting for matching runs.
+            </div>
+          ) : (
+            <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-[#E9E4DC] text-[10px] font-bold uppercase tracking-wider text-[#7D766C]">
+                    <th className="pb-2 font-semibold">Candidate</th>
+                    <th className="pb-2 font-semibold">Details</th>
+                    <th className="pb-2 font-semibold">Agent</th>
+                    <th className="pb-2 font-semibold">SLA Status</th>
+                    <th className="pb-2 font-semibold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E9E4DC]">
+                  {queue.map((item) => {
+                    const sla = getSlaBadge(item.sla_state);
+
+                    return (
+                      <tr key={item.request_id} className="hover:bg-[#FAF8F5] transition-colors duration-120">
+                        <td className="py-2.5 pr-2 font-bold text-[#1E2022]">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate max-w-[130px]" title={item.full_name || 'Candidate'}>
+                              {item.full_name || 'Candidate'}
+                            </span>
+                            {item.is_repeat && (
+                              <span className="px-1 py-0.5 border text-[9px] font-bold rounded-[2px] bg-[#EBF2F7] text-[#2F3E51] border-[#D0DFEA]">
+                                REPEAT
                               </span>
                             )}
                           </div>
+                        </td>
+                        <td className="py-2.5 pr-2 text-[#4E473D] whitespace-nowrap">
+                          {item.age !== null ? `${item.age}y` : '—'}, {item.city || '—'}, {item.caste || '—'}
+                        </td>
+                        <td className="py-2.5 pr-2 text-[#7D766C] truncate max-w-[100px]" title={item.agent_name || 'Staff'}>
+                          {item.agent_name || 'Staff'}
+                        </td>
+                        <td className="py-2.5 pr-2 whitespace-nowrap">
+                          <span className={`px-1.5 py-0.5 border text-[9.5px] font-bold rounded-[2px] ${sla.bg} ${sla.text} ${sla.border}`}>
+                            {sla.label} ({formatWaitingHours(item.waiting_hours)})
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-right whitespace-nowrap">
+                          <button
+                            onClick={() => router.push(`/matching?profileId=${item.profile_id}`)}
+                            className="px-2.5 py-1 bg-[#1F3B34] text-white text-[11px] font-bold rounded-[2px] inline-flex items-center gap-1 transition-colors duration-120 hover:bg-[#172E29] cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1F3B34]"
+                          >
+                            <Play className="w-2.5 h-2.5 fill-white" />
+                            <span>Run Match</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
-                          <div className="text-[12px] text-[#7D766C] mt-1 flex items-center gap-2 flex-wrap">
-                            <span>{p.age} yrs</span>
-                            <span>•</span>
-                            <span>{p.city}</span>
-                            <span>•</span>
-                            <span className="font-medium text-[#1E2022]">{p.caste}</span>
-                            <span>•</span>
-                            <span>{p.education}</span>
-                          </div>
+        {/* RIGHT: Agent Workload & Stuck Releases (5 Cols) */}
+        <div className="lg:col-span-5 min-w-0 space-y-5">
+          
+          {/* Agent Workload */}
+          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+                Agent Workload
+              </span>
+              <span className="text-[10px] text-[#7D766C] tabular-nums">
+                {workload.length} agents
+              </span>
+            </div>
 
-                          <div className="text-[11px] text-[#7D766C] mt-1">
-                            Requested by <strong>{req.requested_by_agent}</strong>
-                            {req.notes && <span className="italic ml-2 text-[#A49C8F]">"{req.notes}"</span>}
-                          </div>
-                        </div>
+            {workload.length === 0 ? (
+              <div className="py-4 text-center text-xs text-[#7D766C]">
+                No active staff members.
+              </div>
+            ) : (
+              <div className="space-y-2.5 text-xs">
+                {workload.map((agent) => {
+                  const badge = getLoadBadge(agent.load);
+                  const total = agent.active_profiles + agent.drafts;
+                  const maxCap = Math.max(total, 20);
+                  const activeWidth = Math.round((agent.active_profiles / maxCap) * 100);
+                  const draftsWidth = Math.round((agent.drafts / maxCap) * 100);
 
-                        {/* Action Buttons — Redirect to Original Working Page */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isPending && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push('/requests');
-                              }}
-                              className="px-4 py-2 rounded-full bg-[#1F3B34] hover:bg-[#172E29] text-white text-[11.5px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                            >
-                              <Play className="w-3 h-3 fill-white" />
-                              <span>Run Match on Board</span>
-                            </button>
-                          )}
+                  return (
+                    <div key={agent.id} className="p-2 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[#1E2022] truncate max-w-[150px]" title={agent.full_name}>
+                          {agent.full_name}
+                        </span>
+                        <span className={`px-1.5 py-0.2 border text-[9px] font-bold rounded-[2px] ${badge.bg} ${badge.text} ${badge.border}`}>
+                          {badge.label}
+                        </span>
+                      </div>
 
-                          {isInReview && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push('/requests');
-                              }}
-                              className="px-4 py-2 rounded-full bg-[#2F3E51] hover:bg-[#233040] text-white text-[11.5px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                            >
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>Review & Release</span>
-                            </button>
-                          )}
-                        </div>
+                      {/* Horizontal stacked bar */}
+                      <div className="w-full bg-[#E9E4DC] h-2 flex rounded-none overflow-hidden">
+                        <div
+                          className="bg-[#1F3B34] h-full"
+                          style={{ width: `${activeWidth}%` }}
+                          title={`Active: ${agent.active_profiles}`}
+                        />
+                        <div
+                          className="bg-[#C86A4A] h-full"
+                          style={{ width: `${draftsWidth}%` }}
+                          title={`Drafts: ${agent.drafts}`}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10.5px] text-[#7D766C] tabular-nums">
+                        <span>{agent.active_profiles} active, {agent.drafts} drafts</span>
+                        <span className="font-bold text-[#1E2022]">{agent.open_requests} open reqs</span>
                       </div>
                     </div>
                   );
                 })}
-
-                {/* ─── PAGINATION BAR (5-7 Limit as requested) ─── */}
-                {filteredRequests.length > 0 && (
-                  <div className="pt-3 border-t border-[#F0EBE2] flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px]">
-                    
-                    {/* Counter & Limit Selector */}
-                    <div className="flex items-center gap-3 text-[#7D766C]">
-                      <span>
-                        Showing <strong className="text-[#1E2022]">{startIndex + 1}</strong>–<strong className="text-[#1E2022]">{Math.min(startIndex + pageSize, filteredRequests.length)}</strong> of <strong className="text-[#1E2022]">{filteredRequests.length}</strong>
-                      </span>
-                      
-                      <div className="h-3.5 w-px bg-[#E9E4DC]" />
-
-                      <div className="flex items-center gap-1.5 text-[11px]">
-                        <span>Per page:</span>
-                        {[5, 7].map((size) => (
-                          <button
-                            key={size}
-                            onClick={() => {
-                              setPageSize(size);
-                              setCurrentPage(1);
-                            }}
-                            className={`px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
-                              pageSize === size
-                                ? 'bg-[#1F3B34] text-white shadow-xs'
-                                : 'bg-[#FAF8F5] text-[#7D766C] hover:text-[#1F3B34] border border-[#E9E4DC]'
-                            }`}
-                          >
-                            {size}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Pagination Nav Buttons */}
-                    {totalPages > 1 && (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                          disabled={currentPage === 1}
-                          className="p-1.5 rounded-full border border-[#E9E4DC] hover:bg-[#FAF8F5] text-[#1E2022] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                          title="Previous page"
-                        >
-                          <ChevronLeft className="w-3.5 h-3.5" />
-                        </button>
-
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                            <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
-                              className={`w-7 h-7 rounded-full text-[11.5px] font-bold transition-all cursor-pointer ${
-                                currentPage === page
-                                ? 'bg-[#1F3B34] text-white shadow-xs'
-                                : 'text-[#7D766C] hover:bg-[#FAF8F5] hover:text-[#1E2022]'
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          ))}
-                        </div>
-
-                        <button
-                          onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                          disabled={currentPage === totalPages}
-                          className="p-1.5 rounded-full border border-[#E9E4DC] hover:bg-[#FAF8F5] text-[#1E2022] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                          title="Next page"
-                        >
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-
-                  </div>
-                )}
-
               </div>
             )}
-
           </div>
 
-          {/* ─── CARD 2: STAFF OPERATIONS & REPORTING (Staff reporting to Manager) ─── */}
-          <div className="bg-white rounded-[24px] p-6 border border-[#E9E4DC] shadow-xs space-y-4">
-            
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F0EBE2] pb-4">
-              <div>
-                <h2 className="text-[16px] font-bold text-[#1F3B34] tracking-tight">
-                  Team Operations & Queues
-                </h2>
-                <p className="text-[12px] text-[#7D766C] mt-0.5">
-                  Review response times, pending queues and staff activity
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#FAF8F5] border border-[#E9E4DC] text-[#1F3B34]">
-                  Staff Members ({staffWorkload.length})
-                </span>
-                <Link
-                  href="/directory"
-                  className="hidden sm:inline-flex items-center gap-1 text-[11.5px] font-bold text-[#1F3B34] hover:underline"
-                >
-                  <span>Directory</span>
-                  <ExternalLink className="w-3 h-3" />
-                </Link>
-              </div>
+          {/* Stuck Releases */}
+          <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+                Stuck Releases (&gt;7 Days)
+              </span>
+              <span className="text-[10px] text-[#7D766C] tabular-nums">
+                {stuckReleases.length} stuck
+              </span>
             </div>
 
-            {/* STAFF REPORTING TABLE */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-[12.5px]">
-                <thead>
-                  <tr className="border-b border-[#F0EBE2] text-[10.5px] font-bold text-[#7D766C] uppercase tracking-wider">
-                    <th className="py-3 px-3">Staff</th>
-                    <th className="py-3 px-3">Assigned Clients</th>
-                    <th className="py-3 px-3">Drafts</th>
-                    <th className="py-3 px-3 text-right">Requests Submitted</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F0EBE2]">
-                  {paginatedStaff.map((agent) => (
-                    <tr
-                      key={agent.id}
-                      onClick={() => router.push('/directory')}
-                      className="hover:bg-[#FAF8F5] transition-colors cursor-pointer"
-                    >
-                      <td className="py-3.5 px-3">
-                        <div className="font-bold text-[#1E2022]">{agent.name}</div>
-                        <div className="text-[10.5px] text-[#7D766C]">{agent.email}</div>
-                      </td>
-
-                      <td className="py-3.5 px-3 font-semibold text-[#1E2022]">
-                        {agent.currently_owned}
-                      </td>
-
-                      <td className="py-3.5 px-3">
-                        {agent.stuck_in_draft > 0 ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-[#FEF3C7] text-[#8B6122]">
-                            {agent.stuck_in_draft} Drafts
-                          </span>
-                        ) : (
-                          <span className="text-[11px] font-medium text-[#166534]">0</span>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-3 text-right font-medium text-[#7D766C]">
-                        {agent.requests_submitted}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* ─── PAGINATION BAR FOR STAFF (5-7 Limit) ─── */}
-            {staffWorkload.length > staffPageSize && (
-              <div className="pt-3 border-t border-[#F0EBE2] flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px]">
-                
-                {/* Counter & Limit Selector */}
-                <div className="flex items-center gap-3 text-[#7D766C]">
-                  <span>
-                    Showing <strong className="text-[#1E2022]">{staffStartIndex + 1}</strong>–<strong className="text-[#1E2022]">{Math.min(staffStartIndex + staffPageSize, staffWorkload.length)}</strong> of <strong className="text-[#1E2022]">{staffWorkload.length}</strong>
-                  </span>
-                  
-                  <div className="h-3.5 w-px bg-[#E9E4DC]" />
-
-                  <div className="flex items-center gap-1.5 text-[11px]">
-                    <span>Per page:</span>
-                    {[5, 7].map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => {
-                          setStaffPageSize(size);
-                          setStaffPage(1);
-                        }}
-                        className={`px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
-                          staffPageSize === size
-                            ? 'bg-[#1F3B34] text-white shadow-xs'
-                            : 'bg-[#FAF8F5] text-[#7D766C] hover:text-[#1F3B34] border border-[#E9E4DC]'
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Pagination Nav Buttons */}
-                {totalStaffPages > 1 && (
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setStaffPage((p) => Math.max(p - 1, 1))}
-                      disabled={staffPage === 1}
-                      className="p-1.5 rounded-full border border-[#E9E4DC] hover:bg-[#FAF8F5] text-[#1E2022] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                      title="Previous page"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalStaffPages }, (_, i) => i + 1).map((page) => (
-                        <button
-                          key={page}
-                          onClick={() => setStaffPage(page)}
-                          className={`w-7 h-7 rounded-full text-[11.5px] font-bold transition-all cursor-pointer ${
-                            staffPage === page
-                            ? 'bg-[#1F3B34] text-white shadow-xs'
-                            : 'text-[#7D766C] hover:bg-[#FAF8F5] hover:text-[#1E2022]'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
+            {stuckReleases.length === 0 ? (
+              <div className="py-4 text-center text-xs text-[#7D766C]">
+                No stuck releases. All dossiers downloaded on time.
+              </div>
+            ) : (
+              <div className="divide-y divide-[#E9E4DC] text-xs">
+                {stuckReleases.map((s) => (
+                  <div key={s.release_id} className="py-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-[#1E2022] truncate max-w-[160px]" title={`${s.candidate_name || 'Candidate'} for ${s.source_name || 'Client'}`}>
+                        {s.candidate_name || 'Candidate'} for {s.source_name || 'Client'}
+                      </div>
+                      <div className="text-[10px] text-[#7D766C]">
+                        Agent: {s.agent_name || 'Staff'}
+                      </div>
                     </div>
-
-                    <button
-                      onClick={() => setStaffPage((p) => Math.min(p + 1, totalStaffPages))}
-                      disabled={staffPage === totalStaffPages}
-                      className="p-1.5 rounded-full border border-[#E9E4DC] hover:bg-[#FAF8F5] text-[#1E2022] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                      title="Next page"
-                    >
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
+                    <span className="px-1.5 py-0.5 border border-[#FCA5A5] bg-[#FEE2E2] text-[#DC2626] text-[10px] font-bold rounded-[2px] shrink-0 tabular-nums">
+                      {s.days_waiting}d waiting
+                    </span>
                   </div>
-                )}
-
+                ))}
               </div>
             )}
-
           </div>
 
         </div>
 
-        {/* ─── RIGHT COLUMN: Operations Desk & Recent Declines (4 Cols) ─── */}
-        <div className="xl:col-span-4 space-y-7">
-          
-          {/* Manager Operations Quick Desk */}
-          <div className="bg-white rounded-[24px] p-5 border border-[#E9E4DC] shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-[#F0EBE2] pb-3">
-              <div>
-                <h3 className="text-[14px] font-bold text-[#1F3B34]">
-                  Manager Workflows
-                </h3>
-                <p className="text-[11px] text-[#7D766C]">
-                  Quick navigation across matching operations
-                </p>
-              </div>
+      </div>
 
-              <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-[#FAF8F5] border border-[#E9E4DC] text-[#7D766C]">
-                Desk
-              </span>
-            </div>
-
-            <div className="space-y-2.5">
-              <Link
-                href="/requests"
-                className="p-3 rounded-[16px] bg-[#FAF8F5] border border-[#E9E4DC] hover:border-[#1F3B34]/30 hover:bg-[#F3EFEA] flex items-center justify-between transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white border border-[#E9E4DC] flex items-center justify-center text-[#1F3B34] group-hover:scale-105 transition-transform">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-[12.5px] text-[#1E2022]">
-                      Matching Requests Board
-                    </div>
-                    <div className="text-[11px] text-[#7D766C]">
-                      Run matches & approve releases
-                    </div>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#8B6122] text-[10.5px] font-bold">
-                  {stats.pendingRequests} Pending
-                </span>
-              </Link>
-
-              <Link
-                href="/directory"
-                className="p-3 rounded-[16px] bg-[#FAF8F5] border border-[#E9E4DC] hover:border-[#1F3B34]/30 hover:bg-[#F3EFEA] flex items-center justify-between transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white border border-[#E9E4DC] flex items-center justify-center text-[#2F3E51] group-hover:scale-105 transition-transform">
-                    <FolderKanban className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-[12.5px] text-[#1E2022]">
-                      Candidate Directory
-                    </div>
-                    <div className="text-[11px] text-[#7D766C]">
-                      Search & filter candidate pool
-                    </div>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-[#7D766C] group-hover:text-[#1F3B34] group-hover:translate-x-0.5 transition-all" />
-              </Link>
-
-              <Link
-                href="/add-profile"
-                className="p-3 rounded-[16px] bg-[#FAF8F5] border border-[#E9E4DC] hover:border-[#1F3B34]/30 hover:bg-[#F3EFEA] flex items-center justify-between transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white border border-[#E9E4DC] flex items-center justify-center text-[#166534] group-hover:scale-105 transition-transform">
-                    <UserPlus className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-[12.5px] text-[#1E2022]">
-                      Register New Profile
-                    </div>
-                    <div className="text-[11px] text-[#7D766C]">
-                      Add new client to repository
-                    </div>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-[#7D766C] group-hover:text-[#1F3B34] group-hover:translate-x-0.5 transition-all" />
-              </Link>
-            </div>
+      {/* ════════════════════════════════════════════════════════════════
+          BOTTOM: 4-COLUMN ROW OF EQUAL MODULES
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* Module 1: Hot Candidates */}
+        <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3 min-w-0">
+          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+              Hot Candidates
+            </span>
+            <Flame className="w-3.5 h-3.5 text-[#C86A4A]" />
           </div>
 
-          {/* Recent Family Declines (Dummy/Fallback as feedback is not implemented in DB yet) */}
-          <div className="bg-white rounded-[24px] p-5 border border-[#E9E4DC] shadow-xs space-y-4">
-            <div className="border-b border-[#F0EBE2] pb-3">
-              <h3 className="text-[14px] font-bold text-[#1F3B34]">
-                Recent Family Feedback
-              </h3>
-              <p className="text-[11px] text-[#7D766C]">
-                Feedback reported by families with immediate next suggestions:
-              </p>
+          {hotCandidates.length === 0 ? (
+            <div className="py-4 text-center text-xs text-[#7D766C]">
+              No high-frequency candidates.
             </div>
-
-            <div className="space-y-3">
-              {mockSmartRejectionFeed.map((rej) => (
-                <div
-                  key={rej.id}
-                  className="p-3.5 rounded-[16px] bg-[#FAF8F5] border border-[#E9E4DC] space-y-2 text-[12px]"
-                >
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-semibold text-[#991B1B]">{rej.rejection_reason_en}</span>
-                    <span className="text-[#A49C8F]">{rej.time_relative}</span>
-                  </div>
-
-                  <div className="text-[12px] font-bold text-[#1E2022]">
-                    {rej.male_name.split(' (')[0]} & {rej.female_name.split(' (')[0]}
-                  </div>
-
-                  <p className="text-[11px] text-[#7D766C] italic">
-                    "{rej.agent_notes}"
-                  </p>
-
-                  <div className="pt-1.5 border-t border-[#EAE2D5] flex items-center justify-between">
-                    <span className="text-[11px] text-[#1F3B34] font-medium truncate max-w-[170px]">
-                      Next: {rej.suggested_candidate_name}
-                    </span>
-                    <button
-                      onClick={() => router.push('/requests')}
-                      className="px-2.5 py-1 rounded-full bg-[#1F3B34] hover:bg-[#172E29] text-white text-[10.5px] font-bold transition-all cursor-pointer"
-                    >
-                      Open Board
-                    </button>
-                  </div>
+          ) : (
+            <div className="space-y-2 text-xs">
+              {hotCandidates.map((h) => (
+                <div key={h.candidate_profile_id} className="p-2 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] flex items-center justify-between gap-1">
+                  <span className="font-semibold text-[#1E2022] truncate max-w-[120px]" title={h.candidate_name || 'Candidate'}>
+                    {h.candidate_name || 'Candidate'}
+                  </span>
+                  <span className="px-1.5 py-0.5 border border-[#FCD34D] bg-[#FEF3C7] text-[#92400E] text-[10px] font-bold rounded-[2px] shrink-0 tabular-nums">
+                    in {h.requests_count} reqs
+                  </span>
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* Module 2: Score Quality */}
+        <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3 min-w-0">
+          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+              Score Quality
+            </span>
+            <span className="text-xs font-bold text-[#1F3B34] tabular-nums">
+              {scoreQuality.avg !== null ? `${scoreQuality.avg}% avg` : '—'}
+            </span>
           </div>
 
+          {totalScores === 0 ? (
+            <div className="py-4 text-center text-xs text-[#7D766C]">
+              No runs in period.
+            </div>
+          ) : (
+            <div className="space-y-2.5 text-xs">
+              {/* Single segmented bar */}
+              <div className="w-full bg-[#E9E4DC] h-2.5 flex rounded-none overflow-hidden">
+                <div className="bg-[#166534] h-full" style={{ width: `${excellentPct}%` }} title={`Excellent: ${scoreQuality.excellent}`} />
+                <div className="bg-[#D97706] h-full" style={{ width: `${goodPct}%` }} title={`Good: ${scoreQuality.good}`} />
+                <div className="bg-[#C86A4A] h-full" style={{ width: `${borderlinePct}%` }} title={`Borderline: ${scoreQuality.borderline}`} />
+              </div>
+
+              <div className="space-y-1 text-[11px] tabular-nums">
+                <div className="flex justify-between">
+                  <span className="text-[#166534] font-semibold">Excellent (85+)</span>
+                  <strong>{scoreQuality.excellent}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#D97706] font-semibold">Good (70-84)</span>
+                  <strong>{scoreQuality.good}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#C86A4A] font-semibold">Borderline (&lt;70)</span>
+                  <strong>{scoreQuality.borderline}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Module 3: Low-Match Desk */}
+        <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3 min-w-0">
+          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+              Low-Match Desk
+            </span>
+            <span className="text-[10px] text-[#7D766C] tabular-nums">
+              {lowMatch.length}
+            </span>
+          </div>
+
+          {lowMatch.length === 0 ? (
+            <div className="py-4 text-center text-xs text-[#7D766C]">
+              No low-match bottlenecks.
+            </div>
+          ) : (
+            <div className="space-y-2 text-xs">
+              {lowMatch.map((l) => (
+                <div
+                  key={l.profile_id}
+                  onClick={() => router.push(`/matching?profileId=${l.profile_id}`)}
+                  className="p-2 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] flex items-center justify-between gap-1 cursor-pointer hover:bg-white transition-colors duration-120"
+                >
+                  <div className="min-w-0 truncate" title={l.full_name || 'Client'}>
+                    <div className="font-bold text-[#1E2022] truncate">{l.full_name || 'Client'}</div>
+                    <div className="text-[10px] text-[#7D766C]">{formatKarachiDate(l.executed_at, { day: '2-digit', month: 'short' })}</div>
+                  </div>
+                  <span className="px-1.5 py-0.5 border border-[#E9E4DC] bg-white text-[10px] font-bold text-[#C86A4A] rounded-[2px] shrink-0 tabular-nums">
+                    {l.candidates} found
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Module 4: Orphaned Profiles (Red outline when count > 0) */}
+        <div
+          className={`bg-white rounded-[2px] p-4 space-y-3 min-w-0 border ${
+            orphaned.count > 0 ? 'border-[#DC2626]' : 'border-[#E9E4DC]'
+          }`}
+        >
+          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+              Orphaned Profiles
+            </span>
+            <span
+              className={`px-1.5 py-0.5 border text-[10px] font-bold rounded-[2px] tabular-nums ${
+                orphaned.count > 0
+                  ? 'bg-[#FEE2E2] text-[#DC2626] border-[#FCA5A5]'
+                  : 'bg-[#FAF8F5] text-[#7D766C] border-[#E9E4DC]'
+              }`}
+            >
+              {orphaned.count}
+            </span>
+          </div>
+
+          {orphaned.count === 0 ? (
+            <div className="py-4 text-center text-xs text-[#7D766C]">
+              All profiles assigned to active staff.
+            </div>
+          ) : (
+            <div className="space-y-1.5 text-xs">
+              {orphaned.items.map((o) => (
+                <div
+                  key={o.id}
+                  onClick={() => router.push('/directory')}
+                  className="p-1.5 border border-[#E9E4DC] bg-[#FAF8F5] rounded-[2px] truncate font-semibold text-[#1E2022] cursor-pointer hover:bg-white transition-colors duration-120"
+                  title={o.full_name || 'Profile'}
+                >
+                  {o.full_name || 'Profile'}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════
+          LAST ROW: 2 COLUMNS (RECENT RELEASES & FAMILY FEEDBACK)
+      ════════════════════════════════════════════════════════════════ */}
+      <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-5">
+        
+        {/* Recent Releases */}
+        <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3 min-w-0">
+          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+              Recent Releases
+            </span>
+            <Link href="/requests" className="text-[10px] font-bold text-[#1F3B34] hover:underline">
+              Board
+            </Link>
+          </div>
+
+          {recentReleases.length === 0 ? (
+            <div className="py-6 text-center text-xs text-[#7D766C]">
+              No release history in selected period.
+            </div>
+          ) : (
+            <div className="divide-y divide-[#E9E4DC] text-xs">
+              {recentReleases.map((r) => (
+                <div key={r.release_id} className="py-2.5 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-[#1E2022] truncate max-w-[240px]">
+                      {r.candidate_name || 'Candidate'} for {r.source_name || 'Client'}
+                    </div>
+                    <div className="text-[10px] text-[#7D766C]">
+                      Agent: {r.agent_name || 'Staff'}
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-[#7D766C] tabular-nums shrink-0 whitespace-nowrap">
+                    {formatKarachiDate(r.released_at, { day: '2-digit', month: 'short' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Family Feedback + Top Rejection Reasons */}
+        <div className="border border-[#E9E4DC] bg-white rounded-[2px] p-4 space-y-3 min-w-0">
+          <div className="flex items-center justify-between pb-2 border-b border-[#E9E4DC]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1F3B34]">
+              Family Feedback Telemetry
+            </span>
+          </div>
+
+          {(!feedback || !feedback.tracking_active) ? (
+            <div className="p-6 border border-[#E9E4DC] bg-[#FAF8F5] text-center text-xs text-[#7D766C] rounded-[2px]">
+              Not tracked yet
+            </div>
+          ) : (
+            <div className="space-y-3 text-xs">
+              {feedback.top_reasons?.map((tr) => (
+                <div key={tr.reason} className="flex justify-between border-b border-[#E9E4DC] pb-1.5">
+                  <span className="text-[#4E473D]">{tr.reason}</span>
+                  <strong className="text-[#1E2022] tabular-nums">{tr.n}</strong>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
