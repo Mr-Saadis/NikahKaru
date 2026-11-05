@@ -1,5 +1,6 @@
 'use client';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import RequestsBoard from '@/components/requests/RequestsBoard';
 import { AGENT_COLUMNS } from '@/components/requests/constants';
@@ -8,16 +9,38 @@ import { markRequestAsRead } from '@/lib/actions/requests';
 
 // ============================================================
 // /agent-requests — Agent Request Operations board
-// Protected: AGENT only (or accessible to managers too)
+// Protected: AGENT only
 // ============================================================
 
 export default function AgentRequestsPage() {
-  const { role, isLoading } = useAuth();
+  const router = useRouter();
+  const { role, isLoading, isInitialized } = useAuth();
 
-  if (isLoading) {
+  const isAgent = role === 'AGENT';
+
+  useEffect(() => {
+    if (isInitialized && !isAgent) {
+      router.replace(role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN' ? '/requests' : '/overview');
+    }
+  }, [isInitialized, isAgent, role, router]);
+
+  if (isLoading || !isInitialized) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-[#8d8c86] text-sm">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAgent) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="text-lg font-bold text-[#1F1E1B] mb-2">Access Denied</div>
+          <div className="text-[#8d8c86] text-sm">
+            This workspace is dedicated to Agents only.
+          </div>
+        </div>
       </div>
     );
   }

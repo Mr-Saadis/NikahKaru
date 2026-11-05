@@ -53,10 +53,31 @@ const FAMILY_REVERSE_MAP: Record<string, string> = {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+
+    // 1. Authenticate user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // 2. Role verification: MANAGER or HIGH_LEVEL_ADMIN only
+    const { data: userRoleData } = await supabase
+      .from('user_roles')
+      .select('role:roles(name)')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    // @ts-expect-error - nested role typing
+    const roleName = userRoleData?.role?.name?.toUpperCase();
+    if (roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
+      return NextResponse.json({ error: 'Forbidden: Manager or Admin privileges required to access directory' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
 
-    // Parse params
-    const search = searchParams.get('search')?.trim() || '';
+    // Parse & sanitize search param (strip PostgREST filter delimiters)
+    const rawSearch = searchParams.get('search')?.trim() || '';
+    const search = rawSearch.replace(/[,()"\\]/g, '').trim();
     const gender = searchParams.get('gender')?.split(',').filter(Boolean) || [];
     const maritalStatus = searchParams.get('maritalStatus')?.split(',').filter(Boolean) || [];
     const minAge = searchParams.get('minAge');

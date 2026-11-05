@@ -10,10 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 export default function AdminSettings() {
-  const { user: authUser, role: authRole } = useAuth();
+  const router = useRouter();
+  const { user: authUser, role: authRole, isLoading: authLoading, isInitialized } = useAuth();
   
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,9 +35,40 @@ export default function AdminSettings() {
   const [toggleConfirmText, setToggleConfirmText] = useState('');
   const [isToggling, setIsToggling] = useState(false);
 
+  const isAuthorized = authRole === 'HIGH_LEVEL_ADMIN';
+
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (isInitialized && !isAuthorized) {
+      router.replace('/overview');
+    }
+  }, [isInitialized, isAuthorized, router]);
+
+  useEffect(() => {
+    if (isAuthorized) {
+      fetchUsers();
+    }
+  }, [isAuthorized]);
+
+  if (authLoading || !isInitialized) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="text-sm font-medium text-[#7D766C]">Loading administration panel...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="text-center">
+          <div className="text-lg font-bold text-[#1F1E1B] mb-2">Access Denied</div>
+          <div className="text-[#8d8c86] text-sm">
+            You need Administrator privileges to access this page.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const showNotification = (message: string, type: 'success' | 'error') => {
     setNotification({ message, type });

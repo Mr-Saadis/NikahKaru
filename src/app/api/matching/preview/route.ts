@@ -30,9 +30,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Role check: use role provided from client's session store (0 extra DB queries).
-    // If not provided, default to AGENT to strictly prevent any data leakage.
-    const isManagerOrAdmin = userRole === 'MANAGER' || userRole === 'HIGH_LEVEL_ADMIN';
+    // Server-side verified role check to strictly prevent candidate data leakage
+    const { data: userRoleData } = await supabase
+      .from('user_roles')
+      .select('role:roles(name)')
+      .eq('user_id', userData.user.id)
+      .maybeSingle();
+
+    // @ts-expect-error - nested role typing
+    const verifiedRole = userRoleData?.role?.name?.toUpperCase();
+    const isManagerOrAdmin = verifiedRole === 'MANAGER' || verifiedRole === 'HIGH_LEVEL_ADMIN' || verifiedRole === 'DEVELOPER';
 
     // Run preview matching on server side using admin client (evaluates traits safely without exposing them)
     const adminSupabase = createAdminClient();

@@ -14,15 +14,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Fetch User Role
-    let userRole = requestedRole;
-    if (!userRole) {
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('roles(name)')
-        .eq('user_id', user.id)
-        .single();
-      userRole = (roleData?.roles as any)?.name || 'AGENT';
+    // 2. Fetch Verified User Role from Database
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('roles(name)')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const actualRole = ((roleData?.roles as any)?.name)?.toUpperCase() || 'AGENT';
+
+    // Strictly enforce role boundaries: users cannot escalate privileges via ?role= query param
+    let userRole = actualRole;
+    if (requestedRole) {
+      const reqUpper = requestedRole.toUpperCase();
+      if (actualRole === 'HIGH_LEVEL_ADMIN' || (actualRole === 'MANAGER' && reqUpper === 'AGENT')) {
+        userRole = reqUpper;
+      }
     }
 
     // =========================================================================

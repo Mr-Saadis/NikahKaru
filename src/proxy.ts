@@ -15,8 +15,13 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll() {
-          // Handled by updateSession
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
         },
       },
     }
@@ -24,27 +29,50 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const isLoginRoute = request.nextUrl.pathname.startsWith('/login');
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api');
-  
-  // If user visits root '/', redirect them based on auth status
-  if (request.nextUrl.pathname === '/') {
-    if (user) {
-      return NextResponse.redirect(new URL('/overview', request.url));
+  const pathname = request.nextUrl.pathname;
+  const isLoginRoute = pathname.startsWith('/login');
+  const isApiRoute = pathname.startsWith('/api');
+
+  // Helper to preserve updated session cookies during redirects
+  const createRedirect = (targetPath: string) => {
+    const url = request.nextUrl.clone();
+    if (targetPath.startsWith('/')) {
+      url.pathname = targetPath;
+      url.search = '';
     } else {
-      return NextResponse.redirect(new URL('/login', request.url));
+      const parsed = new URL(targetPath, request.url);
+      url.pathname = parsed.pathname;
+      url.search = parsed.search;
+    }
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    return redirectResponse;
+  };
+
+  // 3. If user visits root '/', redirect them based on auth status
+  if (pathname === '/') {
+    if (user) {
+      return createRedirect('/overview');
+    } else {
+      return createRedirect('/login');
     }
   }
 
-  // Protect all private routes (if NOT logged in, and NOT on login/api route -> redirect to login)
+  // 4. Protect all private routes (if NOT logged in, and NOT on login/api route -> redirect to login)
   if (!user && !isLoginRoute && !isApiRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirectTo', pathname);
+    return createRedirect(loginUrl.toString());
   }
 
-  // Protect Role Based Access Control Routes
-  const pathname = request.nextUrl.pathname;
+  // 5. If already logged in and tries to access /login -> redirect to /overview
+  if (user && isLoginRoute) {
+    return createRedirect('/overview');
+  }
+
+  // 6. Protect Role Based Access Control Routes
   const isAdminRoute = pathname.startsWith('/admin');
   const isProfilesRoute = pathname.startsWith('/profiles');
   const isDirectoryRoute = pathname.startsWith('/directory');
@@ -67,38 +95,27 @@ export async function proxy(request: NextRequest) {
       .single();
 
     // @ts-expect-error - Supabase nested relation typing
-    const roleName = userRoleData?.role?.name;
-    
+    const roleName = userRoleData?.role?.name?.toUpperCase() || '';
+
+    // Admin-only route protection
     if (isAdminRoute && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
-      const url = request.nextUrl.clone();
-      url.pathname = '/overview';
-      return NextResponse.redirect(url);
+      return createRedirect('/overview');
     }
 
+    // Profiles page is for AGENT only (Manager & Admin use Directory)
     if (isProfilesRoute && (roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN')) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/overview';
-      return NextResponse.redirect(url);
+      return createRedirect('/overview');
     }
 
+    // Directory & Requests page are for MANAGER and ADMIN only (block AGENT)
     if ((isDirectoryRoute || isRequestsRoute) && roleName === 'AGENT') {
-      const url = request.nextUrl.clone();
-      url.pathname = '/overview';
-      return NextResponse.redirect(url);
+      return createRedirect('/overview');
     }
 
+    // My Requests board is for AGENT only (block MANAGER and ADMIN)
     if (isAgentRequestsRoute && (roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN')) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/overview';
-      return NextResponse.redirect(url);
+      return createRedirect('/overview');
     }
-  }
-
-  // If already logged in and tries to access /login -> redirect to /overview
-  if (user && isLoginRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/overview';
-    return NextResponse.redirect(url);
   }
 
   return response;

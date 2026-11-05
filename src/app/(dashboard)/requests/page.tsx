@@ -1,5 +1,6 @@
 'use client';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import RequestsBoard from '@/components/requests/RequestsBoard';
 import { COLUMNS } from '@/components/requests/constants';
@@ -11,9 +12,17 @@ import { fetchBoardRequests, fetchColumnRequests, fetchAgentNames, markRequestAs
 // ============================================================
 
 export default function RequestsPage() {
-  const { role, isLoading } = useAuth();
+  const router = useRouter();
+  const { role, isLoading, isInitialized } = useAuth();
+  const isAuthorized = role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN';
 
-  if (isLoading) {
+  useEffect(() => {
+    if (isInitialized && !isAuthorized) {
+      router.replace(role === 'AGENT' ? '/agent-requests' : '/overview');
+    }
+  }, [isInitialized, isAuthorized, role, router]);
+
+  if (isLoading || !isInitialized) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-[#8d8c86] text-sm">Loading...</div>
@@ -21,7 +30,7 @@ export default function RequestsPage() {
     );
   }
 
-  if (role !== 'MANAGER' && role !== 'HIGH_LEVEL_ADMIN') {
+  if (!isAuthorized) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">

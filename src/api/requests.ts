@@ -5,16 +5,23 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { RequestItem, RequestStatus, FilterState } from '@/components/requests/types';
 
+function sanitizePostgrestParam(val: string): string {
+  return (val || '').replace(/[,()"\\]/g, '').trim();
+}
+
 export async function fetchBoardRequests(filters: FilterState): Promise<RequestItem[]> {
   const supabase = await createClient();
 
   // Query official manager requests board view
   let query = supabase.from('vw_manager_requests_board').select('*');
 
-  // Database-Level Filtering
+  // Database-Level Filtering with input sanitization
   if (filters.search) {
-    const q = `%${filters.search}%`;
-    query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+    const cleanSearch = sanitizePostgrestParam(filters.search);
+    if (cleanSearch) {
+      const q = `%${cleanSearch}%`;
+      query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+    }
   }
   if (filters.dateFrom) {
     query = query.gte('request_date', filters.dateFrom);
@@ -23,7 +30,10 @@ export async function fetchBoardRequests(filters: FilterState): Promise<RequestI
     query = query.lte('request_date', filters.dateTo);
   }
   if (filters.staff) {
-    query = query.or(`current_agent_name.eq."${filters.staff}",created_by_name.eq."${filters.staff}"`);
+    const cleanStaff = sanitizePostgrestParam(filters.staff);
+    if (cleanStaff) {
+      query = query.or(`current_agent_name.eq."${cleanStaff}",created_by_name.eq."${cleanStaff}"`);
+    }
   }
 
   query = query.order('request_date', { ascending: false }).limit(200);
@@ -86,12 +96,20 @@ export async function fetchColumnRequests(
       .eq('request_status', 'completed_outside');
 
     if (filters.search) {
-      const q = `%${filters.search}%`;
-      query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+      const cleanSearch = sanitizePostgrestParam(filters.search);
+      if (cleanSearch) {
+        const q = `%${cleanSearch}%`;
+        query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+      }
     }
     if (filters.dateFrom) query = query.gte('request_date', filters.dateFrom);
     if (filters.dateTo) query = query.lte('request_date', filters.dateTo);
-    if (filters.staff) query = query.or(`current_agent_name.eq."${filters.staff}",created_by_name.eq."${filters.staff}"`);
+    if (filters.staff) {
+      const cleanStaff = sanitizePostgrestParam(filters.staff);
+      if (cleanStaff) {
+        query = query.or(`current_agent_name.eq."${cleanStaff}",created_by_name.eq."${cleanStaff}"`);
+      }
+    }
 
     query = query.order('request_date', { ascending: false }).range(offset, offset + limit - 1);
     const { data: viewData } = await query;
@@ -129,8 +147,11 @@ export async function fetchColumnRequests(
 
     let profQuery = supabase.from('vw_profile_core').select('*').in('profile_id', profIds);
     if (filters.search) {
-      const q = `%${filters.search}%`;
-      profQuery = profQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+      const cleanSearch = sanitizePostgrestParam(filters.search);
+      if (cleanSearch) {
+        const q = `%${cleanSearch}%`;
+        profQuery = profQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+      }
     }
     const { data: profs } = await profQuery;
     const profMap = new Map((profs || []).map((p: any) => [p.profile_id, p]));
@@ -161,8 +182,11 @@ export async function fetchColumnRequests(
 
   // Database-Level Filtering
   if (filters.search) {
-    const q = `%${filters.search}%`;
-    query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+    const cleanSearch = sanitizePostgrestParam(filters.search);
+    if (cleanSearch) {
+      const q = `%${cleanSearch}%`;
+      query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+    }
   }
   if (filters.dateFrom) {
     query = query.gte('request_date', filters.dateFrom);
@@ -171,7 +195,10 @@ export async function fetchColumnRequests(
     query = query.lte('request_date', filters.dateTo);
   }
   if (filters.staff) {
-    query = query.or(`current_agent_name.eq."${filters.staff}",created_by_name.eq."${filters.staff}"`);
+    const cleanStaff = sanitizePostgrestParam(filters.staff);
+    if (cleanStaff) {
+      query = query.or(`current_agent_name.eq."${cleanStaff}",created_by_name.eq."${cleanStaff}"`);
+    }
   }
 
   // Pagination & Sorting

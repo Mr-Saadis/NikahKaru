@@ -57,16 +57,38 @@ export class ProfileService {
   }
 
   /**
-   * UPLOAD PROFILE PICTURE
+   * UPLOAD PROFILE PICTURE (with validation & sanitization)
    */
   static async uploadProfilePicture(profileId: string, file: File): Promise<string> {
     const supabase = createClient();
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${profileId}-${Math.random()}.${fileExt}`;
+
+    // 1. Validate file size (max 5MB)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error('Image size exceeds 5MB limit. Please upload a smaller image.');
+    }
+
+    // 2. Validate MIME type
+    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (!ALLOWED_MIME_TYPES.includes(file.type.toLowerCase())) {
+      throw new Error('Invalid file type. Only JPG, PNG, and WebP images are allowed.');
+    }
+
+    // 3. Validate and sanitize file extension
+    const rawExt = file.name.split('.').pop()?.toLowerCase() || '';
+    const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+    const fileExt = ALLOWED_EXTENSIONS.includes(rawExt) ? rawExt : 'jpg';
+
+    // 4. Generate collision-resistant secure filename
+    const uniqueSuffix = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+    const fileName = `${profileId}-${uniqueSuffix}.${fileExt}`;
     
     const { error: uploadError } = await supabase.storage
       .from('Profile_Picture')
-      .upload(fileName, file);
+      .upload(fileName, file, {
+        contentType: file.type,
+        upsert: true,
+      });
 
     if (uploadError) throw uploadError;
 

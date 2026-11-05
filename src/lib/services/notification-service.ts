@@ -41,7 +41,10 @@ export const notificationService = {
     }
 
     if (filters?.searchQuery) {
-      query = query.or(`title.ilike.%${filters.searchQuery}%,message.ilike.%${filters.searchQuery}%`);
+      const cleanSearch = filters.searchQuery.replace(/[,()"\\]/g, '').trim();
+      if (cleanSearch) {
+        query = query.or(`title.ilike.%${cleanSearch}%,message.ilike.%${cleanSearch}%`);
+      }
     }
 
     query = query.order('created_at', { ascending: false });
@@ -99,7 +102,10 @@ export const notificationService = {
     }
 
     if (filters?.searchQuery) {
-      query = query.or(`title.ilike.%${filters.searchQuery}%,message.ilike.%${filters.searchQuery}%`);
+      const cleanSearch = filters.searchQuery.replace(/[,()"\\]/g, '').trim();
+      if (cleanSearch) {
+        query = query.or(`title.ilike.%${cleanSearch}%,message.ilike.%${cleanSearch}%`);
+      }
     }
 
     query = query.order('created_at', { ascending: false });

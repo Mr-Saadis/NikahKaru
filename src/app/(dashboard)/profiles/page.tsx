@@ -290,11 +290,17 @@ export default function ProfilesListPage() {
   const router = useRouter();
 
   // Role check: Only AGENT can access Profiles page
+  const isAgent = role === 'AGENT';
+
   useEffect(() => {
-    if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) {
+    if (isInitialized && !isAgent) {
       router.replace('/overview');
     }
-  }, [isInitialized, role, router]);
+  }, [isInitialized, isAgent, router]);
+
+  if (isInitialized && !isAgent) {
+    return null;
+  }
 
   // ── State ─────────────────────────────────────────────────────
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);

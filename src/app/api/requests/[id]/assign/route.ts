@@ -15,6 +15,19 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Role check: Only MANAGER or HIGH_LEVEL_ADMIN can reassign requests
+    const { data: userRoleData } = await supabase
+      .from('user_roles')
+      .select('role:roles(name)')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    // @ts-expect-error - nested role typing
+    const roleName = userRoleData?.role?.name?.toUpperCase();
+    if (roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
+      return NextResponse.json({ error: 'Forbidden: Only managers can assign requests' }, { status: 403 });
+    }
+
     const { assigneeId, notes = '' } = await request.json();
     if (!assigneeId) {
       return NextResponse.json({ error: 'Assignee ID is required' }, { status: 400 });

@@ -16,6 +16,19 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Role check: Only MANAGER or HIGH_LEVEL_ADMIN can approve information releases
+    const { data: userRoleData } = await supabase
+      .from('user_roles')
+      .select('role:roles(name)')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    // @ts-expect-error - nested role typing
+    const roleName = userRoleData?.role?.name?.toUpperCase();
+    if (roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
+      return NextResponse.json({ error: 'Forbidden: Only managers can approve information releases' }, { status: 403 });
+    }
+
     const { releasesData } = await request.json();
     if (!releasesData || !Array.isArray(releasesData)) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });

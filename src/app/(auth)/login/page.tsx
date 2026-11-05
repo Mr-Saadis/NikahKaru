@@ -11,7 +11,12 @@ import Link from 'next/link';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/overview';
+  const rawRedirectTo = searchParams.get('redirectTo') || '/overview';
+  // Sanitize redirectTo to prevent open redirect vulnerabilities
+  const redirectTo =
+    rawRedirectTo.startsWith('/') && !rawRedirectTo.startsWith('//') && !rawRedirectTo.includes('\\')
+      ? rawRedirectTo
+      : '/overview';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,10 +28,18 @@ function LoginForm() {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+
+    const sanitizedEmail = email.trim().toLowerCase();
+    if (!sanitizedEmail) {
+      setError('Please enter a valid email address.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const supabase = createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
+        email: sanitizedEmail,
         password,
       });
 
