@@ -129,6 +129,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
         </label>
         <textarea
           rows={3}
+          maxLength={1500}
           value={data.other_lifestyle_information}
           onChange={(e) => set('other_lifestyle_information', e.target.value)}
           placeholder="Any other relevant lifestyle details..."

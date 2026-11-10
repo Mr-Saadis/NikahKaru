@@ -7,13 +7,17 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const searchParams = request.nextUrl.searchParams;
     
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20'); // Using 20 as default
+    const rawPage = parseInt(searchParams.get('page') || '1', 10);
+    const page = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
+
+    const rawLimit = parseInt(searchParams.get('limit') || '20', 10);
+    const limit = isNaN(rawLimit) || rawLimit < 1 ? 20 : Math.min(rawLimit, 100); // Enforce max 100 ceiling
     const offset = (page - 1) * limit;
     
     const status = searchParams.get('status');
     const gender = searchParams.get('gender');
-    const search = searchParams.get('search');
+    const rawSearch = searchParams.get('search')?.trim() || '';
+    const search = rawSearch.replace(/[,()"\\]/g, '').trim();
     const cityId = searchParams.get('cityId');
     const minAge = searchParams.get('minAge');
     const maxAge = searchParams.get('maxAge');
@@ -63,18 +67,27 @@ export async function GET(request: NextRequest) {
     }
     
     if (cityId) {
-      query = query.eq('current_city_id', parseInt(cityId));
+      const parsedCityId = parseInt(cityId, 10);
+      if (!isNaN(parsedCityId)) {
+        query = query.eq('current_city_id', parsedCityId);
+      }
     }
     
     if (minAge) {
-      const minDate = new Date();
-      minDate.setFullYear(minDate.getFullYear() - parseInt(minAge));
-      query = query.lte('date_of_birth', minDate.toISOString());
+      const parsedMinAge = parseInt(minAge, 10);
+      if (!isNaN(parsedMinAge) && parsedMinAge >= 0 && parsedMinAge <= 120) {
+        const minDate = new Date();
+        minDate.setFullYear(minDate.getFullYear() - parsedMinAge);
+        query = query.lte('date_of_birth', minDate.toISOString());
+      }
     }
     if (maxAge) {
-      const maxDate = new Date();
-      maxDate.setFullYear(maxDate.getFullYear() - parseInt(maxAge) - 1);
-      query = query.gte('date_of_birth', maxDate.toISOString());
+      const parsedMaxAge = parseInt(maxAge, 10);
+      if (!isNaN(parsedMaxAge) && parsedMaxAge >= 0 && parsedMaxAge <= 120) {
+        const maxDate = new Date();
+        maxDate.setFullYear(maxDate.getFullYear() - parsedMaxAge - 1);
+        query = query.gte('date_of_birth', maxDate.toISOString());
+      }
     }
 
     query = query.order('created_at', { ascending: false }).range(offset, offset + limit - 1);

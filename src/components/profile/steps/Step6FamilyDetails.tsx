@@ -144,12 +144,12 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Full Name {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
-                <input type="text" value={parent.full_name} onChange={(e) => {
+                <input type="text" maxLength={100} value={parent.full_name} onChange={(e) => {
                   if (/^[A-Za-z\s]*$/.test(e.target.value)) updateParent(idx, { full_name: e.target.value });
                 }} placeholder="Name" className={inputClass} /></div>
 
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
-                <input type="text" value={parent.profession} onChange={(e) => updateParent(idx, { profession: e.target.value })} placeholder="e.g. Retired" className={inputClass} /></div>
+                <input type="text" maxLength={100} value={parent.profession} onChange={(e) => updateParent(idx, { profession: e.target.value })} placeholder="e.g. Retired" className={inputClass} /></div>
 
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Country</label>
                 <SearchableSelect
@@ -221,11 +221,11 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                   className=""
                 /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Name</label>
-                <input type="text" value={sib.full_name} onChange={(e) => {
+                <input type="text" maxLength={100} value={sib.full_name} onChange={(e) => {
                   if (/^[A-Za-z\s]*$/.test(e.target.value)) updateSibling(idx, { full_name: e.target.value });
                 }} placeholder="Name (opt.)" className={inputClass} /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Age</label>
-                <input type="text" value={sib.age} onChange={(e) => {
+                <input type="text" maxLength={3} value={sib.age} onChange={(e) => {
                   if (e.target.value === '' || /^\d+$/.test(e.target.value)) updateSibling(idx, { age: e.target.value });
                 }} placeholder="Age" className={inputClass} /></div>
 
@@ -238,9 +238,9 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
                   className=""
                 /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession</label>
-                <input type="text" value={sib.profession} onChange={(e) => updateSibling(idx, { profession: e.target.value })} placeholder="e.g. Doctor" className={inputClass} /></div>
+                <input type="text" maxLength={100} value={sib.profession} onChange={(e) => updateSibling(idx, { profession: e.target.value })} placeholder="e.g. Doctor" className={inputClass} /></div>
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Education</label>
-                <input type="text" value={sib.education} onChange={(e) => updateSibling(idx, { education: e.target.value })} placeholder="e.g. B.Sc" className={inputClass} /></div>
+                <input type="text" maxLength={100} value={sib.education} onChange={(e) => updateSibling(idx, { education: e.target.value })} placeholder="e.g. B.Sc" className={inputClass} /></div>
 
               <div className="sm:col-span-2 md:col-span-3"><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Country</label>
                 <SearchableSelect
@@ -260,11 +260,11 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
         <h4 className="text-[13px] font-bold text-[#232326]">Family Background</h4>
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">Family Profession / Business</label>
-          <input type="text" value={data.family_profession_business} onChange={(e) => set('family_profession_business', e.target.value)} placeholder="e.g. Business family — textile" className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none" />
+          <input type="text" maxLength={250} value={data.family_profession_business} onChange={(e) => set('family_profession_business', e.target.value)} placeholder="e.g. Business family — textile" className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none" />
         </div>
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">Social Background</label>
-          <textarea rows={2} value={data.social_background} onChange={(e) => set('social_background', e.target.value)} placeholder="Social class, reputation, community standing..." className={textareaClass} />
+          <textarea rows={2} maxLength={1500} value={data.social_background} onChange={(e) => set('social_background', e.target.value)} placeholder="Social class, reputation, community standing..." className={textareaClass} />
         </div>
       </section>
     </div>

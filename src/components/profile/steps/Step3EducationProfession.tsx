@@ -124,6 +124,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Field of Study</label>
                 <input
                   type="text"
+                  maxLength={150}
                   value={edu.field_of_study ?? ''}
                   onChange={(e) => updateEdu(idx, { field_of_study: e.target.value })}
                   placeholder="e.g. Computer Science, Medicine, Commerce"
@@ -134,6 +135,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Additional Details</label>
                 <input
                   type="text"
+                  maxLength={1000}
                   value={edu.details ?? ''}
                   onChange={(e) => updateEdu(idx, { details: e.target.value })}
                   placeholder="Grades, honors, or other info..."
@@ -214,6 +216,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Job Title</label>
                 <input
                   type="text"
+                  maxLength={150}
                   value={emp.job_title ?? ''}
                   onChange={(e) => updateEmp(idx, { job_title: e.target.value })}
                   placeholder="e.g. Software Engineer"
@@ -224,6 +227,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Additional Details</label>
                 <input
                   type="text"
+                  maxLength={1000}
                   value={emp.details ?? ''}
                   onChange={(e) => updateEmp(idx, { details: e.target.value })}
                   placeholder="Key responsibilities, achievements..."

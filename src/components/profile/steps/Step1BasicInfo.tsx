@@ -89,6 +89,28 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
     }
   };
 
+  const handleCNICChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 13);
+    let formatted = digits;
+    if (digits.length > 5 && digits.length <= 12) {
+      formatted = `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    } else if (digits.length > 12) {
+      formatted = `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+    }
+    set('cnic', formatted);
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value;
+    let cleaned = raw.replace(/[^0-9+\s-]/g, '');
+    if (cleaned.startsWith('+')) {
+      cleaned = '+' + cleaned.slice(1).replace(/\+/g, '');
+    } else {
+      cleaned = cleaned.replace(/\+/g, '');
+    }
+    set('phone', cleaned.slice(0, 20));
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -161,6 +183,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
           <input
             type="text"
             value={data.full_name}
+            maxLength={100}
             onChange={(e) => {
               if (/^[A-Za-z\s]*$/.test(e.target.value)) set('full_name', e.target.value);
             }}
@@ -179,7 +202,8 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
           <input
             type="text"
             value={data.cnic || ''}
-            onChange={(e) => set('cnic', e.target.value)}
+            maxLength={15}
+            onChange={handleCNICChange}
             placeholder="00000-0000000-0"
             className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
           />
@@ -191,7 +215,8 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
           <input
             type="tel"
             value={data.phone || ''}
-            onChange={(e) => set('phone', e.target.value)}
+            maxLength={20}
+            onChange={handlePhoneChange}
             placeholder="+92 300 0000000"
             className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
           />

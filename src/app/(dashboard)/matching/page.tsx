@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import { Search, Loader2, UserPlus, ChevronDown, ChevronUp, User } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -10,6 +11,25 @@ import ProfileDataView from '@/components/matching/ProfileDataView';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
 export default function MatchingPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace('/overview');
+  }, [router]);
+
+  return (
+    <div className="flex items-center justify-center h-full min-h-[400px]">
+      <div className="text-center">
+        <div className="text-lg font-bold text-[#1F1E1B] mb-2">Access Restricted</div>
+        <div className="text-[#8d8c86] text-sm">
+          Matching is only accessible via the dedicated profile and request workflows. Redirecting to overview...
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DisabledMatchingPage() {
   const { role } = useAuthStore();
   const [profiles, setProfiles] = useState<any[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<any | null>(null);

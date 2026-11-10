@@ -74,8 +74,11 @@ export default function AddProfileForm() {
 
 
 
-  // Helper to get profile-specific localStorage key
-  const getLocalStorageKey = (pid: string | null) => `nikahkaro_draft_${pid || 'new'}`;
+  // Helper to get user-scoped & profile-specific localStorage key to prevent leakage on shared machines
+  const getLocalStorageKey = (pid: string | null) => {
+    const userScope = user?.id ? `${user.id}_` : '';
+    return `nikahkaro_draft_${userScope}${pid || 'new'}`;
+  };
 
   const initialStepParam = searchParams.get('step');
   const initialStepNum = initialStepParam
@@ -1530,9 +1533,11 @@ export default function AddProfileForm() {
         }
       }
 
-      // Clear local storage drafts (both profile-specific and 'new' keys)
+      // Clear local storage drafts (both user-scoped and legacy keys)
       localStorage.removeItem(getLocalStorageKey(pid));
       localStorage.removeItem(getLocalStorageKey(null));
+      localStorage.removeItem(`nikahkaro_draft_${pid}`);
+      localStorage.removeItem('nikahkaro_draft_new');
 
       // Role-based redirect after saving:
       // If AGENT -> redirect to /profiles with this profile open

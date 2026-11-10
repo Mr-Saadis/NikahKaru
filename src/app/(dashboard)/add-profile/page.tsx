@@ -8,7 +8,26 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { Suspense } from 'react';
 
 export default function AddProfilePage() {
-  const { isInitialized } = useAuth();
+  const { user, isInitialized, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isInitialized && !user) {
+      router.replace('/login');
+    }
+  }, [isInitialized, user, router]);
+
+  if (isLoading || !isInitialized) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="text-sm font-medium text-[#7D766C]">Loading profile form...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <>
