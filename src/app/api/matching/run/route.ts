@@ -37,16 +37,21 @@ export async function POST(req: NextRequest) {
       .eq('user_id', userData.user.id)
       .maybeSingle();
     
-    const roleName = (roleData?.roles as any)?.name;
-    if (roleName === 'AGENT') {
-      return NextResponse.json({ error: 'Agents cannot run official matches' }, { status: 403 });
+    const roleName = ((roleData?.roles as any)?.name || '')?.toUpperCase();
+    if (roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
+      return NextResponse.json({ error: 'Forbidden: Only managers and administrators can run official matches' }, { status: 403 });
     }
+
+    // Sanitize candidateLimit (min 1, max 50)
+    const safeLimit = candidateLimit !== undefined && candidateLimit !== null
+      ? Math.min(Math.max(Number(candidateLimit) || 10, 1), 50)
+      : undefined;
 
     // Manager Official Run: Persist to DB, optionally limit
     const results = await runMatching(supabase, sourceProfileId, {
       persist: true,
       executedBy: userData.user.id,
-      limit: candidateLimit,
+      limit: safeLimit,
     });
 
     return NextResponse.json({

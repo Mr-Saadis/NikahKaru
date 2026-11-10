@@ -54,7 +54,7 @@ export const navItems = [
   { label: 'Directory', href: '/directory', icon: BookUser, roles: ['MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'directory' },
   { label: 'Profiles', href: '/profiles', icon: Users, roles: ['AGENT'], id: 'profiles' },
   { label: 'Add Profile', href: '/add-profile', icon: UserPlus, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'add-new' },
-  { label: 'Matching', href: '/matching', icon: HeartHandshake, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'matching' },
+  // { label: 'Matching', href: '/matching', icon: HeartHandshake, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'matching' },
   { label: 'Requests', href: '/requests', icon: ClipboardList, roles: ['MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'requests' },
   { label: 'My Requests', href: '/agent-requests', icon: ClipboardList, roles: ['AGENT'], id: 'agent-requests' },
   { label: 'Notifications', href: '/notifications', icon: Bell, roles: ['AGENT', 'MANAGER', 'HIGH_LEVEL_ADMIN'], id: 'notifications' },

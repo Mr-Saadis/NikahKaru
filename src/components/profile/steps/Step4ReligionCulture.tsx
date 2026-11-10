@@ -88,6 +88,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
             </label>
             <input
               type="text"
+              maxLength={100}
               value={data.other_caste_text}
               onChange={(e) => set('other_caste_text', e.target.value)}
               placeholder="Enter caste name"

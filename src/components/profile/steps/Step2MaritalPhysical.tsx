@@ -227,6 +227,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
             </label>
             <textarea
               value={data.disability_details}
+              maxLength={1000}
               onChange={(e) => set('disability_details', e.target.value)}
               rows={3}
               placeholder="Describe the disability or health condition..."

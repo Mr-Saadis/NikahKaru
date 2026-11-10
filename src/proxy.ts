@@ -51,7 +51,7 @@ export async function proxy(request: NextRequest) {
     return redirectResponse;
   };
 
-  // 3. If user visits root '/', redirect them based on auth status
+  // 3. Root '/' route redirect
   if (pathname === '/') {
     if (user) {
       return createRedirect('/overview');
@@ -78,42 +78,44 @@ export async function proxy(request: NextRequest) {
   const isDirectoryRoute = pathname.startsWith('/directory');
   const isRequestsRoute = pathname.startsWith('/requests');
   const isAgentRequestsRoute = pathname.startsWith('/agent-requests');
+  const isMatchingRoute = pathname.startsWith('/matching');
 
   const needsRoleCheck =
     isAdminRoute ||
     isProfilesRoute ||
     isDirectoryRoute ||
     isRequestsRoute ||
-    isAgentRequestsRoute;
+    isAgentRequestsRoute ||
+    isMatchingRoute;
 
   if (user && needsRoleCheck) {
-    // Fetch user role
+    // Fetch user role using maybeSingle to safely handle unassigned states
     const { data: userRoleData } = await supabase
       .from('user_roles')
       .select('role:roles(name)')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     // @ts-expect-error - Supabase nested relation typing
     const roleName = userRoleData?.role?.name?.toUpperCase() || '';
 
-    // Admin-only route protection
+    // Admin-only route protection (Fail-Closed)
     if (isAdminRoute && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
       return createRedirect('/overview');
     }
 
-    // Profiles page is for AGENT only (Manager & Admin use Directory)
-    if (isProfilesRoute && (roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN')) {
+    // Profiles & My Requests board are for AGENT only (Fail-Closed: block Manager, Admin, or unassigned)
+    if ((isProfilesRoute || isAgentRequestsRoute) && roleName !== 'AGENT') {
       return createRedirect('/overview');
     }
 
-    // Directory & Requests page are for MANAGER and ADMIN only (block AGENT)
-    if ((isDirectoryRoute || isRequestsRoute) && roleName === 'AGENT') {
+    // Directory & Manager Requests page are for MANAGER and ADMIN only (Fail-Closed: block Agent or unassigned)
+    if ((isDirectoryRoute || isRequestsRoute) && roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
       return createRedirect('/overview');
     }
 
-    // My Requests board is for AGENT only (block MANAGER and ADMIN)
-    if (isAgentRequestsRoute && (roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN')) {
+    // Matching page: matching is disabled from direct visits
+    if (isMatchingRoute) {
       return createRedirect('/overview');
     }
   }

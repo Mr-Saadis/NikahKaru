@@ -116,6 +116,7 @@ function LocationRow({
           ) : (
             <input
               type="text"
+              maxLength={100}
               value={cityText || ''}
               onChange={(e) => onCityTextChange?.(e.target.value)}
               placeholder="City name"
@@ -131,6 +132,7 @@ function LocationRow({
         </label>
         <input
           type="text"
+          maxLength={300}
           value={locationText || ''}
           onChange={(e) => onLocationTextChange(e.target.value)}
           placeholder="e.g. DHA Phase 5, Lahore"
@@ -228,6 +230,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
             </label>
             <input
               type="text"
+              maxLength={250}
               value={data.living_with_other_details || ''}
               onChange={(e) => set('living_with_other_details', e.target.value)}
               placeholder="e.g. Living with Uncle"

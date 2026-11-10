@@ -324,6 +324,23 @@ export async function deleteSentProfiles(
   candidateProfileIds: string[]
 ): Promise<{ success: boolean; error?: string; remainingCount?: number }> {
   const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { success: false, error: 'Unauthorized: Authentication required.' };
+  }
+
+  // Verify Manager / Admin role
+  const { data: userRoleData } = await supabase
+    .from('user_roles')
+    .select('role:roles(name)')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  // @ts-expect-error - nested role typing
+  const roleName = userRoleData?.role?.name?.toUpperCase();
+  if (roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
+    return { success: false, error: 'Forbidden: Only managers and administrators can revoke releases.' };
+  }
 
   const { data, error } = await supabase.rpc('revoke_or_delete_information_releases', {
     p_request_id: requestId,
@@ -1075,7 +1092,24 @@ export async function finalizeMarriagePairing(params: {
     }
 
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized: Authentication required.' };
+    }
+
+    // Role check: Only MANAGER or HIGH_LEVEL_ADMIN can finalize marriages
+    const { data: userRoleData } = await supabase
+      .from('user_roles')
+      .select('role:roles(name)')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    // @ts-expect-error - nested role typing
+    const roleName = userRoleData?.role?.name?.toUpperCase();
+    if (roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
+      return { success: false, error: 'Forbidden: Only managers and administrators can finalize marriage pairings.' };
+    }
+
     const adminClient = createAdminClient();
 
     // 1. Identify Hassan's request IDs
@@ -1263,7 +1297,24 @@ export async function finalizeMarriagePairing(params: {
 export async function markRequestAsCompletedOutsideSystem(requestId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized: Authentication required.' };
+    }
+
+    // Role check: Only MANAGER or HIGH_LEVEL_ADMIN can finalize marriages
+    const { data: userRoleData } = await supabase
+      .from('user_roles')
+      .select('role:roles(name)')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    // @ts-expect-error - nested role typing
+    const roleName = userRoleData?.role?.name?.toUpperCase();
+    if (roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN' && roleName !== 'DEVELOPER') {
+      return { success: false, error: 'Forbidden: Only managers and administrators can finalize marriage pairings.' };
+    }
+
     const adminClient = createAdminClient();
 
     // 1. Lookup source profile ID from request

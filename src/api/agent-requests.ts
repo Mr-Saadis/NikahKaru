@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { RequestItem, FilterState } from '@/components/requests/types';
 
+function sanitizePostgrestParam(val: string): string {
+  return (val || '').replace(/[,()"\\]/g, '').trim();
+}
+
 // =======================================================================
 // Fetch all board requests for agent (used on initial load / full sync)
 // =======================================================================
@@ -13,10 +17,13 @@ export async function fetchAgentBoardRequests(filters: FilterState): Promise<Req
   // Query official agent requests board view
   let query = supabase.from('vw_agent_requests_board').select('*');
 
-  // Database-Level Filtering
+  // Database-Level Filtering with input sanitization
   if (filters.search) {
-    const q = `%${filters.search}%`;
-    query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+    const cleanSearch = sanitizePostgrestParam(filters.search);
+    if (cleanSearch) {
+      const q = `%${cleanSearch}%`;
+      query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+    }
   }
   if (filters.dateFrom) {
     query = query.gte('request_date', filters.dateFrom);
@@ -55,8 +62,11 @@ export async function fetchAgentBoardRequests(filters: FilterState): Promise<Req
 
     let profCoreQuery = supabase.from('vw_profile_core').select('*').in('profile_id', missingProfIds);
     if (filters.search) {
-      const q = `%${filters.search}%`;
-      profCoreQuery = profCoreQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+      const cleanSearch = sanitizePostgrestParam(filters.search);
+      if (cleanSearch) {
+        const q = `%${cleanSearch}%`;
+        profCoreQuery = profCoreQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+      }
     }
     const { data: missingProfCore } = await profCoreQuery;
     const coreMap = new Map((missingProfCore || []).map((p: any) => [p.profile_id, p]));
@@ -151,8 +161,11 @@ export async function fetchAgentColumnRequests(
       .eq('request_status', 'downloaded');
 
     if (filters.search) {
-      const q = `%${filters.search}%`;
-      viewQuery = viewQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+      const cleanSearch = sanitizePostgrestParam(filters.search);
+      if (cleanSearch) {
+        const q = `%${cleanSearch}%`;
+        viewQuery = viewQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+      }
     }
     if (filters.dateFrom) {
       viewQuery = viewQuery.gte('request_date', filters.dateFrom);
@@ -217,8 +230,11 @@ export async function fetchAgentColumnRequests(
     if (profIds.length > 0) {
       let profQuery = supabase.from('vw_profile_core').select('*').in('profile_id', profIds);
       if (filters.search) {
-        const q = `%${filters.search}%`;
-        profQuery = profQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+        const cleanSearch = sanitizePostgrestParam(filters.search);
+        if (cleanSearch) {
+          const q = `%${cleanSearch}%`;
+          profQuery = profQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+        }
       }
       const { data: profs } = await profQuery;
       (profs || []).forEach((p: any) => profMap.set(p.profile_id, p));
@@ -251,8 +267,11 @@ export async function fetchAgentColumnRequests(
       .eq('request_status', 'completed_outside');
 
     if (filters.search) {
-      const q = `%${filters.search}%`;
-      viewQuery = viewQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+      const cleanSearch = sanitizePostgrestParam(filters.search);
+      if (cleanSearch) {
+        const q = `%${cleanSearch}%`;
+        viewQuery = viewQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+      }
     }
     if (filters.dateFrom) viewQuery = viewQuery.gte('request_date', filters.dateFrom);
     if (filters.dateTo) viewQuery = viewQuery.lte('request_date', filters.dateTo);
@@ -313,8 +332,11 @@ export async function fetchAgentColumnRequests(
     if (profIds.length > 0) {
       let profQuery = supabase.from('vw_profile_core').select('*').in('profile_id', profIds);
       if (filters.search) {
-        const q = `%${filters.search}%`;
-        profQuery = profQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+        const cleanSearch = sanitizePostgrestParam(filters.search);
+        if (cleanSearch) {
+          const q = `%${cleanSearch}%`;
+          profQuery = profQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+        }
       }
       const { data: profs } = await profQuery;
       (profs || []).forEach((p: any) => profMap.set(p.profile_id, p));
@@ -346,10 +368,13 @@ export async function fetchAgentColumnRequests(
     .select('*')
     .eq('request_status', status);
 
-  // Database-Level Filtering
+  // Database-Level Filtering with input sanitization
   if (filters.search) {
-    const q = `%${filters.search}%`;
-    query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+    const cleanSearch = sanitizePostgrestParam(filters.search);
+    if (cleanSearch) {
+      const q = `%${cleanSearch}%`;
+      query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+    }
   }
   if (filters.dateFrom) {
     query = query.gte('request_date', filters.dateFrom);
