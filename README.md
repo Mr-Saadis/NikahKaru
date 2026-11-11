@@ -45,9 +45,3 @@ To further enhance the accuracy and user experience of NikaahKaro, we are active
 * npm or yarn
 * Supabase project with PostgreSQL database
 
-### Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/yourusername/nikaahkaro.git](https://github.com/yourusername/nikaahkaro.git)
-   cd nikaahkaro
