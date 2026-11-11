@@ -241,7 +241,7 @@ function LoginForm() {
           </div>
 
           <p className="mt-14 text-center text-[12px] text-[#B0A898] tracking-wide">
-            © 2026 NikaahKaro · Developed by 
+            © 2026 NikahKaru · Developed by 
            <Link href="https://www.zscorelabs.com" className="font-semibold text-[#8B7D6E] hover:text-[#C86A4A]">  zscorelabs
 </Link>
           </p>

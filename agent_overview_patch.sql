@@ -1,5 +1,5 @@
 -- ============================================================================
--- NikaahKaro: Agent Overview Drafts Missing Array Patch
+-- NikahKaru: Agent Overview Drafts Missing Array Patch
 -- File: agent_overview_patch.sql
 -- 
 -- Description:

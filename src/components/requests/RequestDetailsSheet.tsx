@@ -1119,7 +1119,7 @@ export default function RequestDetailsSheet({
                                   <ExternalLink size={15} className="text-[#C86A4A]" />
                                   <div>
                                     <div className="font-bold text-[#1F3B34]">Completed Outside System</div>
-                                    <div className="text-[11px] text-[#8B8479] font-normal">Marriage finalized outside NikahKaro</div>
+                                    <div className="text-[11px] text-[#8B8479] font-normal">Marriage finalized outside NikahKaru</div>
                                   </div>
                                 </button>
 
@@ -1177,7 +1177,7 @@ export default function RequestDetailsSheet({
                             <ExternalLink size={15} className="text-[#C86A4A]" />
                             <div>
                               <div className="font-bold text-[#1F3B34]">Completed Outside System</div>
-                              <div className="text-[11px] text-[#8B8479] font-normal">Marriage finalized outside NikahKaro</div>
+                              <div className="text-[11px] text-[#8B8479] font-normal">Marriage finalized outside NikahKaru</div>
                             </div>
                           </button>
 

@@ -26,7 +26,7 @@ export function OverviewCard({
 
   return (
     <div
-      className={`bg-white rounded-2xl border border-[#E9E4DC]/80 shadow-xs p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md flex flex-col min-w-0 ${className}`}
+      className={`bg-white/85 backdrop-blur-md rounded-[26px] border border-[#E9E4DC]/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03),0_1px_4px_rgba(0,0,0,0.02)] p-5 sm:p-6 transition-all duration-200 hover:shadow-[0_8px_30px_-6px_rgba(0,0,0,0.06)] flex flex-col min-w-0 ${className}`}
     >
       {hasHeader && (
         <div className={`flex items-center justify-between gap-3 mb-4 shrink-0 ${headerClassName}`}>

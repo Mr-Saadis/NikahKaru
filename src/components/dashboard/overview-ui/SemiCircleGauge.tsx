@@ -98,7 +98,7 @@ export function SemiCircleGauge({
       </div>
 
       {/* Rounded Legend Box below */}
-      <div className="w-full mt-4 bg-[#FAF8F5] rounded-xl border border-[#E9E4DC]/80 p-3 space-y-2">
+      <div className="w-full mt-4 bg-white/70 backdrop-blur-sm rounded-2xl border border-[#E9E4DC]/80 p-3.5 space-y-2.5 shadow-2xs">
         {segments.map((seg) => (
           <div
             key={seg.id}
@@ -109,29 +109,29 @@ export function SemiCircleGauge({
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: seg.dotColor || seg.color }}
               />
-              <span className="text-[#1E2022] font-medium truncate">{seg.label}</span>
+              <span className="text-[#1E2022] font-semibold truncate text-[12.5px]">{seg.label}</span>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <span className="font-semibold text-[#1E2022] tabular-nums">
+              <span className="font-bold text-[#1E2022] tabular-nums text-sm">
                 {seg.value.toLocaleString()}
               </span>
               {seg.delta && (
                 <span
-                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-semibold tabular-nums ${
+                  className={`inline-flex items-center gap-0.5 text-[11px] font-bold tabular-nums ${
                     seg.delta.isZero
-                      ? 'bg-[#F4EFE7] text-[#7D766C]'
+                      ? 'text-[#7D766C]'
                       : seg.delta.isPositive
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'bg-rose-50 text-rose-700'
+                      ? 'text-[#1F3B34]'
+                      : 'text-[#C86A4A]'
                   }`}
                 >
                   {seg.delta.isZero ? (
-                    <Minus className="w-2 h-2" />
+                    <Minus className="w-2.5 h-2.5" />
                   ) : seg.delta.isPositive ? (
-                    <ArrowUpRight className="w-2 h-2" />
+                    <ArrowUpRight className="w-2.5 h-2.5" />
                   ) : (
-                    <ArrowDownRight className="w-2 h-2" />
+                    <ArrowDownRight className="w-2.5 h-2.5" />
                   )}
                   {seg.delta.text}
                 </span>

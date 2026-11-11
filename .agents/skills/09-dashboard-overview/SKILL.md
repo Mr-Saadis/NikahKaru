@@ -6,7 +6,7 @@ description: Role-based dashboard pages — KPI metrics, match ledger, alignment
 # Dashboard & Overview Pages
 
 ## Overview
-Each role sees a dashboard tailored to their responsibilities. All dashboards follow the warm, premium NikaahKaro design aesthetic.
+Each role sees a dashboard tailored to their responsibilities. All dashboards follow the warm, premium NikahKaru design aesthetic.
 
 ## Role-Based Dashboard Content
 

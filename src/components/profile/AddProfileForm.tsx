@@ -77,7 +77,7 @@ export default function AddProfileForm() {
   // Helper to get user-scoped & profile-specific localStorage key to prevent leakage on shared machines
   const getLocalStorageKey = (pid: string | null) => {
     const userScope = user?.id ? `${user.id}_` : '';
-    return `nikahkaro_draft_${userScope}${pid || 'new'}`;
+    return `nikahkaru_draft_${userScope}${pid || 'new'}`;
   };
 
   const initialStepParam = searchParams.get('step');
@@ -1536,6 +1536,8 @@ export default function AddProfileForm() {
       // Clear local storage drafts (both user-scoped and legacy keys)
       localStorage.removeItem(getLocalStorageKey(pid));
       localStorage.removeItem(getLocalStorageKey(null));
+      localStorage.removeItem(`nikahkaru_draft_${pid}`);
+      localStorage.removeItem('nikahkaru_draft_new');
       localStorage.removeItem(`nikahkaro_draft_${pid}`);
       localStorage.removeItem('nikahkaro_draft_new');
 

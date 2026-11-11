@@ -6,7 +6,7 @@ description: Deterministic rule-based matching engine — hard filters, soft sco
 # Matching Engine
 
 ## Overview
-The matching engine is the core intelligence of NikaahKaro. It's DETERMINISTIC and EXPLAINABLE — no ML in Phase 1. It runs identically for Agent preview and Manager official runs, but differs in persistence.
+The matching engine is the core intelligence of NikahKaru. It's DETERMINISTIC and EXPLAINABLE — no ML in Phase 1. It runs identically for Agent preview and Manager official runs, but differs in persistence.
 
 ## Two Modes
 

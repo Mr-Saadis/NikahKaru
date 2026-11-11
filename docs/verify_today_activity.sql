@@ -1,8 +1,8 @@
 -- ============================================================================
--- NikaahKaro: Independent Verification Script for "Today's Activity"
+-- NikahKaru: Independent Verification Script for "Today's Activity"
 -- File: docs/verify_today_activity.sql
 -- 
--- READ-ONLY verification queries for the 5 Today's Activity metrics.
+-- READ-ONLY verification queries for the 6 Today's Activity metrics.
 -- Compare plain-SQL counts against get_agent_today_activity() RPC output.
 --
 -- Instructions: Run in Supabase SQL editor with authenticated agent role.
@@ -23,15 +23,25 @@ WITH params AS (
 -- ----------------------------------------------------------------------------
 plain_counts AS (
   SELECT
-    -- 1. Profiles added: profiles.created_by = me AND profiles.created_at >= start of today
+    -- 1. Profiles added: Completed / active profiles created today (excluding drafts)
     (
       SELECT count(*) 
       FROM profiles p, params
       WHERE p.created_by = params.agent_id
+        AND p.status::text <> 'DRAFT'
         AND p.created_at >= params.today_start
     ) AS count_profiles_added,
 
-    -- 2. Requests sent (First requests): requested_by = me, created_at today, NO earlier request for same source profile
+    -- 2. Drafts created: Incomplete draft registrations created or worked on today
+    (
+      SELECT count(*) 
+      FROM profiles p, params
+      WHERE p.created_by = params.agent_id
+        AND p.status::text = 'DRAFT'
+        AND (p.created_at >= params.today_start OR p.updated_at >= params.today_start)
+    ) AS count_drafts_created,
+
+    -- 3. Requests sent (First requests): requested_by = me, created_at today, NO earlier request for same source profile
     (
       SELECT count(*)
       FROM information_requests r, params
@@ -45,7 +55,7 @@ plain_counts AS (
         )
     ) AS count_new_requests,
 
-    -- 3. Second requests: requested_by = me, created_at today, earlier request exists for same source profile
+    -- 4. Second requests: requested_by = me, created_at today, earlier request exists for same source profile
     (
       SELECT count(*)
       FROM information_requests r, params
@@ -59,7 +69,7 @@ plain_counts AS (
         )
     ) AS count_second_requests,
 
-    -- 4. Manager responded: my requests with reviewed_at today
+    -- 5. Manager responded: my requests with reviewed_at today
     (
       SELECT count(*)
       FROM information_requests r, params
@@ -76,7 +86,7 @@ plain_counts AS (
       AND r.reviewed_at >= params.today_start
     ) AS count_responded,
 
-    -- 5. Completed: my requests with status COMPLETED / COMPLETED_OUTSIDE_SYSTEM and updated_at today
+    -- 6. Completed: my requests with status COMPLETED / COMPLETED_OUTSIDE_SYSTEM and updated_at today
     (
       SELECT count(*)
       FROM information_requests r, params
@@ -111,7 +121,7 @@ rpc_items AS (
 
 -- ----------------------------------------------------------------------------
 -- SIDE-BY-SIDE VERIFICATION TABLE
--- Prints plain-SQL count vs RPC count for each of the 5 keys
+-- Prints plain-SQL count vs RPC count for each of the 6 keys
 -- ----------------------------------------------------------------------------
 SELECT 
   t.metric_key,
@@ -120,6 +130,8 @@ SELECT
   CASE WHEN t.plain_sql_count = coalesce(r.rpc_count, 0) THEN 'MATCH (PASS)' ELSE 'MISMATCH (FAIL)' END AS status
 FROM (
   SELECT 'profiles_added' AS metric_key, count_profiles_added AS plain_sql_count FROM plain_counts
+  UNION ALL
+  SELECT 'drafts_created', count_drafts_created FROM plain_counts
   UNION ALL
   SELECT 'new_requests', count_new_requests FROM plain_counts
   UNION ALL
@@ -133,9 +145,9 @@ LEFT JOIN rpc_items r ON r.key = t.metric_key
 ORDER BY 
   CASE t.metric_key
     WHEN 'profiles_added' THEN 1
-    WHEN 'new_requests' THEN 2
-    WHEN 'second_requests' THEN 3
-    WHEN 'responded' THEN 4
-    WHEN 'completed' THEN 5
+    WHEN 'drafts_created' THEN 2
+    WHEN 'new_requests' THEN 3
+    WHEN 'second_requests' THEN 4
+    WHEN 'responded' THEN 5
+    WHEN 'completed' THEN 6
   END;
-

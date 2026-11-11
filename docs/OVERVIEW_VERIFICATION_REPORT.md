@@ -1,7 +1,7 @@
 # Overview Verification Report (Phase A)
 
 **Generated:** 2026-10-31  
-**Project:** NikaahKaro CRM & Matchmaking Engine  
+**Project:** NikahKaru CRM & Matchmaking Engine  
 **Audited Components:**  
 - `src/app/api/dashboard/route.ts`  
 - `src/lib/services/dashboard-service.ts`  

@@ -1,5 +1,5 @@
 -- ============================================================================
--- NikaahKaro: Independent SQL Verification Script for Overview Dashboards
+-- NikahKaru: Independent SQL Verification Script for Overview Dashboards
 -- File: docs/verify_overview_data.sql
 -- 
 -- READ-ONLY queries to verify UI metrics and lists against real tables without calling RPCs.

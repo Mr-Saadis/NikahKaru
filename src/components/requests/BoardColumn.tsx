@@ -50,6 +50,8 @@ export default function BoardColumn({
 
   return (
     <div
+      id={`board-column-${column.key}`}
+      data-column-key={column.key}
       style={{
         width: 232,
         flexShrink: 0,

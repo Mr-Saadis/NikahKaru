@@ -231,7 +231,7 @@ export default function AdminOverview() {
             </div>
           }
           actionText="Inspect Queue"
-          actionHref="/release-requests"
+          actionHref="/requests"
         />
       )}
 
@@ -255,7 +255,7 @@ export default function AdminOverview() {
           isAlert={(kpis.overdue_requests || 0) > 0}
           alertColor="red"
           caption={`${kpis.overdue_requests || 0} overdue`}
-          onClick={() => router.push('/release-requests')}
+          onClick={() => router.push('/requests?column=first')}
         />
         <KpiCard
           icon={FileText}
@@ -264,7 +264,7 @@ export default function AdminOverview() {
           value={kpis.requests_in_range ?? 0}
           delta={requestsDelta}
           caption="Submitted in period"
-          onClick={() => router.push('/release-requests')}
+          onClick={() => router.push('/requests')}
         />
         <KpiCard
           icon={Cpu}
@@ -272,7 +272,7 @@ export default function AdminOverview() {
           numericValue={kpis.runs_in_range ?? 0}
           value={kpis.runs_in_range ?? 0}
           caption="Engine executions"
-          onClick={() => router.push('/release-requests')}
+          onClick={() => router.push('/requests')}
         />
         <KpiCard
           icon={Send}
@@ -280,7 +280,7 @@ export default function AdminOverview() {
           numericValue={kpis.releases_in_range ?? 0}
           value={kpis.releases_in_range ?? 0}
           caption="Dossiers released"
-          onClick={() => router.push('/release-requests')}
+          onClick={() => router.push('/requests?column=downloaded')}
         />
         <KpiCard
           icon={CheckCircle}
@@ -288,7 +288,7 @@ export default function AdminOverview() {
           numericValue={kpis.completed_in_range ?? 0}
           value={kpis.completed_in_range ?? 0}
           caption={`Avg: ${formatWaitingHours(kpis.avg_release_hours)}`}
-          onClick={() => router.push('/release-requests')}
+          onClick={() => router.push('/requests?column=done')}
         />
       </div>
 

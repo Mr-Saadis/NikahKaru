@@ -52,7 +52,7 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* ── NikaahKaro Brand Tokens ── */
+  /* ── NikahKaru Brand Tokens ── */
   /* Primary green */
   --brand-primary:      #1F3B34;
   --brand-primary-hover:#172E29;
@@ -229,7 +229,7 @@
 }
 
 /* ─────────────────────────────────────────────
-   Utility classes for NikaahKaro design system
+   Utility classes for NikahKaru design system
 ───────────────────────────────────────────── */
 
 /* Capsule bar chart hover animation */

@@ -219,7 +219,7 @@ export default function AdminSettings() {
                   <label className="text-[11px] font-bold uppercase text-[#A49C8F] tracking-wider">Email Address</label>
                   <div className="relative">
                     <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8A296]" />
-                    <input required type="email" placeholder="ali@nikaahkaro.com" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} className="w-full pl-9 pr-3 py-2.5 text-[13px] text-[#1E2022] font-medium rounded-xl border border-[#E9E4DC] outline-none focus:border-[#1F3B34] focus:ring-1 focus:ring-[#1F3B34]/20 bg-[#FCF9F4]" />
+                    <input required type="email" placeholder="ali@nikahkaru.com" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} className="w-full pl-9 pr-3 py-2.5 text-[13px] text-[#1E2022] font-medium rounded-xl border border-[#E9E4DC] outline-none focus:border-[#1F3B34] focus:ring-1 focus:ring-[#1F3B34]/20 bg-[#FCF9F4]" />
                   </div>
                 </div>
 

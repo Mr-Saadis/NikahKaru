@@ -6,7 +6,7 @@ description: CRITICAL — API call optimization patterns, caching tiers, cache i
 # API Caching Strategy — MANDATORY READING
 
 > [!CAUTION]
-> This is the MOST CRITICAL skill for NikaahKaro. Every developer/agent MUST follow these rules. Duplicate API calls are UNACCEPTABLE.
+> This is the MOST CRITICAL skill for NikahKaru. Every developer/agent MUST follow these rules. Duplicate API calls are UNACCEPTABLE.
 
 ## Core Principle
 ```

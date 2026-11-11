@@ -122,7 +122,12 @@ export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, 
         if (paramReq || paramProf) {
           targetReqId = targetReqId || paramReq;
           targetProfId = targetProfId || paramProf;
-          window.history.replaceState({}, '', pathname);
+          const currentSp = new URLSearchParams(window.location.search);
+          currentSp.delete('requestId');
+          currentSp.delete('selectedId');
+          currentSp.delete('profileId');
+          const remainingQuery = currentSp.toString();
+          window.history.replaceState({}, '', `${pathname}${remainingQuery ? `?${remainingQuery}` : ''}`);
         }
       }
 

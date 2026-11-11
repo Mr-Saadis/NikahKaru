@@ -3,7 +3,7 @@ name: implementation-workflow
 description: Complete Phase 1 implementation order — 6 stages from foundation to deployment. Detailed task breakdown with dependencies, expected files, and acceptance criteria per stage.
 ---
 
-# NikaahKaro Phase 1 — Complete Implementation Workflow
+# NikahKaru Phase 1 — Complete Implementation Workflow
 
 ## Stage Overview
 

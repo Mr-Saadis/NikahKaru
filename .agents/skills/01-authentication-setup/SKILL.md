@@ -6,7 +6,7 @@ description: Supabase Auth setup including login, signup, logout, password reset
 # Authentication & Session Setup
 
 ## Overview
-Set up complete Supabase authentication flow with role-based access control for NikaahKaro CRM.
+Set up complete Supabase authentication flow with role-based access control for NikahKaru CRM.
 
 ## Prerequisites
 - Supabase project configured with Auth enabled

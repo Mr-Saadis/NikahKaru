@@ -1,4 +1,4 @@
-# NikaahKaro CRM — Complete Design System & UI/UX Blueprint
+# NikahKaru CRM — Complete Design System & UI/UX Blueprint
 
 > **یہ file مکمل design reference ہے۔** اگر project delete ہو جائے یا نیا project شروع کرنا ہو، یہ file پڑھ کر بالکل same design, colours, fonts, اور UI/UX recreate کر سکتے ہیں۔
 
@@ -810,7 +810,7 @@ Sidebar:
 
 ---
 
-*Generated from codebase: NikaahKaro CRM*
+*Generated from codebase: NikahKaru CRM*
 *Pages analyzed: overview2, client2, clients2, add-new2, login2*
 *Components: Sidebar2, Header2, KPIMetricsGrid, CandidateMetrics2, AlignmentDistribution2, MatchLedger2, PrimaryCandidate2, EngagementActivity2, HorizontalStepper, ProfileSidebar, ClientsHeader, ClientsFilterBar, ClientsQueueList, ClientsDetailView, ReleaseDesk, RejectionAnalytics, OfficerPerformance*
 *Date: September 2026*

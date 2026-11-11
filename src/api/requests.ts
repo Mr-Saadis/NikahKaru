@@ -672,7 +672,7 @@ function formatAuditAction(log: any): { title: string; description: string } {
   if (action === 'CREATE' && (entityType === 'profile' || entityType === 'profiles')) {
     return {
       title: 'Profile Created',
-      description: 'Profile registered in the NikaahKaro matrimonial system.',
+      description: 'Profile registered in the NikahKaru matrimonial system.',
     };
   }
 

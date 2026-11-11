@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { COLUMNS } from './constants';
 import { useRequestsBoard } from './useRequestsBoard';
 import BoardHeader from './BoardHeader';
@@ -66,6 +67,53 @@ export default function RequestsBoard({ columns, fetchColumnRequests, fetchReque
   const [sheetHeight, setSheetHeight] = useState(0);
 
   const matching = useMatching();
+
+  const searchParams = useSearchParams();
+  const urlColumn = searchParams?.get('column');
+
+  // Scroll to targeted column when navigated with ?column=xxx or target_request_column in sessionStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const targetCol =
+      urlColumn ||
+      new URLSearchParams(window.location.search).get('column') ||
+      sessionStorage.getItem('target_request_column');
+    if (!targetCol) return;
+    sessionStorage.removeItem('target_request_column');
+
+    const scrollToCol = () => {
+      const colEl = document.getElementById(`board-column-${targetCol}`);
+      if (colEl && scrollerRef.current) {
+        const scroller = scrollerRef.current;
+        const colRect = colEl.getBoundingClientRect();
+        const scrollerRect = scroller.getBoundingClientRect();
+        const scrollLeft = scroller.scrollLeft + (colRect.left - scrollerRect.left) - 16;
+
+        scroller.scrollTo({
+          left: Math.max(0, scrollLeft),
+          behavior: 'smooth',
+        });
+
+        // Brief focus glow to highlight the column for the agent
+        colEl.style.transition = 'box-shadow 0.3s ease, border-color 0.3s ease';
+        colEl.style.boxShadow = '0 0 0 3px rgba(31, 59, 52, 0.45)';
+        colEl.style.borderRadius = '16px';
+        setTimeout(() => {
+          colEl.style.boxShadow = 'none';
+        }, 2200);
+      }
+    };
+
+    const t1 = setTimeout(scrollToCol, 150);
+    const t2 = setTimeout(scrollToCol, 450);
+    const t3 = setTimeout(scrollToCol, 850);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [urlColumn]);
 
   const handleSelectCard = useCallback((id: string) => {
     openSheet(id);

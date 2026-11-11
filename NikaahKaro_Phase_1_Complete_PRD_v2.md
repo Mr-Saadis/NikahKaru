@@ -1,4 +1,4 @@
-# NikaahKaro.com --- Phase 1 Complete PRD --- Version 2
+# NikahKaru.com --- Phase 1 Complete PRD --- Version 2
 
 ## CRM + Rule-Based Matrimonial Matching Engine
 
@@ -20,7 +20,7 @@ Database Schema v2\
 
 # 1. Purpose
 
-NikaahKaro is an internal CRM and matrimonial matching system for an
+NikahKaru is an internal CRM and matrimonial matching system for an
 authorized organization. Its purpose is to let Agents collect structured
 matrimonial information, record partner requirements, generate suitable
 candidates, request controlled candidate information from the Manager,
@@ -187,7 +187,7 @@ Free-text may be translated separately while preserving the original.
 
 # 4. Role Model
 
-NikaahKaro Phase 1 has three operational roles. The terminology below is
+NikahKaru Phase 1 has three operational roles. The terminology below is
 final for the product specification.
 
 ## 4.1 High-Level Admin / CU Admin
@@ -3565,7 +3565,7 @@ silently invented inside the application code.
 
 # 67. Conclusion
 
-NikaahKaro Phase 1 is a controlled internal CRM and deterministic
+NikahKaru Phase 1 is a controlled internal CRM and deterministic
 matrimonial matching platform:
 
 ``` text
@@ -3632,7 +3632,7 @@ remain aligned.
 
 # 67. Conclusion
 
-NikaahKaro Phase 1 is best understood as:
+NikahKaru Phase 1 is best understood as:
 
 ``` text
 CRM

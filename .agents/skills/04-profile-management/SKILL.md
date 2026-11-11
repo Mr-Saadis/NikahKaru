@@ -6,7 +6,7 @@ description: Complete profile CRUD — create, read, update, archive profiles. M
 # Profile Management System
 
 ## Overview
-The profile is the central entity of NikaahKaro. Each person has ONE matrimonial profile with 15+ related data sections. Profile creation uses a 9-step wizard form.
+The profile is the central entity of NikahKaru. Each person has ONE matrimonial profile with 15+ related data sections. Profile creation uses a 9-step wizard form.
 
 ## Profile Entity Structure (from Schema v2)
 

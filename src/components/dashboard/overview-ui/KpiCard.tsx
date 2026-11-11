@@ -41,9 +41,9 @@ export function KpiCard({
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-2xl border border-[#E9E4DC]/80 shadow-xs p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between min-w-0 ${
+      className={`bg-white/85 backdrop-blur-md rounded-[26px] border border-[#E9E4DC]/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03),0_1px_4px_rgba(0,0,0,0.02)] p-5 sm:p-6 transition-all duration-200 hover:shadow-[0_8px_30px_-6px_rgba(0,0,0,0.06)] flex flex-col justify-between min-w-0 ${
         isClickable
-          ? 'cursor-pointer hover:border-[#1F3B34]/50 active:scale-98'
+          ? 'cursor-pointer hover:border-[#1F3B34]/40 active:scale-98'
           : ''
       } ${className}`}
     >
@@ -62,31 +62,21 @@ export function KpiCard({
 
         {delta && (
           <div
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular-nums shrink-0 shadow-2xs ${
+            className={`inline-flex items-center gap-1 text-[11.5px] font-bold tabular-nums shrink-0 ${
               delta.isZero
-                ? 'bg-[#F4EFE7] text-[#7D766C]'
+                ? 'text-[#7D766C]'
                 : delta.isPositive
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                : 'bg-rose-50 text-rose-700 border border-rose-100'
+                ? 'text-[#1F3B34]'
+                : 'text-[#C86A4A]'
             }`}
           >
-            <span
-              className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${
-                delta.isZero
-                  ? 'bg-[#E9E4DC] text-[#7D766C]'
-                  : delta.isPositive
-                  ? 'bg-emerald-200/60 text-emerald-800'
-                  : 'bg-rose-200/60 text-rose-800'
-              }`}
-            >
-              {delta.isZero ? (
-                <Minus className="w-2.5 h-2.5" />
-              ) : delta.isPositive ? (
-                <ArrowUpRight className="w-2.5 h-2.5" />
-              ) : (
-                <ArrowDownRight className="w-2.5 h-2.5" />
-              )}
-            </span>
+            {delta.isZero ? (
+              <Minus className="w-3 h-3" />
+            ) : delta.isPositive ? (
+              <ArrowUpRight className="w-3 h-3" />
+            ) : (
+              <ArrowDownRight className="w-3 h-3" />
+            )}
             <span>{delta.text}</span>
           </div>
         )}
@@ -97,8 +87,8 @@ export function KpiCard({
         className={`text-2xl md:text-3xl font-bold tabular-nums tracking-tight mt-3 mb-1 truncate ${
           isAlert
             ? alertColor === 'red'
-              ? 'text-rose-600'
-              : 'text-amber-600'
+              ? 'text-[#C86A4A]'
+              : 'text-[#D4AF37]'
             : 'text-[#1E2022]'
         }`}
       >

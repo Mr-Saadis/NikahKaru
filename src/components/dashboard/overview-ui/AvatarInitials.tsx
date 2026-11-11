@@ -2,7 +2,7 @@ import React from 'react';
 
 interface AvatarInitialsProps {
   name?: string | null;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
@@ -33,7 +33,12 @@ export function AvatarInitials({
   const charCode = (name || '').charCodeAt(0) || 0;
   const palette = palettes[charCode % palettes.length];
 
-  const sizeClasses = size === 'sm' ? 'w-7 h-7 text-[11px]' : 'w-8 h-8 text-xs';
+  const sizeClasses =
+    size === 'sm'
+      ? 'w-7 h-7 text-[11px]'
+      : size === 'lg'
+      ? 'w-11 h-11 text-[13.5px] font-bold shadow-2xs'
+      : 'w-8 h-8 text-xs';
 
   return (
     <div

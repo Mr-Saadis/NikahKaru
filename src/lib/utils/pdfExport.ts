@@ -1,6 +1,6 @@
 /**
  * Utility to generate and trigger print/save as PDF for approved match releases
- * Designed strictly adhering to NikaahKaro Design System:
+ * Designed strictly adhering to NikahKaru Design System:
  * Emerald Green (#064E3B), Warm Neutral background, Plus Jakarta Sans typography.
  */
 
@@ -140,11 +140,11 @@ export async function generateReleasedProfilesPDF(data: {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.setTextColor(6, 78, 59); // Emerald
-    doc.text('Nikaah', marginX, currentY + 6);
-    const nikaahWidth = doc.getTextWidth('Nikaah');
+    doc.text('Nikah', marginX, currentY + 6);
+    const nikahWidth = doc.getTextWidth('Nikah');
 
     doc.setTextColor(200, 106, 74); // Terra cotta
-    doc.text('Karo', marginX + nikaahWidth, currentY + 6);
+    doc.text('Karu', marginX + nikahWidth, currentY + 6);
 
     // Subtitle
     doc.setFont('helvetica', 'normal');
@@ -412,7 +412,7 @@ export async function generateReleasedProfilesPDF(data: {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(141, 140, 134);
-    doc.text('STRICTLY CONFIDENTIAL • Authorized matrimonial snapshot • NikaahKaro CRM', marginX, footerY);
+    doc.text('STRICTLY CONFIDENTIAL • Authorized matrimonial snapshot • NikahKaru CRM', marginX, footerY);
 
     const pageNumText = `Page ${p} of ${totalPages}`;
     const pageNumWidth = doc.getTextWidth(pageNumText);
@@ -421,7 +421,7 @@ export async function generateReleasedProfilesPDF(data: {
 
   // Safe file naming & trigger instant download
   const safeClientName = clientName.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `NikaahKaro_Release_${safeClientName}.pdf`;
+  const filename = `NikahKaru_Release_${safeClientName}.pdf`;
 
   doc.save(filename);
 }
@@ -462,11 +462,11 @@ export async function generateSingleProfilePDF(data: {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.setTextColor(6, 78, 59); // Emerald
-    doc.text('Nikaah', marginX, currentY + 6);
-    const nikaahWidth = doc.getTextWidth('Nikaah');
+    doc.text('Nikah', marginX, currentY + 6);
+    const nikahWidth = doc.getTextWidth('Nikah');
 
     doc.setTextColor(200, 106, 74); // Terra cotta
-    doc.text('Karo', marginX + nikaahWidth, currentY + 6);
+    doc.text('Karu', marginX + nikahWidth, currentY + 6);
 
     // Subtitle
     doc.setFont('helvetica', 'normal');
@@ -657,7 +657,7 @@ export async function generateSingleProfilePDF(data: {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(141, 140, 134);
-    doc.text('STRICTLY CONFIDENTIAL • Client Profile Dossier • NikaahKaro CRM', marginX, footerY);
+    doc.text('STRICTLY CONFIDENTIAL • Client Profile Dossier • NikahKaru CRM', marginX, footerY);
 
     const pageNumText = `Page ${p} of ${totalPages}`;
     const pageNumWidth = doc.getTextWidth(pageNumText);
@@ -665,7 +665,7 @@ export async function generateSingleProfilePDF(data: {
   }
 
   const safeClientName = clientName.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `NikaahKaro_Profile_${safeClientName}.pdf`;
+  const filename = `NikahKaru_Profile_${safeClientName}.pdf`;
 
   doc.save(filename);
 }

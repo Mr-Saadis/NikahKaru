@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // ─── Exported Types as required by STEP 1 ───
 export interface TodayActivityItem {
@@ -10,6 +10,7 @@ export interface TodayActivityItem {
 }
 
 export interface TodayActivity {
+  period?: 'today' | 'yesterday' | 'all';
   day_start: string;
   total: number;
   items: TodayActivityItem[];
@@ -18,6 +19,8 @@ export interface TodayActivity {
 export interface TodayActivityChartProps {
   data?: TodayActivity | null;
   isLoading?: boolean;
+  period?: 'today' | 'yesterday' | 'all';
+  onPeriodChange?: (period: 'today' | 'yesterday' | 'all') => void;
   error?: {
     message: string;
     code?: string;
@@ -27,33 +30,39 @@ export interface TodayActivityChartProps {
   className?: string;
 }
 
-// ─── Flat Brand Green Palette (Darkest → Lightest) ───
+// ─── Flat Brand Palette (Darkest → Lightest) ───
 // Flat solid colours — no gradients (strict rule)
 export const ARC_COLORS = [
-  '#064E3B', // 1st (outermost, largest count): Deep Forest Green
-  '#166534', // 2nd: Forest Green
-  '#15803D', // 3rd: Medium Forest Green
-  '#16A34A', // 4th: Emerald Green
-  '#4ADE80', // 5th (innermost, smallest count): Light Sage Green
+  '#064E3B', // 1st: Deep Forest Green
+  '#0F6D52', // 2nd: Dark Teal Green
+  '#166534', // 3rd: Forest Green
+  '#15803D', // 4th: Medium Forest Green
+  '#C86A4A', // 5th: Brand Terracotta (Downloaded)
+  '#16A34A', // 6th: Emerald Green
+  '#4ADE80', // 7th: Light Sage Green
 ] as const;
 
 export const TRACK_COLOR = '#F3F4F6'; // Flat light grey background track
 export const ZERO_SWATCH_COLOR = '#D1D5DB'; // Muted grey square swatch for 0 count
 
-// ─── 5 Fixed Keys in Order ───
+// ─── 7 Fixed Keys in Order ───
 export const FIXED_ACTIVITY_KEYS = [
   'profiles_added',
+  'drafts_created',
   'new_requests',
   'second_requests',
   'responded',
+  'downloaded',
   'completed',
 ] as const;
 
 export const DEFAULT_ACTIVITY_LABELS: Record<string, string> = {
   profiles_added: 'Profiles added',
+  drafts_created: 'Drafts created',
   new_requests: 'Requests sent',
   second_requests: 'Second requests',
   responded: 'Manager responded',
+  downloaded: 'Dossiers downloaded',
   completed: 'Completed',
 };
 
@@ -111,10 +120,40 @@ function describeArc(cx: number, cy: number, r: number, sweepDeg: number): strin
 export function TodayActivityChart({
   data,
   isLoading = false,
+  period = 'today',
+  onPeriodChange,
   error = null,
   onRetry,
   className = '',
 }: TodayActivityChartProps) {
+  const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number; opacity: number }>({
+    left: 4,
+    width: 62,
+    opacity: 0,
+  });
+  const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  useEffect(() => {
+    const updateIndicator = () => {
+      const currentBtn = buttonRefs.current[period];
+      if (currentBtn) {
+        setIndicatorStyle({
+          left: currentBtn.offsetLeft,
+          width: currentBtn.offsetWidth,
+          opacity: 1,
+        });
+      }
+    };
+
+    updateIndicator();
+    const timer = setTimeout(updateIndicator, 40);
+    window.addEventListener('resize', updateIndicator);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateIndicator);
+    };
+  }, [period]);
+
   // ─── 1. SKELETON STATE (Static flat grey, no shimmer/pulse/gradients) ───
   if (isLoading) {
     return (
@@ -130,7 +169,7 @@ export function TodayActivityChart({
             <div className="w-48 h-48 rounded-full border-8 border-[#E9E4DC] border-t-transparent" />
           </div>
           <div className="w-full max-w-[420px] flex flex-col gap-3 min-w-0">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-8 bg-[#FAF8F5] rounded border border-[#E9E4DC]/60" />
             ))}
           </div>
@@ -147,12 +186,12 @@ export function TodayActivityChart({
       >
         <div className="flex items-center justify-between gap-3 mb-4 shrink-0">
           <h2 className="text-[14px] md:text-[15px] font-semibold text-[#1E2022] tracking-tight">
-            Today&apos;s activity
+            Activity Desk
           </h2>
         </div>
         <div className="flex flex-col items-center justify-center py-10 text-center min-w-0">
           <p className="text-[13px] font-medium text-[#C86A4A] mb-3">
-            {error.message || 'Unable to load today’s activity'}
+            {error.message || 'Unable to load activity'}
           </p>
           {error.details && (
             <p className="text-[11px] text-[#7D766C] mb-3 max-w-md">{error.details}</p>
@@ -176,7 +215,26 @@ export function TodayActivityChart({
   const totalActions = data?.total ?? 0;
   const formattedDate = formatKarachiDateFromDayStart(dayStart);
 
-  // Normalize all 5 items in fixed order
+  let periodTitle = "Today's activity";
+  if (period === 'yesterday') {
+    periodTitle = "Yesterday's activity";
+  } else if (period === 'all') {
+    periodTitle = 'All-Time Activity';
+  }
+
+  let dateDisplay = formattedDate;
+  if (period === 'all') {
+    dateDisplay = 'Overall';
+  }
+
+  const emptyMessage =
+    period === 'yesterday'
+      ? 'No activity recorded yesterday'
+      : period === 'all'
+      ? 'No activity recorded yet'
+      : 'No activity yet today';
+
+  // Normalize all 7 items in fixed order
   const fixedList = FIXED_ACTIVITY_KEYS.map((key, originalIndex) => {
     const found = rawItems.find((it) => it.key === key);
     return {
@@ -210,28 +268,67 @@ export function TodayActivityChart({
   const largestCount = sortedDrawnItems.length > 0 ? sortedDrawnItems[0].count : 0;
   const denominator = Math.max(5, largestCount);
 
-  // SVG Geometry Constants
-  // Center (cx, cy) chosen to leave ample room on the left for right-aligned labels
+  // SVG Geometry Constants (fits up to 7 concentric arcs)
   const svgWidth = 420;
-  const svgHeight = 340;
+  const svgHeight = 350;
   const cx = 225;
-  const cy = 175;
-  const strokeWidth = 14;
-  const gap = 6;
-  const step = strokeWidth + gap; // 20px
-  const baseOuterRadius = 130; // Outermost arc radius
+  const cy = 180;
+  const strokeWidth = 13;
+  const gap = 5;
+  const step = strokeWidth + gap; // 18px
+  const baseOuterRadius = 140;
 
   return (
     <div
       className={`bg-white rounded-2xl border border-[#E9E4DC]/80 shadow-xs p-5 flex flex-col min-w-0 w-full font-sans ${className}`}
     >
-      {/* ─── CARD HEADER ─── */}
-      <div className="flex items-center justify-between gap-3 mb-4 shrink-0">
-        <h2 className="text-[14px] md:text-[15px] font-semibold text-[#1E2022] tracking-tight">
-          Today&apos;s activity
-        </h2>
+      {/* ─── CARD HEADER with 3-Way Toggle ─── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 shrink-0">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h2 className="text-[14px] md:text-[15px] font-semibold text-[#1E2022] tracking-tight">
+            {periodTitle}
+          </h2>
+
+          {/* 3-Way Period Toggle: Today | Yesterday | All with smooth sliding sunken indicator */}
+          {onPeriodChange && (
+            <div className="relative inline-flex items-center p-1 rounded-full bg-[#EFEAE2] border border-[#DDD6C8] shadow-[inset_0_1px_2.5px_rgba(0,0,0,0.06)]">
+              {/* Smooth Gliding Sunken Pill Indicator */}
+              <div
+                className="absolute top-1 bottom-1 rounded-full bg-[#E1DAD0] shadow-[inset_0_2px_4px_rgba(0,0,0,0.14),inset_0_1px_1px_rgba(0,0,0,0.06)] border border-[#C5BAA7] pointer-events-none transition-all duration-300 ease-[cubic-bezier(0.2,0.85,0.25,1)]"
+                style={{
+                  left: `${indicatorStyle.left}px`,
+                  width: `${indicatorStyle.width}px`,
+                  opacity: indicatorStyle.opacity,
+                }}
+              />
+
+              {(['today', 'yesterday', 'all'] as const).map((p) => {
+                const isActive = period === p;
+                const label = p === 'today' ? 'Today' : p === 'yesterday' ? 'Yesterday' : 'All';
+                return (
+                  <button
+                    key={p}
+                    ref={(el) => {
+                      buttonRefs.current[p] = el;
+                    }}
+                    type="button"
+                    onClick={() => onPeriodChange(p)}
+                    className={`relative z-10 px-3.5 py-1 rounded-full text-xs transition-colors duration-200 cursor-pointer select-none ${
+                      isActive
+                        ? 'text-[#1E2022] font-bold'
+                        : 'text-[#8C8477] hover:text-[#1E2022] font-medium'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <div className="text-[13px] text-[#7D766C] shrink-0 font-medium">
-          <span>{formattedDate}</span>
+          <span>{dateDisplay}</span>
           <span className="mx-2 text-[#C4BEB4]">/</span>
           <span className="font-bold text-[#1E2022]">{totalActions} actions</span>
         </div>
@@ -243,14 +340,14 @@ export function TodayActivityChart({
         <div className="w-full max-w-[420px] flex justify-center items-center min-w-0">
           {sortedDrawnItems.length === 0 ? (
             <div className="flex items-center justify-center h-[280px] w-full text-center">
-              <span className="text-[13px] font-medium text-[#7D766C]">No activity yet today</span>
+              <span className="text-[13px] font-medium text-[#7D766C]">{emptyMessage}</span>
             </div>
           ) : (
             <svg
               viewBox={`0 0 ${svgWidth} ${svgHeight}`}
               className="w-full h-auto max-w-[420px] select-none"
               style={{ overflow: 'visible' }}
-              aria-label="Today's Activity Radial Chart"
+              aria-label="Activity Radial Chart"
             >
               {sortedDrawnItems.map((item, idx) => {
                 const r = baseOuterRadius - idx * step;
@@ -287,10 +384,10 @@ export function TodayActivityChart({
                       dominantBaseline="central"
                       className="font-sans"
                     >
-                      <tspan fill="#4E473D" fontSize="11.5" fontWeight="500">
+                      <tspan fill="#4E473D" fontSize="11" fontWeight="500">
                         {item.label}
                       </tspan>
-                      <tspan fill="#1E2022" fontSize="11.5" fontWeight="700">
+                      <tspan fill="#1E2022" fontSize="11" fontWeight="700">
                         {' '}{item.count}
                       </tspan>
                     </text>
@@ -301,7 +398,7 @@ export function TodayActivityChart({
           )}
         </div>
 
-        {/* Right: List of all 5 items in fixed order */}
+        {/* Right: List of all 7 items in fixed order */}
         <div className="w-full max-w-[420px] flex flex-col justify-center min-w-0 divide-y divide-[#F4EFE7]">
           {fixedList.map((item) => {
             const isDrawn = item.count > 0;
@@ -315,7 +412,7 @@ export function TodayActivityChart({
                 className="flex items-center justify-between py-2.5 min-w-0 first:pt-0 last:pb-0"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  {/* Flat colour swatch square (not a circle) */}
+                  {/* Flat colour swatch square */}
                   <div
                     className="w-3 h-3 rounded-[2px] shrink-0"
                     style={{ backgroundColor: swatchColor }}

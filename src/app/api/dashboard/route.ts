@@ -32,13 +32,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const activityPeriod = searchParams.get('activity_period') || 'today';
+
+    // Fast sub-endpoint for toggling activity period without reloading entire desk
+    if (searchParams.get('activity_only') === 'true') {
+      const act = await fetchAgentActivity(supabase, user.id, activityPeriod);
+      return NextResponse.json({
+        activity: act.data,
+        error: act.error ? { message: act.error.message } : null,
+      });
+    }
+
     // =========================================================================
-    // ROLE: AGENT / STAFF -> get_agent_overview() + get_agent_today_activity()
+    // ROLE: AGENT / STAFF -> get_agent_overview() + fetchAgentActivity()
     // =========================================================================
     if (userRole === 'AGENT') {
-      const [overviewRes, todayRes] = await Promise.all([
+      const [overviewRes, actRes] = await Promise.all([
         supabase.rpc('get_agent_overview', {}),
-        supabase.rpc('get_agent_today_activity', {}),
+        fetchAgentActivity(supabase, user.id, activityPeriod),
       ]);
 
       if (overviewRes.error) {
@@ -55,24 +66,10 @@ export async function GET(request: NextRequest) {
         }, { status: 500 });
       }
 
-      let todayActivity = null;
-      let todayActivityError = null;
-
-      if (todayRes.error) {
-        console.error('[API /api/dashboard] get_agent_today_activity RPC error:', {
-          message: todayRes.error.message,
-          code: todayRes.error.code,
-          details: todayRes.error.details,
-          hint: todayRes.error.hint,
-        });
-        todayActivityError = {
-          message: todayRes.error.message,
-          code: todayRes.error.code,
-          details: todayRes.error.details || todayRes.error.hint,
-        };
-      } else {
-        todayActivity = todayRes.data;
-      }
+      let todayActivity = actRes.data;
+      let todayActivityError = actRes.error ? {
+        message: actRes.error.message || 'Failed to load activity',
+      } : null;
 
       return NextResponse.json({
         role: 'AGENT',
@@ -88,9 +85,33 @@ export async function GET(request: NextRequest) {
     if (userRole === 'MANAGER') {
       const pDays = daysParam !== null && daysParam !== undefined ? parseInt(daysParam, 10) : 7;
       const pSlaHours = parseInt(searchParams.get('sla_hours') || '24', 10);
+      const days = isNaN(pDays) ? 7 : pDays;
+
+      // Exact Asia/Karachi (UTC+5) calendar day calculation (no off-by-one day errors)
+      const now = new Date();
+      const pktOffsetMinutes = 5 * 60; // Asia/Karachi UTC+5
+      const nowPkt = new Date(now.getTime() + pktOffsetMinutes * 60 * 1000);
+      const y = nowPkt.getUTCFullYear();
+      const m = nowPkt.getUTCMonth();
+      const d = nowPkt.getUTCDate();
+
+      let sinceIso: string;
+      let prevIso: string | null = null;
+
+      if (days <= 0) {
+        // All time
+        sinceIso = '1970-01-01T00:00:00.000Z';
+      } else {
+        // Exact start of day (00:00:00 PKT) for (days - 1) days ago
+        // E.g. for 7 days: today + prior 6 days = exactly 7 full calendar days
+        const startPkt = new Date(Date.UTC(y, m, d - (days - 1), 0, 0, 0) - pktOffsetMinutes * 60 * 1000);
+        const prevPkt = new Date(Date.UTC(y, m, d - (days * 2 - 1), 0, 0, 0) - pktOffsetMinutes * 60 * 1000);
+        sinceIso = startPkt.toISOString();
+        prevIso = prevPkt.toISOString();
+      }
 
       const { data, error } = await supabase.rpc('get_manager_overview', {
-        p_days: isNaN(pDays) ? 7 : pDays,
+        p_days: days,
         p_sla_hours: isNaN(pSlaHours) ? 24 : pSlaHours,
       });
 
@@ -108,9 +129,187 @@ export async function GET(request: NextRequest) {
         }, { status: 500 });
       }
 
+      const result = { ...data };
+
+      // Ensure Request Pipeline counts accurately respect the selected period
+      try {
+        let pipeQuery = supabase
+          .from('vw_manager_requests_board')
+          .select('request_status');
+
+        if (days > 0) {
+          pipeQuery = pipeQuery.gte('request_date', sinceIso);
+        }
+
+        const { data: pipelineRows } = await pipeQuery;
+        if (pipelineRows) {
+          const pipeMap: Record<string, number> = {};
+          pipelineRows.forEach((row: any) => {
+            pipeMap[row.request_status] = (pipeMap[row.request_status] || 0) + 1;
+          });
+          result.pipeline = pipeMap;
+        }
+      } catch (pipeErr) {
+        console.error('[API /api/dashboard] pipeline range filter error:', pipeErr);
+      }
+
+      // Deduplicate queue so each client profile appears strictly ONCE (no duplicate rows for the same client)
+      if (Array.isArray(result.queue)) {
+        const seenProfiles = new Set<string>();
+        const uniqueQueue: any[] = [];
+        for (const item of result.queue) {
+          const pId = item.profile_id || item.source_profile_id || item.full_name;
+          if (pId && !seenProfiles.has(pId)) {
+            seenProfiles.add(pId);
+            uniqueQueue.push(item);
+          }
+        }
+        result.queue = uniqueQueue;
+
+        // Ensure kpis.pending & overdue strictly mirror the unique pending clients in queue
+        if (result.kpis) {
+          result.kpis.pending = uniqueQueue.length;
+          result.kpis.overdue = uniqueQueue.filter((q: any) => q.sla_state === 'overdue').length;
+          if (uniqueQueue.length > 0) {
+            result.kpis.oldest_waiting_hours = Math.max(...uniqueQueue.map((q: any) => q.waiting_hours || 0));
+          }
+        }
+      }
+
+      // Ensure KPI metrics accurately respect the exact Pakistan calendar day boundaries
+      if (result.kpis) {
+        try {
+          // Completed in range
+          let compQuery = supabase
+            .from('information_requests')
+            .select('*', { count: 'exact', head: true })
+            .in('status', ['COMPLETED', 'COMPLETED_OUTSIDE_SYSTEM']);
+          if (days > 0) compQuery = compQuery.gte('updated_at', sinceIso);
+          const { count: compCount } = await compQuery;
+          if (compCount !== null && compCount !== undefined) {
+            result.kpis.completed_in_range = compCount;
+          }
+
+          // Releases in range
+          let relQuery = supabase
+            .from('information_releases')
+            .select('*', { count: 'exact', head: true })
+            .eq('release_status', 'ACTIVE');
+          if (days > 0) relQuery = relQuery.gte('released_at', sinceIso);
+          const { count: relCount } = await relQuery;
+          if (relCount !== null && relCount !== undefined) {
+            result.kpis.releases_in_range = relCount;
+          }
+
+          // Releases prev range (for trend delta)
+          if (prevIso && days > 0) {
+            const { count: prevRelCount } = await supabase
+              .from('information_releases')
+              .select('*', { count: 'exact', head: true })
+              .eq('release_status', 'ACTIVE')
+              .gte('released_at', prevIso)
+              .lt('released_at', sinceIso);
+            if (prevRelCount !== null && prevRelCount !== undefined) {
+              result.kpis.releases_prev_range = prevRelCount;
+            }
+          } else {
+            result.kpis.releases_prev_range = null;
+          }
+        } catch (kpiErr) {
+          console.error('[API /api/dashboard] kpi range calculation error:', kpiErr);
+        }
+      }
+
+      // Ensure Score Quality accurately reflects top-5 candidates across manager match runs
+      // User specification:
+      // - For all profiles with match runs on manager side, evaluate top candidates up to rank 5 (rank <= 5)
+      // - If a run only has 2 candidates, DO NOT pad the other 3 with 0; ignore them and average only actual matched candidates
+      // - Buckets: >80% Excellent, 65-80% Good, <65% Borderline
+      try {
+        let runsQuery = supabase
+          .from('match_runs')
+          .select('id, source_profile_id, executed_at')
+          .order('executed_at', { ascending: false });
+
+        if (days > 0) {
+          runsQuery = runsQuery.gte('executed_at', sinceIso);
+        }
+
+        let { data: runsData } = await runsQuery;
+
+        // If no runs in the specific days filter, fallback to all-time latest runs so Score Quality is never blank or artificial
+        if (!runsData || runsData.length === 0) {
+          const { data: allRuns } = await supabase
+            .from('match_runs')
+            .select('id, source_profile_id, executed_at')
+            .order('executed_at', { ascending: false });
+          runsData = allRuns || [];
+        }
+
+        if (runsData && runsData.length > 0) {
+          // Latest run per source profile
+          const latestRunMap = new Map<string, string>();
+          for (const r of runsData) {
+            if (!latestRunMap.has(r.source_profile_id)) {
+              latestRunMap.set(r.source_profile_id, r.id);
+            }
+          }
+          const runIds = Array.from(latestRunMap.values());
+
+          const { data: scoreResults } = await supabase
+            .from('match_run_results')
+            .select('final_score, rank')
+            .in('match_run_id', runIds)
+            .lte('rank', 5)
+            .not('final_score', 'is', null);
+
+          if (scoreResults && scoreResults.length > 0) {
+            let exc = 0;
+            let gd = 0;
+            let bord = 0;
+            let sum = 0;
+
+            for (const item of scoreResults) {
+              const sc = Number(item.final_score);
+              sum += sc;
+              if (sc > 80) {
+                exc++;
+              } else if (sc >= 65) {
+                gd++;
+              } else {
+                bord++;
+              }
+            }
+
+            result.score_quality = {
+              excellent: exc,
+              good: gd,
+              borderline: bord,
+              avg: Math.round((sum / scoreResults.length) * 10) / 10,
+            };
+          } else {
+            result.score_quality = {
+              excellent: 0,
+              good: 0,
+              borderline: 0,
+              avg: 0,
+            };
+          }
+        } else {
+          result.score_quality = {
+            excellent: 0,
+            good: 0,
+            borderline: 0,
+            avg: 0,
+          };
+        }
+      } catch (scoreErr) {
+        console.error('[API /api/dashboard] score_quality calculation error:', scoreErr);
+      }
+
       return NextResponse.json({
         role: 'MANAGER',
-        ...data,
+        ...result,
       });
     }
 
@@ -298,4 +497,134 @@ function formatRelativeTime(isoString?: string): string {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
   return new Date(isoString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+async function fetchAgentActivity(supabase: any, userId: string, period: string = 'today') {
+  // 1. Try RPC with parameter
+  const rpcRes = await supabase.rpc('get_agent_today_activity', { p_period: period });
+  if (!rpcRes.error && rpcRes.data?.items?.some((i: any) => i.key === 'downloaded')) {
+    return { data: rpcRes.data, error: null };
+  }
+
+  // 2. If RPC failed or lacks 'downloaded', calculate fallback
+  try {
+    const now = new Date();
+    const pktOffset = 5 * 60; // Asia/Karachi UTC+5
+    const nowPkt = new Date(now.getTime() + pktOffset * 60 * 1000);
+    const y = nowPkt.getUTCFullYear();
+    const m = nowPkt.getUTCMonth();
+    const d = nowPkt.getUTCDate();
+
+    let startIso: string;
+    let endIso: string;
+    let displayDayStart: string;
+
+    if (period === 'yesterday') {
+      const startPkt = new Date(Date.UTC(y, m, d - 1, 0, 0, 0) - pktOffset * 60 * 1000);
+      const endPkt = new Date(Date.UTC(y, m, d, 0, 0, 0) - pktOffset * 60 * 1000);
+      startIso = startPkt.toISOString();
+      endIso = endPkt.toISOString();
+      displayDayStart = startIso;
+    } else if (period === 'all') {
+      startIso = '1970-01-01T00:00:00.000Z';
+      endIso = '2099-12-31T23:59:59.999Z';
+      displayDayStart = now.toISOString();
+    } else {
+      // today
+      const startPkt = new Date(Date.UTC(y, m, d, 0, 0, 0) - pktOffset * 60 * 1000);
+      const endPkt = new Date(Date.UTC(y, m, d + 1, 0, 0, 0) - pktOffset * 60 * 1000);
+      startIso = startPkt.toISOString();
+      endIso = endPkt.toISOString();
+      displayDayStart = startIso;
+    }
+
+    // Queries
+    let profsAddedQuery = supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('created_by', userId)
+      .neq('status', 'DRAFT');
+
+    let draftsQuery = supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('created_by', userId)
+      .eq('status', 'DRAFT');
+
+    let requestsQuery = supabase
+      .from('information_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('requested_by', userId);
+
+    let respondedQuery = supabase
+      .from('information_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('requested_by', userId);
+
+    let downloadedQuery = supabase
+      .from('information_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('requested_by', userId)
+      .eq('status', 'DOWNLOADED');
+
+    let completedQuery = supabase
+      .from('information_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('requested_by', userId)
+      .in('status', ['COMPLETED', 'COMPLETED_OUTSIDE_SYSTEM']);
+
+    if (period !== 'all') {
+      profsAddedQuery = profsAddedQuery.gte('created_at', startIso).lt('created_at', endIso);
+      draftsQuery = draftsQuery.or(`created_at.gte.${startIso},updated_at.gte.${startIso}`).lt('created_at', endIso);
+      requestsQuery = requestsQuery.gte('created_at', startIso).lt('created_at', endIso);
+      respondedQuery = respondedQuery.gte('reviewed_at', startIso).lt('reviewed_at', endIso);
+      downloadedQuery = downloadedQuery.gte('updated_at', startIso).lt('updated_at', endIso);
+      completedQuery = completedQuery.gte('updated_at', startIso).lt('updated_at', endIso);
+    }
+
+    const [pAdded, dCreated, reqSent, resp, down, comp] = await Promise.all([
+      profsAddedQuery,
+      draftsQuery,
+      requestsQuery,
+      respondedQuery,
+      downloadedQuery,
+      completedQuery,
+    ]);
+
+    const cProfilesAdded = pAdded.count || 0;
+    const cDraftsCreated = dCreated.count || 0;
+    const cRequestsSent = reqSent.count || 0;
+    const cSecondRequests = 0;
+    const cResponded = resp.count || 0;
+    const cDownloaded = down.count || 0;
+    const cCompleted = comp.count || 0;
+    const total =
+      cProfilesAdded +
+      cDraftsCreated +
+      cRequestsSent +
+      cSecondRequests +
+      cResponded +
+      cDownloaded +
+      cCompleted;
+
+    return {
+      data: {
+        period,
+        day_start: displayDayStart,
+        total,
+        items: [
+          { key: 'profiles_added', label: 'Profiles added', count: cProfilesAdded },
+          { key: 'drafts_created', label: 'Drafts created', count: cDraftsCreated },
+          { key: 'new_requests', label: 'Requests sent', count: cRequestsSent },
+          { key: 'second_requests', label: 'Second requests', count: cSecondRequests },
+          { key: 'responded', label: 'Manager responded', count: cResponded },
+          { key: 'downloaded', label: 'Dossiers downloaded', count: cDownloaded },
+          { key: 'completed', label: 'Completed', count: cCompleted },
+        ],
+      },
+      error: null,
+    };
+  } catch (err: any) {
+    return { data: rpcRes.data || null, error: rpcRes.error || err };
+  }
 }

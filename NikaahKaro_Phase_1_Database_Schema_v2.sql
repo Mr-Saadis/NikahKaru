@@ -1,5 +1,5 @@
 -- ============================================================
--- NIKAAHKARO.COM - PHASE 1
+-- NIKAHKARU.COM - PHASE 1
 -- SUPABASE / POSTGRESQL DATABASE SCHEMA v2
 --
 -- IMPORTANT WORKFLOW CHANGE IN v2:

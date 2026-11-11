@@ -186,6 +186,7 @@ export interface ManagerOrphanedProfiles {
 
 export interface ManagerRecentReleaseItem {
   release_id: string;
+  request_id?: string;
   released_at: string;
   source_name: string | null;
   candidate_name: string | null;

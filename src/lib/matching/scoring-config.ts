@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * NikaahKaro Matching Engine — Scoring Configuration
+ * NikahKaru Matching Engine — Scoring Configuration
  * ═══════════════════════════════════════════════════════════════
  * 
  * SINGLE SOURCE OF TRUTH for all scoring constants.

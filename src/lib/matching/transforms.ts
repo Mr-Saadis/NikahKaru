@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * NikaahKaro Matching Engine — Data Shape Transformers
+ * NikahKaru Matching Engine — Data Shape Transformers
  * ═══════════════════════════════════════════════════════════════
  *
  * Converts flat rows from:

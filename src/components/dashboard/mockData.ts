@@ -1,5 +1,5 @@
 // ============================================================================
-// NikaahKaro CRM — Feedback & Rejection Fallback Data
+// NikahKaru CRM — Feedback & Rejection Fallback Data
 // NOTE: Kept dummy for Phase 1 as match feedback/rejection logging is not yet
 // fully implemented in the database backend. All other entities (profiles,
 // requests, releases, staff/manager metrics, audit logs) use live database APIs.

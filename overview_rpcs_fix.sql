@@ -1,5 +1,5 @@
 -- ============================================================================
--- NikaahKaro Overview RPCs — Fixes & Optimizations
+-- NikahKaru Overview RPCs — Fixes & Optimizations
 -- File: overview_rpcs_fix.sql
 -- 
 -- Fixes Identified During Verification Audit (Phase A4):

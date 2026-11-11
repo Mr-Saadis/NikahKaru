@@ -11,8 +11,8 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 
 
 export const metadata: Metadata = {
-  title: "NikaahKaro CRM",
-  description: "Internal CRM and Matrimonial Engine for NikaahKaro",
+  title: "NikahKaru CRM",
+  description: "Internal CRM and Matrimonial Engine for NikahKaru",
 };
 
 export default function RootLayout({

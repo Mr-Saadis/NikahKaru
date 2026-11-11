@@ -663,9 +663,11 @@ export default function ProfilesListPage() {
       setProfiles(res.data);
       setTotalCount(res.count);
 
-      const savedId = typeof window !== 'undefined' ? sessionStorage.getItem('selected_profile_id') : null;
+      const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const urlId = urlParams?.get('id') || urlParams?.get('profileId');
+      const savedId = urlId || (typeof window !== 'undefined' ? sessionStorage.getItem('selected_profile_id') : null);
       if (savedId) {
-        sessionStorage.removeItem('selected_profile_id');
+        if (typeof window !== 'undefined') sessionStorage.removeItem('selected_profile_id');
         setSelectedId(savedId);
         if (!res.data.some((p) => p.id === savedId)) {
           ProfileService.getProfileById(savedId)

@@ -1,5 +1,5 @@
 // ============================================================
-// NIKAAHKARO — COMPLETE DATABASE TYPES & ENUMS
+// NIKAHKARU — COMPLETE DATABASE TYPES & ENUMS
 // Mirrors: NikaahKaro_Phase_1_Database_Schema_v2.sql
 // ============================================================
 

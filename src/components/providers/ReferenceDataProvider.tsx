@@ -35,7 +35,7 @@ export default function ReferenceDataProvider({ children }: ReferenceDataProvide
           </div>
           <div className="flex flex-col items-center gap-1">
             <p className="text-[14px] font-semibold text-[#002b17] tracking-tight">
-              Loading NikaahKaro
+              Loading NikahKaru
             </p>
             <p className="text-[12px] font-medium text-[#717972]">
               Preparing reference data...

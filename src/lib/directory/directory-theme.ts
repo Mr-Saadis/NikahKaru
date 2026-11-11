@@ -1,5 +1,5 @@
 // ============================================================
-// NikaahKaro CRM — Directory Theme System
+// NikahKaru CRM — Directory Theme System
 // Centralised colour mappings sourced strictly from
 // DESIGN_SYSTEM.md, globals.css, and manager Requests Board.
 // ============================================================

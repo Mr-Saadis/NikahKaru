@@ -1,4 +1,4 @@
-# NikaahKaro CRM — Project Rules & Conventions
+# NikahKaru CRM — Project Rules & Conventions
 
 > These rules apply to ALL agents working on this project. Read carefully before writing ANY code.
 
@@ -6,7 +6,7 @@
 
 ## 1. PROJECT IDENTITY
 
-- **Project**: NikaahKaro.com — Internal CRM + Matrimonial Matching Engine
+- **Project**: NikahKaru.com — Internal CRM + Matrimonial Matching Engine
 - **Phase**: 1 (Deterministic, Rule-Based — NO ML)
 - **Stack**: Next.js (App Router) + TypeScript + Tailwind CSS v4 + Supabase + PostgreSQL
 - **Font**: Plus Jakarta Sans (Google Fonts)

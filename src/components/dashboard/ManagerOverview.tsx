@@ -8,19 +8,12 @@ import {
   AlertTriangle,
   ExternalLink,
   AlertCircle,
-  Flame,
   Sliders,
-  ShieldAlert,
   Send,
-  Cpu,
-  CheckCircle2,
-  FileCheck,
-  Timer,
   Inbox,
   ListFilter,
   Users,
   Activity,
-  MessageSquare,
 } from 'lucide-react';
 import { DashboardService, type ManagerOverviewData } from '@/lib/services/dashboard-service';
 import { COLUMNS } from '@/components/requests/constants';
@@ -29,7 +22,6 @@ import {
   formatRelativeTime,
   formatKarachiDate,
   formatKarachiTime,
-  formatDelta,
 } from '@/lib/utils/overview-helpers';
 import {
   OverviewCard,
@@ -41,8 +33,6 @@ import {
   OverviewSkeleton,
   ErrorBlock,
   EmptyBlock,
-  UntrackedBox,
-  AlertStrip,
 } from './overview-ui';
 import { toast } from 'sonner';
 
@@ -53,16 +43,29 @@ export default function ManagerOverview() {
   const [data, setData] = useState<ManagerOverviewData | null>(null);
   const [selectedDays, setSelectedDays] = useState<number>(7);
   const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [isRangeLoading, setIsRangeLoading] = useState<boolean>(false);
+  const managerCacheRef = React.useRef<Record<number, ManagerOverviewData>>({});
+
+  const handleRangeChange = (days: number) => {
+    setSelectedDays(days);
+    if (managerCacheRef.current[days]) {
+      setData(managerCacheRef.current[days]);
+    } else {
+      setIsRangeLoading(true);
+    }
+  };
 
   const fetchData = async (days: number, showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
       const res = await DashboardService.getDashboardData('MANAGER', days, 24);
       if (!res) return;
+      managerCacheRef.current[days] = res as ManagerOverviewData;
       setData(res as ManagerOverviewData);
       setLastUpdated(formatKarachiTime(new Date()));
       setError(null);
       setLoading(false);
+      setIsRangeLoading(false);
     } catch (err: unknown) {
       const e = err as { name?: string; message?: string };
       if (e?.name === 'AbortError') return;
@@ -70,6 +73,7 @@ export default function ManagerOverview() {
       setError(e?.message || 'Failed to load manager desk data');
       toast.error('Failed to load operations desk');
       setLoading(false);
+      setIsRangeLoading(false);
     }
   };
 
@@ -78,10 +82,12 @@ export default function ManagerOverview() {
     DashboardService.getDashboardData('MANAGER', selectedDays, 24)
       .then((res) => {
         if (isCancelled || !res) return;
+        managerCacheRef.current[selectedDays] = res as ManagerOverviewData;
         setData(res as ManagerOverviewData);
         setLastUpdated(formatKarachiTime(new Date()));
         setError(null);
         setLoading(false);
+        setIsRangeLoading(false);
       })
       .catch((err: unknown) => {
         if (isCancelled) return;
@@ -91,6 +97,7 @@ export default function ManagerOverview() {
         setError(e?.message || 'Failed to load manager desk data');
         toast.error('Failed to load operations desk');
         setLoading(false);
+        setIsRangeLoading(false);
       });
 
     return () => {
@@ -124,19 +131,12 @@ export default function ManagerOverview() {
   const queue = data.queue || [];
   const workload = data.agent_workload || [];
   const stuckReleases = data.stuck_releases || [];
-  const hotCandidates = data.hot_candidates || [];
   const scoreQuality = data.score_quality;
   const lowMatch = data.low_match || [];
-  const orphaned = data.orphaned_profiles || { count: 0, items: [] };
   const recentReleases = data.recent_releases || [];
-  const feedback = data.feedback;
 
   const oldestWaitingHours = kpis.oldest_waiting_hours ?? 0;
   const isOldestOverdue = oldestWaitingHours > (data.sla_hours || 24);
-  const releasesDelta =
-    selectedDays > 0
-      ? formatDelta(kpis.releases_in_range, kpis.releases_prev_range)
-      : null;
 
   // Score quality gauge segments
   const scoreQualitySegments = [
@@ -172,56 +172,63 @@ export default function ManagerOverview() {
         lastUpdated={lastUpdated}
         onRefresh={() => void fetchData(selectedDays, true)}
         selectedDays={selectedDays}
-        onRangeChange={setSelectedDays}
+        onRangeChange={handleRangeChange}
+        isRefreshing={isRangeLoading}
       />
 
       {/* ════════════════════════════════════════════════════════════════
-          2. ACTION-FIRST ALERT STRIPS
+          2. REQUEST PIPELINE (Full 10-column Board Overview)
       ════════════════════════════════════════════════════════════════ */}
-      {(kpis.overdue ?? 0) > 0 && (
-        <AlertStrip
-          variant="rose"
-          icon={AlertTriangle}
-          message={
-            <span>
-              <strong>{kpis.overdue} request(s)</strong> have exceeded the SLA threshold
-              of {data.sla_hours || 24} hours. Immediate triage required.
-            </span>
-          }
-          actionText="Triage Overdue"
-          actionHref="/release-requests"
-        />
-      )}
-
-      {orphaned.count > 0 && (
-        <AlertStrip
-          variant="rose"
-          icon={ShieldAlert}
-          message={
-            <span>
-              <strong>{orphaned.count} active profile(s)</strong> currently have no assigned
-              agent in roster.
-            </span>
-          }
-          actionText="Reassign Profiles"
-          actionHref="/profiles"
-        />
-      )}
-
-      {stuckReleases.length > 0 && (
-        <AlertStrip
-          variant="amber"
-          icon={Clock}
-          message={
-            <span>
-              <strong>{stuckReleases.length} approved release(s)</strong> have been waiting for agent
-              download past 48 hours.
-            </span>
-          }
-          actionText="Inspect Releases"
-          actionHref="/release-requests"
-        />
-      )}
+      <OverviewCard
+        icon={Activity}
+        title="Request Pipeline"
+        rightAction={
+          <Link
+            href="/requests"
+            className="text-xs font-semibold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
+          >
+            <span>Open Board</span>
+            <ExternalLink className="w-3 h-3" />
+          </Link>
+        }
+      >
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2.5">
+          {COLUMNS.map((col) => {
+            const count = pipeline[col.key] || 0;
+            return (
+              <Link
+                key={col.key}
+                href={`/requests?column=${col.key}`}
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('target_request_column', col.key);
+                  }
+                }}
+                className="p-3 bg-white/70 hover:bg-white/95 backdrop-blur-sm rounded-2xl border border-[#E9E4DC]/80 flex flex-col justify-between transition-all duration-150 hover:-translate-y-0.5 group shadow-2xs"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: col.color }}
+                  />
+                  <span
+                    className="text-[10.5px] font-bold uppercase tracking-wider text-[#7D766C] truncate group-hover:text-[#1E2022]"
+                    title={col.label}
+                  >
+                    {col.label}
+                  </span>
+                </div>
+                <span
+                  className="text-xl md:text-2xl font-bold tabular-nums mt-1.5"
+                  style={{ color: col.color }}
+                >
+                  {count}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </OverviewCard>
 
       {/* ════════════════════════════════════════════════════════════════
           3. HERO SLA BAND: 3 LARGE CARDS
@@ -234,7 +241,12 @@ export default function ManagerOverview() {
           isAlert={isOldestOverdue}
           alertColor="red"
           caption={`SLA threshold: ${data.sla_hours || 24}h`}
-          onClick={() => router.push('/release-requests')}
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('target_request_column', 'first');
+            }
+            router.push('/requests?column=first');
+          }}
         />
         <KpiCard
           icon={AlertTriangle}
@@ -244,7 +256,12 @@ export default function ManagerOverview() {
           isAlert={(kpis.overdue ?? 0) > 0}
           alertColor="red"
           caption="Exceeded SLA waiting time"
-          onClick={() => router.push('/release-requests')}
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('target_request_column', 'first');
+            }
+            router.push('/requests?column=first');
+          }}
         />
         <KpiCard
           icon={Inbox}
@@ -252,7 +269,12 @@ export default function ManagerOverview() {
           numericValue={kpis.pending ?? 0}
           value={kpis.pending ?? 0}
           caption="Currently in triage queue"
-          onClick={() => router.push('/release-requests')}
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('target_request_column', 'first');
+            }
+            router.push('/requests?column=first');
+          }}
         />
       </div>
 
@@ -266,13 +288,13 @@ export default function ManagerOverview() {
             icon={ListFilter}
             title="Waiting Queue"
             badge={
-              <span className="text-[11px] text-[#7D766C] font-semibold bg-[#F4EFE7] px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-bold text-[#1F3B34] tracking-wider uppercase">
                 {queue.length} in queue
               </span>
             }
             rightAction={
               <Link
-                href="/release-requests"
+                href="/requests?column=first"
                 className="text-xs font-semibold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
               >
                 <span>Full Board</span>
@@ -281,62 +303,118 @@ export default function ManagerOverview() {
             }
           >
             {queue.length === 0 ? (
-              <EmptyBlock message="No pending requests currently waiting in queue." />
+              <EmptyBlock message="All incoming requests have been triaged. Waiting queue is empty." />
             ) : (
-              <div className="rounded-xl border border-[#E9E4DC]/80 overflow-hidden">
+              <div className="rounded-2xl border border-[#E9E4DC]/80 overflow-hidden bg-white/70 backdrop-blur-sm shadow-2xs">
                 <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="bg-[#FAF8F5] border-b border-[#E9E4DC] text-[11px] font-semibold uppercase tracking-wider text-[#7D766C]">
-                        <th className="py-2.5 px-4 font-semibold">Client</th>
-                        <th className="py-2.5 px-3 font-semibold">Agent</th>
-                        <th className="py-2.5 px-3 font-semibold">SLA</th>
-                        <th className="py-2.5 px-3 font-semibold">Waiting</th>
-                        <th className="py-2.5 px-4 font-semibold text-right">Action</th>
+                      <tr className="bg-[#FAF8F5]/80 border-b border-[#E9E4DC] text-[10.5px] font-bold uppercase tracking-wider text-[#7D766C]">
+                        <th className="py-3 px-4 font-bold">Client Profile</th>
+                        <th className="py-3 px-3 font-bold">Assigned Agent</th>
+                        <th className="py-3 px-3 font-bold">SLA Health</th>
+                        <th className="py-3 px-3 font-bold">Waiting Time</th>
+                        <th className="py-3 px-4 font-bold text-right">Triage Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E9E4DC]/60 bg-white">
+                    <tbody className="divide-y divide-[#E9E4DC]/50 bg-transparent">
                       {queue.map((req) => (
                         <tr
                           key={req.request_id}
-                          className="hover:bg-[#FAF8F5]/80 transition-colors duration-120"
+                          className="hover:bg-white/80 transition-all duration-150 group"
                         >
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <AvatarInitials name={req.full_name || ''} size="sm" />
+                          {/* 1. Client Profile */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <AvatarInitials name={req.full_name || ''} size="md" />
                               <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-2">
                                   <span
-                                    className="font-semibold text-[#1E2022] truncate max-w-[130px]"
+                                    className="font-bold text-[#1E2022] text-[13.5px] truncate max-w-[150px] group-hover:text-[#1F3B34] transition-colors"
                                     title={req.full_name || 'Client'}
                                   >
                                     {req.full_name || 'Client'}
                                   </span>
-                                  {req.is_repeat && (
-                                    <span className="rounded-full px-1.5 py-0.2 bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-bold">
+                                  {req.is_repeat ? (
+                                    <span className="text-[10px] font-extrabold tracking-wider uppercase text-[#D4AF37]">
                                       REPEAT
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-extrabold tracking-wider uppercase text-[#1F3B34]">
+                                      FIRST TIME
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[10px] text-[#7D766C] truncate">
-                                  {req.age ? `${req.age}y` : '—'} • {req.city || '—'}
+                                <div className="text-[11px] text-[#7D766C] truncate mt-0.5 flex items-center gap-1.5 font-medium">
+                                  <span>{req.age ? `${req.age} yrs` : 'Age —'}</span>
+                                  <span className="text-[#D3CABA]">•</span>
+                                  <span>{req.city || 'Pakistan'}</span>
+                                  {req.caste && (
+                                    <>
+                                      <span className="text-[#D3CABA]">•</span>
+                                      <span>{req.caste}</span>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-3 text-[#4E473D] truncate max-w-[110px]">
-                            {req.agent_name || 'Unassigned'}
+
+                          {/* 2. Assigned Agent */}
+                          <td className="py-3.5 px-3">
+                            <span className="text-xs font-semibold text-[#2F3E51] capitalize">
+                              {req.agent_name || 'Unassigned'}
+                            </span>
                           </td>
-                          <td className="py-3 px-3">
-                            <StatusPill label={req.sla_state || 'FRESH'} size="xs" />
+
+                          {/* 3. SLA Health (Pure Colored Text - Borderless & Backgroundless) */}
+                          <td className="py-3.5 px-3">
+                            {(() => {
+                              const s = (req.sla_state || 'fresh').toLowerCase();
+                              if (s === 'overdue') {
+                                return (
+                                  <span className="text-[11px] font-bold tracking-wider uppercase text-[#C86A4A]">
+                                    OVERDUE
+                                  </span>
+                                );
+                              }
+                              if (s === 'warning') {
+                                return (
+                                  <span className="text-[11px] font-bold tracking-wider uppercase text-[#D4AF37]">
+                                    WARNING
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="text-[11px] font-bold tracking-wider uppercase text-[#1F3B34]">
+                                  ON TIME
+                                </span>
+                              );
+                            })()}
                           </td>
-                          <td className="py-3 px-3 tabular-nums font-semibold text-[#1E2022]">
-                            {formatWaitingHours(req.waiting_hours)}
+
+                          {/* 4. Waiting Time */}
+                          <td className="py-3.5 px-3">
+                            <span className="text-xs font-bold text-[#1E2022] tabular-nums">
+                              {formatWaitingHours(req.waiting_hours)}
+                            </span>
                           </td>
-                          <td className="py-3 px-4 text-right">
+
+                          {/* 5. Triage Action (Solid Brand - No Gradients) */}
+                          <td className="py-3.5 px-4 text-right">
                             <button
-                              onClick={() => router.push('/release-requests')}
-                              className="rounded-full px-3 py-1 bg-[#1F3B34] hover:bg-[#172E29] text-white text-[11px] font-semibold transition-all duration-120 active:scale-95 cursor-pointer shadow-2xs"
+                              onClick={() => {
+                                const targetCol = req.is_repeat ? 'second' : 'first';
+                                if (typeof window !== 'undefined') {
+                                  if (req.request_id) sessionStorage.setItem('target_open_request_id', req.request_id);
+                                  sessionStorage.setItem('target_request_column', targetCol);
+                                }
+                                const query = req.request_id
+                                  ? `?requestId=${req.request_id}&column=${targetCol}`
+                                  : `?column=${targetCol}`;
+                                router.push(`/requests${query}`);
+                              }}
+                              className="rounded-full px-4 py-1.5 bg-[#1F3B34] hover:bg-[#152823] text-white text-xs font-semibold shadow-xs hover:shadow-sm transition-all duration-150 active:scale-95 cursor-pointer"
                             >
                               Run Match
                             </button>
@@ -351,30 +429,25 @@ export default function ManagerOverview() {
           </OverviewCard>
         </div>
 
-        {/* ─── RIGHT 5 COLS: AGENT WORKLOAD & STUCK RELEASES ─── */}
+        {/* ─── RIGHT 5 COLS: AGENT WORKLOAD, STUCK RELEASES, SCORE QUALITY ─── */}
         <div className="lg:col-span-5 min-w-0 space-y-5">
           {/* A. Agent Workload */}
           <OverviewCard icon={Users} title="Agent Workload">
             {workload.length === 0 ? (
               <EmptyBlock message="No active agents found in workload." />
             ) : (
-              <div className="space-y-3.5">
+              <div className="space-y-3">
                 {workload.map((w) => {
                   const totalProfiles = (w.active_profiles || 0) + (w.drafts || 0);
                   const activePct =
                     totalProfiles > 0
                       ? Math.round((w.active_profiles / totalProfiles) * 100)
                       : 0;
-                  const isOverloaded = w.load === 'OVERLOADED';
 
                   return (
                     <div
                       key={w.id}
-                      className={`p-2.5 rounded-xl transition-all duration-150 ${
-                        isOverloaded
-                          ? 'bg-rose-50/60 border border-rose-200 ring-1 ring-rose-200'
-                          : 'bg-[#FAF8F5] border border-[#E9E4DC]/70'
-                      } space-y-1.5 text-xs`}
+                      className="p-3.5 rounded-2xl bg-white/70 backdrop-blur-sm border border-[#E9E4DC]/80 space-y-2 text-xs shadow-2xs"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 min-w-0">
@@ -390,12 +463,22 @@ export default function ManagerOverview() {
                           <span className="text-[10px] text-[#7D766C] tabular-nums font-medium">
                             {w.open_requests || 0} reqs
                           </span>
-                          <StatusPill label={w.load || 'BALANCED'} size="xs" />
+                          <span
+                            className={`text-[10.5px] font-bold tracking-wider uppercase select-none ${
+                              w.load === 'OVERLOADED'
+                                ? 'text-[#C86A4A]'
+                                : w.load === 'BALANCED'
+                                ? 'text-[#1F3B34]'
+                                : 'text-[#2F3E51]'
+                            }`}
+                          >
+                            {w.load || 'BALANCED'}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Stacked Rounded Bar (h-3) */}
-                      <div className="w-full bg-[#E9E4DC] h-3 rounded-full overflow-hidden flex">
+                      {/* Stacked Rounded Bar (h-2.5) */}
+                      <div className="w-full bg-[#E9E4DC] h-2.5 rounded-full overflow-hidden flex">
                         <div
                           className="bg-[#1F3B34] h-full transition-all duration-500 ease-out"
                           style={{ width: `${activePct}%` }}
@@ -424,7 +507,7 @@ export default function ManagerOverview() {
             icon={AlertTriangle}
             title="Stuck Releases"
             badge={
-              <span className="text-[11px] text-[#7D766C] font-semibold bg-[#F4EFE7] px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-bold tracking-wider uppercase text-[#C86A4A]">
                 {stuckReleases.length} stuck
               </span>
             }
@@ -436,22 +519,49 @@ export default function ManagerOverview() {
                 {stuckReleases.map((rel) => (
                   <div
                     key={rel.release_id}
-                    className="p-3 bg-[#FAF8F5] rounded-xl border border-[#E9E4DC]/80 flex items-center justify-between gap-2 transition-all duration-120 hover:bg-[#F4EFE7]"
+                    className="p-3.5 bg-white/70 hover:bg-white/95 backdrop-blur-sm rounded-2xl border border-[#E9E4DC]/80 flex items-center justify-between gap-3 transition-all duration-150 shadow-2xs group"
                   >
-                    <div className="min-w-0">
-                      <div className="font-semibold text-[#1E2022] truncate">
-                        {rel.candidate_name || 'Candidate'} → {rel.source_name || 'Client'}
-                      </div>
-                      <div className="text-[10px] text-[#7D766C] truncate">
-                        Agent: {rel.agent_name || 'Unassigned'} •{' '}
-                        <span className="text-rose-600 font-semibold">
-                          {rel.days_waiting}d waiting
-                        </span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <AvatarInitials name={rel.source_name || ''} size="md" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className="font-bold text-[#1E2022] text-[13px] truncate max-w-[120px]"
+                            title={rel.source_name || 'Client'}
+                          >
+                            {rel.source_name || 'Client'}
+                          </span>
+                          <span className="text-[10px] text-[#7D766C] font-medium">←</span>
+                          <span
+                            className="text-xs font-bold text-[#1F3B34] truncate max-w-[130px]"
+                            title={rel.candidate_name || 'Candidate'}
+                          >
+                            {rel.candidate_name || 'Candidate'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[#7D766C] truncate mt-1 flex items-center gap-1.5 font-medium">
+                          <span className="capitalize text-[#2F3E51] font-semibold">
+                            Agent: {rel.agent_name || 'Unassigned'}
+                          </span>
+                          <span className="text-[#D3CABA]">•</span>
+                          <span className="text-[#C86A4A] font-bold">
+                            {rel.days_waiting}d not downloaded
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <button
-                      onClick={() => router.push('/release-requests')}
-                      className="rounded-full px-3 py-1 border border-[#E9E4DC] bg-white text-[11px] font-semibold text-[#1F3B34] hover:bg-[#FAF8F5] shrink-0 transition-all duration-120 active:scale-95 cursor-pointer shadow-2xs"
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          if (rel.request_id) sessionStorage.setItem('target_open_request_id', rel.request_id);
+                          sessionStorage.setItem('target_request_column', 'downloaded');
+                        }
+                        const query = rel.request_id
+                          ? `?requestId=${rel.request_id}&column=downloaded`
+                          : '?column=downloaded';
+                        router.push(`/requests${query}`);
+                      }}
+                      className="rounded-full px-4 py-1.5 bg-[#1F3B34] hover:bg-[#152823] text-white text-[11px] font-semibold transition-all duration-150 active:scale-95 cursor-pointer shadow-xs"
                     >
                       Inspect
                     </button>
@@ -460,281 +570,131 @@ export default function ManagerOverview() {
               </div>
             )}
           </OverviewCard>
+
+          {/* C. Score Quality (Gauge) */}
+          <OverviewCard icon={Sliders} title="Score Quality">
+            <SemiCircleGauge
+              total={`${scoreQuality.avg || 0}%`}
+              totalCaption="Avg Compatibility"
+              segments={scoreQualitySegments}
+              ariaLabel="Match Score Quality Gauge"
+            />
+          </OverviewCard>
         </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
-          5. PIPELINE STRIP & SECONDARY STATS
+          5. RECENT RELEASES & LOW-MATCH DESK (SIDE BY SIDE)
       ════════════════════════════════════════════════════════════════ */}
-      <OverviewCard
-        icon={Activity}
-        title="Request Pipeline"
-        rightAction={
-          <Link
-            href="/release-requests"
-            className="text-xs font-semibold text-[#1F3B34] hover:underline inline-flex items-center gap-1"
-          >
-            <span>Open Board</span>
-            <ExternalLink className="w-3 h-3" />
-          </Link>
-        }
-      >
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2">
-          {COLUMNS.map((col) => {
-            const count = pipeline[col.key] || 0;
-            return (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left: Recent Releases (7 cols) */}
+        <div className="lg:col-span-7 min-w-0">
+          <OverviewCard
+            icon={Send}
+            title="Recent Releases"
+            rightAction={
               <Link
-                key={col.key}
-                href="/release-requests"
-                className="p-3 bg-[#FAF8F5] hover:bg-[#F4EFE7] rounded-xl border border-[#E9E4DC]/80 flex flex-col justify-between transition-all duration-120 hover:-translate-y-0.5 group shadow-2xs"
+                href="/requests?column=downloaded"
+                className="text-xs font-semibold text-[#1F3B34] hover:underline"
               >
-                <span
-                  className="text-[11px] font-semibold text-[#7D766C] truncate group-hover:text-[#1E2022]"
-                  title={col.label}
-                >
-                  {col.label}
-                </span>
-                <span className="text-xl md:text-2xl font-bold text-[#1E2022] tabular-nums mt-1.5">
-                  {count}
-                </span>
+                View All
               </Link>
-            );
-          })}
+            }
+          >
+            {recentReleases.length === 0 ? (
+              <EmptyBlock message="No recent releases completed in this period." />
+            ) : (
+              <div className="rounded-2xl border border-[#E9E4DC]/80 overflow-hidden bg-white/70 backdrop-blur-sm shadow-2xs">
+                <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-[#FAF8F5]/80 border-b border-[#E9E4DC] text-[10.5px] font-bold uppercase tracking-wider text-[#7D766C]">
+                        <th className="py-3 px-4 font-bold">Candidate</th>
+                        <th className="py-3 px-3 font-bold">Client</th>
+                        <th className="py-3 px-3 font-bold">Agent</th>
+                        <th className="py-3 px-4 font-bold text-right">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E9E4DC]/50 bg-transparent">
+                      {recentReleases.slice(0, 6).map((rel) => (
+                        <tr
+                          key={rel.release_id}
+                          onClick={() => {
+                            const reqId = rel.request_id;
+                            if (typeof window !== 'undefined') {
+                              if (reqId) sessionStorage.setItem('target_open_request_id', reqId);
+                              sessionStorage.setItem('target_request_column', 'downloaded');
+                            }
+                            router.push(reqId ? `/requests?requestId=${reqId}&column=downloaded` : '/requests?column=downloaded');
+                          }}
+                          className="hover:bg-white/80 transition-colors duration-120 cursor-pointer group"
+                        >
+                          <td className="py-3 px-4 font-bold text-[#1F3B34] truncate max-w-[130px] group-hover:underline">
+                            {rel.candidate_name || 'Candidate'}
+                          </td>
+                          <td className="py-3 px-3 font-semibold text-[#1E2022] truncate max-w-[130px]">
+                            {rel.source_name || 'Client'}
+                          </td>
+                          <td className="py-3 px-3 text-[#2F3E51] font-medium truncate max-w-[120px] capitalize">
+                            {rel.agent_name || '—'}
+                          </td>
+                          <td className="py-3 px-4 text-right text-[11px] text-[#7D766C] tabular-nums whitespace-nowrap">
+                            {formatKarachiDate(rel.released_at, {
+                              day: '2-digit',
+                              month: 'short',
+                            })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </OverviewCard>
         </div>
-      </OverviewCard>
 
-      {/* Secondary Stats: 5 small KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <KpiCard
-          icon={FileCheck}
-          label="AWAITING AGENT"
-          numericValue={kpis.released_awaiting_agent ?? 0}
-          value={kpis.released_awaiting_agent ?? 0}
-          caption="Ready for download"
-        />
-        <KpiCard
-          icon={CheckCircle2}
-          label="COMPLETED"
-          numericValue={kpis.completed_in_range ?? 0}
-          value={kpis.completed_in_range ?? 0}
-          caption={`In ${selectedDays > 0 ? `${selectedDays}d` : 'all-time'}`}
-        />
-        <KpiCard
-          icon={Send}
-          label="RELEASES"
-          numericValue={kpis.releases_in_range ?? 0}
-          value={kpis.releases_in_range ?? 0}
-          delta={releasesDelta}
-          caption={`In ${selectedDays > 0 ? `${selectedDays}d` : 'all-time'}`}
-        />
-        <KpiCard
-          icon={Cpu}
-          label="MATCH RUNS"
-          numericValue={kpis.runs_in_range ?? 0}
-          value={kpis.runs_in_range ?? 0}
-          caption="Algorithm executions"
-        />
-        <KpiCard
-          icon={Timer}
-          label="AVG RESOLUTION"
-          value={formatWaitingHours(kpis.avg_release_hours)}
-          caption="Turnaround speed"
-        />
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-          6. ANALYTICS ROW: 4 CARDS (SCORE QUALITY, HOT CANDIDATES, LOW-MATCH, ORPHANED)
-      ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* A. Score Quality (Gauge) */}
-        <OverviewCard icon={Sliders} title="Score Quality">
-          <SemiCircleGauge
-            total={`${scoreQuality.avg || 0}%`}
-            totalCaption="Avg Compatibility"
-            segments={scoreQualitySegments}
-            ariaLabel="Match Score Quality Gauge"
-          />
-        </OverviewCard>
-
-        {/* B. Hot Candidates */}
-        <OverviewCard icon={Flame} title="Hot Candidates">
-          {hotCandidates.length === 0 ? (
-            <EmptyBlock message="No recurring candidates in current queue." />
-          ) : (
-            <div className="space-y-2.5 text-xs">
-              {hotCandidates.slice(0, 5).map((c) => (
-                <div
-                  key={c.candidate_profile_id}
-                  className="flex items-center justify-between gap-2 p-2 bg-[#FAF8F5] rounded-xl border border-[#E9E4DC]/60"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <AvatarInitials name={c.candidate_name || ''} size="sm" />
-                    <span
-                      className="font-semibold text-[#1E2022] truncate max-w-[110px]"
-                      title={c.candidate_name || 'Candidate'}
-                    >
-                      {c.candidate_name || 'Candidate'}
+        {/* Right: Low-Match Desk (5 cols) */}
+        <div className="lg:col-span-5 min-w-0">
+          <OverviewCard icon={AlertCircle} title="Low-Match Desk">
+            {lowMatch.length === 0 ? (
+              <EmptyBlock message="All profiles have healthy match candidate pools." />
+            ) : (
+              <div className="space-y-2.5 text-xs">
+                {lowMatch.slice(0, 5).map((lm) => (
+                  <div
+                    key={lm.profile_id}
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        sessionStorage.setItem('target_open_profile_id', lm.profile_id);
+                      }
+                      router.push(`/requests?profileId=${lm.profile_id}`);
+                    }}
+                    className="p-3.5 bg-white/70 hover:bg-white/95 backdrop-blur-sm rounded-2xl border border-[#E9E4DC]/80 flex items-center justify-between gap-3 hover:bg-white transition-all duration-150 shadow-2xs cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <AvatarInitials name={lm.full_name || ''} size="md" />
+                      <div className="min-w-0">
+                        <div
+                          className="font-bold text-[#1E2022] text-[13px] truncate max-w-[130px] group-hover:text-[#1F3B34] transition-colors"
+                          title={lm.full_name || 'Profile'}
+                        >
+                          {lm.full_name || 'Profile'}
+                        </div>
+                        <div className="text-[11px] text-[#7D766C] mt-0.5 font-medium">
+                          {formatRelativeTime(lm.executed_at)}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#C86A4A] tracking-wider uppercase shrink-0">
+                      {lm.candidates} {lm.candidates === 1 ? 'match' : 'matches'}
                     </span>
                   </div>
-                  <span className="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold shrink-0">
-                    in {c.requests_count} reqs
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </OverviewCard>
-
-        {/* C. Low-Match Desk */}
-        <OverviewCard icon={AlertCircle} title="Low-Match Desk">
-          {lowMatch.length === 0 ? (
-            <EmptyBlock message="All profiles have healthy match candidate pools." />
-          ) : (
-            <div className="space-y-2.5 text-xs">
-              {lowMatch.slice(0, 5).map((lm) => (
-                <div
-                  key={lm.profile_id}
-                  onClick={() => router.push('/release-requests')}
-                  className="p-2.5 bg-[#FAF8F5] rounded-xl border border-[#E9E4DC]/60 flex items-center justify-between gap-2 hover:bg-[#F4EFE7] transition-colors duration-120 cursor-pointer"
-                >
-                  <div className="min-w-0">
-                    <div
-                      className="font-semibold text-[#1E2022] truncate max-w-[120px]"
-                      title={lm.full_name || 'Profile'}
-                    >
-                      {lm.full_name || 'Profile'}
-                    </div>
-                    <div className="text-[10px] text-[#7D766C]">
-                      {formatRelativeTime(lm.executed_at)}
-                    </div>
-                  </div>
-                  <span className="rounded-full px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold shrink-0">
-                    {lm.candidates} found
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </OverviewCard>
-
-        {/* D. Orphaned Profiles */}
-        <OverviewCard
-          icon={ShieldAlert}
-          title="Orphaned Profiles"
-          className={
-            orphaned.count > 0 ? 'border-rose-300 ring-1 ring-rose-200' : ''
-          }
-          badge={
-            <span
-              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                orphaned.count > 0
-                  ? 'bg-rose-100 text-rose-800'
-                  : 'bg-[#F4EFE7] text-[#7D766C]'
-              }`}
-            >
-              {orphaned.count}
-            </span>
-          }
-        >
-          {orphaned.count === 0 ? (
-            <EmptyBlock message="All active profiles have assigned agents." />
-          ) : (
-            <div className="space-y-2 text-xs">
-              {orphaned.items.slice(0, 4).map((p) => (
-                <div
-                  key={p.id}
-                  onClick={() => router.push('/profiles')}
-                  className="p-2 bg-rose-50/60 border border-rose-200/60 rounded-xl flex items-center justify-between text-xs hover:bg-rose-100/60 transition-colors duration-120 cursor-pointer"
-                >
-                  <span
-                    className="font-semibold text-[#1E2022] truncate max-w-[130px]"
-                    title={p.full_name || 'Profile'}
-                  >
-                    {p.full_name || 'Profile'}
-                  </span>
-                  <span className="text-[10px] text-rose-700 font-bold">
-                    Reassign
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </OverviewCard>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════
-          7. RECENT RELEASES & FEEDBACK/REJECTIONS (Untracked sinks to bottom)
-      ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Recent Releases */}
-        <OverviewCard
-          icon={Send}
-          title="Recent Releases"
-          rightAction={
-            <Link
-              href="/release-requests"
-              className="text-xs font-semibold text-[#1F3B34] hover:underline"
-            >
-              View All
-            </Link>
-          }
-        >
-          {recentReleases.length === 0 ? (
-            <EmptyBlock message="No recent releases completed in this period." />
-          ) : (
-            <div className="rounded-xl border border-[#E9E4DC]/80 overflow-hidden">
-              <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="bg-[#FAF8F5] border-b border-[#E9E4DC] text-[11px] font-semibold uppercase tracking-wider text-[#7D766C]">
-                      <th className="py-2.5 px-4 font-semibold">Candidate</th>
-                      <th className="py-2.5 px-3 font-semibold">Client</th>
-                      <th className="py-2.5 px-3 font-semibold">Agent</th>
-                      <th className="py-2.5 px-4 font-semibold text-right">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E9E4DC]/60 bg-white">
-                    {recentReleases.slice(0, 6).map((rel) => (
-                      <tr
-                        key={rel.release_id}
-                        className="hover:bg-[#FAF8F5]/80 transition-colors duration-120"
-                      >
-                        <td className="py-2.5 px-4 font-semibold text-[#1E2022] truncate max-w-[130px]">
-                          {rel.candidate_name || 'Candidate'}
-                        </td>
-                        <td className="py-2.5 px-3 text-[#4E473D] truncate max-w-[130px]">
-                          {rel.source_name || 'Client'}
-                        </td>
-                        <td className="py-2.5 px-3 text-[#7D766C] truncate max-w-[120px]">
-                          {rel.agent_name || '—'}
-                        </td>
-                        <td className="py-2.5 px-4 text-right text-[11px] text-[#7D766C] tabular-nums whitespace-nowrap">
-                          {formatKarachiDate(rel.released_at, {
-                            day: '2-digit',
-                            month: 'short',
-                          })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                ))}
               </div>
-            </div>
-          )}
-        </OverviewCard>
-
-        {/* Family Feedback & Rejections */}
-        <OverviewCard icon={MessageSquare} title="Family Feedback & Rejections">
-          {!feedback || !feedback.tracking_active ? (
-            <UntrackedBox message="Not tracked yet" />
-          ) : (
-            <div className="space-y-3">
-              <div className="text-xs text-[#7D766C]">
-                Structured feedback tracking active
-              </div>
-            </div>
-          )}
-        </OverviewCard>
+            )}
+          </OverviewCard>
+        </div>
       </div>
     </div>
   );

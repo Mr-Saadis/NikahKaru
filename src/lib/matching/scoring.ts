@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * NikaahKaro Matching Engine — Soft Scoring (4-Category System)
+ * NikahKaru Matching Engine — Soft Scoring (4-Category System)
  * ═══════════════════════════════════════════════════════════════
  * 
  * Categories:
