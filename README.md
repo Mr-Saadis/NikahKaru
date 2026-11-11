@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NikaahKaro 💍
 
-## Getting Started
+**A Privacy-First Matrimonial Matching Engine built for the Quba Foundation.**
 
-First, run the development server:
+NikaahKaro is a comprehensive, web-based matrimonial platform designed to digitize, automate, and secure the matchmaking process for the Quba Foundation. By replacing manual workflows with an algorithmic compatibility scoring engine, the platform ensures accurate, privacy-centric, and efficient community matchmaking.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 The Problem & Impact
+Traditionally, community matchmaking involves handling sensitive personal data through manual, paper-based, or fragmented digital records. This creates privacy risks and makes finding truly compatible matches a slow, inefficient process. 
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**NikaahKaro** solves this by providing a secure, centralized portal that uses a custom-built compatibility scoring system, directly serving the Quba Foundation's community while maintaining strict data privacy and structural integrity.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🧠 Core Technical Architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The backbone of NikaahKaro is its highly optimized database architecture designed to handle complex compatibility metrics without performance degradation.
 
-## Learn More
+* **Advanced PostgreSQL Views:** Utilized to abstract complex joins and calculate real-time compatibility scores between candidate profiles.
+* **JSONB Aggregation:** Implemented to handle complex one-to-many relationships (e.g., candidate preferences, lifestyle habits, and religious criteria) seamlessly. This prevents row duplication, keeps queries highly performant, and allows for flexible, schema-less attribute matching within a relational database.
+* **Algorithmic Matching:** The engine weighs multiple user-defined criteria securely on the backend before ever exposing data to the frontend or admin dashboards.
 
-To learn more about Next.js, take a look at the following resources:
+## 💻 Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+* **Frontend:** Next.js, React, Tailwind CSS
+* **Backend/Database:** PostgreSQL, Supabase
+* **Architecture Highlights:** Complex SQL Views, JSONB Data Modeling, Edge Functions
+* **Deployment & Infrastructure:** Vercel / Hostinger VPS (via Docker, Nginx)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## ✨ Key Features
+* **Secure Candidate Onboarding:** Privacy-first profile creation with encrypted sensitive data.
+* **Smart Match Dashboard:** Automated rendering of top matches based on the PostgreSQL compatibility scoring engine.
+* **Advanced Admin Control:** Dedicated CRM tools for Quba Foundation administrators to manage, verify, and securely connect families.
+* **Responsive UI/UX:** A clean, modern, and accessible interface built with Tailwind CSS.
 
-## Deploy on Vercel
+## 🗺️ Roadmap & Future AI Integration
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+To further enhance the accuracy and user experience of NikaahKaro, we are actively planning to integrate Machine Learning and AI-driven features in our next development phases:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+* **AI-Powered Compatibility Scoring:** Transitioning from static SQL-based algorithms to a dynamic Machine Learning model that learns from successful matches to predict long-term compatibility.
+* **NLP for Profile Analysis:** Utilizing Large Language Models (LLMs) to automatically generate respectful and accurate profile summaries from unstructured user inputs.
+* **Automated Fraud Detection:** Implementing ML-based anomaly detection to ensure all registered profiles are authentic and secure for the community.
+
+## 🛠️ Getting Started
+
+### Prerequisites
+* Node.js (v18+)
+* npm or yarn
+* Supabase project with PostgreSQL database
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/yourusername/nikaahkaro.git](https://github.com/yourusername/nikaahkaro.git)
+   cd nikaahkaro
