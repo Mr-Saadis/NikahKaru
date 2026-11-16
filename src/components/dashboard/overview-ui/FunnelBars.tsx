@@ -42,25 +42,25 @@ export function FunnelBars({ stages, className = '' }: FunnelBarsProps) {
           <div key={stage.stage} className="space-y-1">
             {/* Optional Drop-off chip between stages */}
             {dropOffPct !== null && (
-              <div className="flex items-center gap-2 pl-4 text-[10px] text-rose-600 font-semibold">
-                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200">
-                  <ArrowDown className="w-2.5 h-2.5" />
+              <div className="flex items-center gap-2 pl-3 text-[10px] text-[#7D766C] font-medium">
+                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-[#F4EFE7] border border-[#E5DED3] text-[#5C5449] font-semibold">
+                  <ArrowDown className="w-2.5 h-2.5 text-[#C86A4A]" />
                   <span>{dropOffPct}% drop-off</span>
                 </span>
                 <span className="text-[#A49C8F]">from previous stage</span>
               </div>
             )}
 
-            {/* Tall rounded bar (h-9) with token gradient fill */}
-            <div className="w-full bg-[#FAF8F5] rounded-xl h-9 overflow-hidden border border-[#E9E4DC]/80 p-0.5 flex relative">
+            {/* Tall rounded bar (compact on mobile, h-9 on sm+) */}
+            <div className="w-full bg-[#FAF8F5] rounded-xl h-7 sm:h-9 overflow-hidden border border-[#E9E4DC]/80 p-0.5 flex relative">
               <div
-                className="h-full rounded-lg bg-gradient-to-r from-[#1F3B34] to-[#1F3B34]/80 flex items-center justify-between px-3 text-white transition-all duration-700 ease-out shadow-xs"
+                className="h-full min-w-[105px] sm:min-w-[115px] rounded-lg bg-[#1F3B34] flex items-center justify-between px-2.5 sm:px-3 text-white transition-all duration-700 ease-out"
                 style={{ width: `${currentWidth}%` }}
               >
-                <span className="font-semibold text-xs tracking-tight truncate mr-2 select-none">
+                <span className="font-semibold text-[11px] sm:text-xs tracking-tight truncate mr-2 select-none">
                   {stage.stage}
                 </span>
-                <span className="font-bold text-xs tabular-nums select-none shrink-0">
+                <span className="font-bold text-[11px] sm:text-xs tabular-nums select-none shrink-0">
                   {stage.n.toLocaleString()}
                 </span>
               </div>

@@ -3,6 +3,7 @@
 import type { FilterState, RequestItem } from '@/components/requests/types';
 import { 
   fetchAgentBoardRequests as apiFetchAgentBoardRequests,
+  fetchAgentBoardInitialColumns as apiFetchAgentBoardInitialColumns,
   fetchAgentColumnRequests as apiFetchAgentColumnRequests,
   fetchAgentRequests as apiFetchAgentRequests, 
   fetchAgentNames as apiFetchAgentNames 
@@ -10,6 +11,13 @@ import {
 
 export async function fetchAgentBoardRequests(filters: FilterState): Promise<RequestItem[]> {
   return apiFetchAgentBoardRequests(filters);
+}
+
+export async function fetchAgentBoardInitialColumns(
+  filters: FilterState,
+  limit: number = 15
+): Promise<Record<string, RequestItem[]>> {
+  return apiFetchAgentBoardInitialColumns(filters, limit);
 }
 
 export async function fetchAgentColumnRequests(

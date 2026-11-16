@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import RequestsBoard from '@/components/requests/RequestsBoard';
 import { COLUMNS } from '@/components/requests/constants';
-import { fetchBoardRequests, fetchColumnRequests, fetchAgentNames, markRequestAsRead } from '@/lib/actions/requests';
+import { fetchManagerBoardInitialColumns, fetchColumnRequests, fetchAgentNames, markRequestAsRead } from '@/lib/actions/requests';
 
 // ============================================================
 // /requests — Manager Request Operations board
@@ -54,9 +54,10 @@ export default function RequestsPage() {
       <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading board...</div>}>
         <RequestsBoard 
           columns={COLUMNS}
-          fetchRequests={fetchBoardRequests}
+          fetchInitialColumns={fetchManagerBoardInitialColumns}
           fetchColumnRequests={fetchColumnRequests}
           fetchNames={fetchAgentNames}
+          enableRealtime={true}
           onMarkAsRead={markRequestAsRead}
         />
       </Suspense>

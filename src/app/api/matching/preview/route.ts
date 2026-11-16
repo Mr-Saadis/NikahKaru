@@ -39,10 +39,27 @@ export async function POST(req: NextRequest) {
 
     // @ts-expect-error - nested role typing
     const verifiedRole = userRoleData?.role?.name?.toUpperCase();
-    const isManagerOrAdmin = verifiedRole === 'MANAGER' || verifiedRole === 'HIGH_LEVEL_ADMIN' || verifiedRole === 'DEVELOPER';
+    const isManagerOrAdmin = verifiedRole === 'MANAGER' || verifiedRole === 'HIGH_LEVEL_ADMIN';
+
+    const adminSupabase = createAdminClient();
+
+    // Ownership check: Agents may only preview matches for profiles assigned to them
+    if (!isManagerOrAdmin) {
+      const { data: sourceProf } = await adminSupabase
+        .from('profiles')
+        .select('id, current_agent_id, created_by')
+        .eq('id', sourceProfileId)
+        .maybeSingle();
+
+      if (!sourceProf) {
+        return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+      }
+      if (sourceProf.current_agent_id !== userData.user.id && sourceProf.created_by !== userData.user.id) {
+        return NextResponse.json({ error: 'Forbidden: Profile not assigned to you' }, { status: 403 });
+      }
+    }
 
     // Run preview matching on server side using admin client (evaluates traits safely without exposing them)
-    const adminSupabase = createAdminClient();
     const results = await runMatching(adminSupabase, sourceProfileId, {
       persist: false,
       executedBy: userData.user.id,
@@ -78,8 +95,8 @@ export async function POST(req: NextRequest) {
         // Properties used by profile page
         candidateId: r.candidateProfileId,
         candidateName: displayName,
-        candidateDob: r.candidateData?.personal_information?.date_of_birth || null,
-        candidateCityId: r.candidateData?.profile_locations?.current_city_id || null,
+        candidateDob: isManagerOrAdmin ? (r.candidateData?.personal_information?.date_of_birth || null) : null,
+        candidateCityId: isManagerOrAdmin ? (r.candidateData?.profile_locations?.current_city_id || null) : null,
         candidateProfileUrl: isManagerOrAdmin ? (r.candidateData?.profile_URL || null) : null,
         score: Math.round(r.finalScore),
         _realResult: {
@@ -90,15 +107,14 @@ export async function POST(req: NextRequest) {
             candidateToSource: [],
           },
         },
-        // Properties used by matching page
+        // Properties used by matching page (full breakdowns & raw candidate data ONLY for Manager/Admin)
         candidateProfileId: r.candidateProfileId,
         finalScore: Math.round(r.finalScore),
-        sourceToCandidateScore: r.sourceToCandidateScore,
-        candidateToSourceScore: r.candidateToSourceScore,
         rank: r.rank,
-        breakdowns: r.breakdowns,
-        // Sensitive raw candidate data ONLY released to Manager/Admin
         ...(isManagerOrAdmin ? {
+          sourceToCandidateScore: r.sourceToCandidateScore,
+          candidateToSourceScore: r.candidateToSourceScore,
+          breakdowns: r.breakdowns,
           candidateData: r.candidateData,
           candidatePrefs: r.candidatePrefs,
         } : {}),

@@ -26,9 +26,7 @@ export async function updateSession(request: NextRequest) {
   );
 
   // IMPORTANT: This refreshes the auth token. Do NOT remove this line.
-  // Even if the return value is not used directly here, the call itself
-  // triggers the cookie refresh via the setAll callback above.
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  return supabaseResponse;
+  return { supabase, response: supabaseResponse, user };
 }

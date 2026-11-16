@@ -1,3 +1,51 @@
+async function fetchImageAsDataUrl(url: string): Promise<string | null> {
+  if (!url || typeof window === 'undefined') return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(url, { mode: 'cors', signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise<string | null>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const objUrl = URL.createObjectURL(blob);
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const size = 180;
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+            const scale = Math.max(size / img.width, size / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+          } else {
+            resolve(null);
+          }
+        } catch {
+          resolve(null);
+        } finally {
+          URL.revokeObjectURL(objUrl);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objUrl);
+        resolve(null);
+      };
+      img.src = objUrl;
+    });
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Utility to generate and trigger print/save as PDF for approved match releases
  * Designed strictly adhering to NikahKaru Design System:
@@ -239,14 +287,31 @@ export async function generateReleasedProfilesPDF(data: {
 
   currentY += 8;
 
+  // Pre-fetch candidate profile pictures (when included in released fields)
+  const candidateImages = await Promise.all(
+    releases.map(async (rel) => {
+      const fields: Array<{ field_path: string; field_value: any }> = rel.fields || [];
+      const picField = fields.find((f) => f.field_path === 'personal_information.profile_picture');
+      if (!picField) return null;
+      const picUrl =
+        rel.candidate?.profile_url ||
+        rel.candidate?.profile_URL ||
+        (typeof picField.field_value === 'string' && picField.field_value.startsWith('http') ? picField.field_value : null);
+      return picUrl ? fetchImageAsDataUrl(picUrl) : null;
+    })
+  );
+
   // Draw Candidate Cards
   releases.forEach((rel, relIdx) => {
     const candName = rel.candidate?.full_name || `Candidate Profile #${relIdx + 1}`;
     const scoreVal = rel.score !== undefined && rel.score !== null ? `${rel.score}% Compatibility` : 'Released Match';
-    const fields: Array<{ field_path: string; field_value: any }> = rel.fields || [];
+    const fields: Array<{ field_path: string; field_value: any }> = (rel.fields || []).filter(
+      (f: any) => f.field_path !== 'personal_information.profile_picture'
+    );
+    const candImgDataUrl = candidateImages[relIdx];
 
     // Pre-calculate field items and row heights (filtered for gender/marital status and resolved IDs)
-    const formattedFields = filterAndFormatReleaseFields(rel.fields || [], {
+    const formattedFields = filterAndFormatReleaseFields(fields, {
       gender: rel.candidate?.gender,
       marital_status: rel.candidate?.marital_status,
       full_name: rel.candidate?.full_name
@@ -274,7 +339,7 @@ export async function generateReleasedProfilesPDF(data: {
       fieldRows.push({ left, right, height: rowH });
     }
 
-    const headerHeight = 11;
+    const headerHeight = candImgDataUrl ? 17 : 11;
     const fieldsTotalHeight = fieldRows.reduce((acc, r) => acc + r.height + 2.5, 0);
     const cardPaddingBottom = 4;
     const totalCardHeight = headerHeight + (fieldsTotalHeight > 0 ? fieldsTotalHeight : 8) + cardPaddingBottom;
@@ -304,20 +369,31 @@ export async function generateReleasedProfilesPDF(data: {
     // Candidate Header: Index circle + Name
     const headerY = cardStartY + 3.5;
 
-    // Index Pill
-    doc.setFillColor(250, 248, 245);
-    doc.setDrawColor(234, 226, 213);
-    doc.roundedRect(marginX + 4, headerY, 6, 6, 3, 3, 'FD');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(6, 78, 59);
-    doc.text(String(relIdx + 1), marginX + 5.8, headerY + 4.2);
+    // Index Pill or Candidate Photo
+    if (candImgDataUrl) {
+      doc.addImage(candImgDataUrl, 'JPEG', marginX + 4, headerY - 1, 12, 12);
+      doc.setDrawColor(234, 226, 213);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(marginX + 4, headerY - 1, 12, 12, 2, 2, 'S');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.setTextColor(6, 78, 59);
+      doc.text(`${relIdx + 1}. ${candName}`, marginX + 19, headerY + 6.5);
+    } else {
+      doc.setFillColor(250, 248, 245);
+      doc.setDrawColor(234, 226, 213);
+      doc.roundedRect(marginX + 4, headerY, 6, 6, 3, 3, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(6, 78, 59);
+      doc.text(String(relIdx + 1), marginX + 5.8, headerY + 4.2);
 
-    // Candidate Name
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
-    doc.setTextColor(6, 78, 59);
-    doc.text(candName, marginX + 13, headerY + 4.5);
+      // Candidate Name
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.setTextColor(6, 78, 59);
+      doc.text(candName, marginX + 13, headerY + 4.5);
+    }
 
     // Score Badge on right
     doc.setFont('helvetica', 'bold');

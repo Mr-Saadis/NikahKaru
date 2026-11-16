@@ -111,18 +111,11 @@ export async function POST(
     });
 
     if (rpcError) {
-      console.warn('RPC Error with user client, attempting with admin client:', rpcError);
-      const { data: adminRpcData, error: adminRpcError } = await adminClient.rpc('approve_information_release', {
-        p_request_id: targetRequestId,
-        p_releases_data: releasesData
-      });
-
-      if (adminRpcError) {
-        console.error('Admin RPC Error (Release):', adminRpcError);
-        return NextResponse.json({ error: adminRpcError.message || rpcError.message || 'Failed to approve release' }, { status: 500 });
-      }
-
-      return NextResponse.json({ success: true, data: adminRpcData });
+      console.error('RPC Error (Release):', rpcError);
+      return NextResponse.json(
+        { error: rpcError.message || 'Failed to approve release' },
+        { status: rpcError.code === '42501' ? 403 : 500 }
+      );
     }
 
     return NextResponse.json({ success: true, data: rpcData });

@@ -3,6 +3,7 @@
 import type { FilterState, RequestItem } from '@/components/requests/types';
 import { 
   fetchBoardRequests as apiFetchBoardRequests, 
+  fetchManagerBoardInitialColumns as apiFetchManagerBoardInitialColumns,
   fetchColumnRequests as apiFetchColumnRequests,
   fetchAgentNames as apiFetchAgentNames, 
   markRequestAsRead as apiMarkRequestAsRead,
@@ -33,6 +34,13 @@ export async function deleteSentProfiles(
 
 export async function fetchBoardRequests(filters: FilterState): Promise<RequestItem[]> {
   return apiFetchBoardRequests(filters);
+}
+
+export async function fetchManagerBoardInitialColumns(
+  filters: FilterState,
+  limit: number = 15
+): Promise<Record<string, RequestItem[]>> {
+  return apiFetchManagerBoardInitialColumns(filters, limit);
 }
 
 export async function fetchColumnRequests(

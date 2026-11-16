@@ -132,7 +132,7 @@ export async function fetchAgentBoardRequests(filters: FilterState): Promise<Req
       name: item.full_name || 'Unknown',
       cnic: item.cnic || '00000-0000000-0',
       phone: item.phone || item.primary_phone || 'N/A',
-      staff: item.created_by_name || item.current_agent_name || 'Agent',
+      staff: item.stage_actor_name || item.created_by_name || item.current_agent_name || 'Agent',
       date: item.request_date,
       status,
       later: item.later || false,
@@ -142,58 +142,80 @@ export async function fetchAgentBoardRequests(filters: FilterState): Promise<Req
   });
 }
 
+function applyBoardFilters(query: any, filters: FilterState) {
+  if (filters.search) {
+    const cleanSearch = sanitizePostgrestParam(filters.search);
+    if (cleanSearch) {
+      const q = `%${cleanSearch}%`;
+      query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
+    }
+  }
+  if (filters.dateFrom) {
+    query = query.gte('request_date', filters.dateFrom);
+  }
+  if (filters.dateTo) {
+    query = query.lte('request_date', filters.dateTo);
+  }
+  return query;
+}
+
+function mapViewRowToRequestItem(item: any, statusOverride?: string): RequestItem {
+  const status = statusOverride ?? item.request_status;
+  return {
+    id: item.board_id,
+    name: item.full_name || 'Unknown',
+    cnic: item.cnic || '00000-0000000-0',
+    phone: item.phone || item.primary_phone || 'N/A',
+    staff: item.stage_actor_name || item.created_by_name || item.current_agent_name || 'Agent',
+    date: item.request_date,
+    status,
+    later: item.later || false,
+    isRead: item.is_read || false,
+    profileData: statusOverride ? { ...item, request_status: status } : item,
+  };
+}
+
+function deduplicateByProfile(items: RequestItem[]): RequestItem[] {
+  const seenProfiles = new Set<string>();
+  const unique: RequestItem[] = [];
+  for (const item of items) {
+    const profileKey = item.profileData?.profile_id || item.profileData?.source_profile_id || item.id;
+    if (!seenProfiles.has(profileKey)) {
+      seenProfiles.add(profileKey);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
+
 // =======================================================================
 // Fetch column requests for agent with pagination (Lazy Loading)
 // =======================================================================
-export async function fetchAgentColumnRequests(
+async function fetchAgentColumnRequestsWithClient(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string | null,
   status: string,
   filters: FilterState,
   offset: number = 0,
   limit: number = 20
 ): Promise<RequestItem[]> {
-  const supabase = await createClient();
-
   if (status === 'downloaded') {
     // 1. First check if the database view directly returns downloaded requests
+    if (!userId) return [];
     let viewQuery = supabase
       .from('vw_agent_requests_board')
       .select('*')
       .eq('request_status', 'downloaded');
 
-    if (filters.search) {
-      const cleanSearch = sanitizePostgrestParam(filters.search);
-      if (cleanSearch) {
-        const q = `%${cleanSearch}%`;
-        viewQuery = viewQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
-      }
-    }
-    if (filters.dateFrom) {
-      viewQuery = viewQuery.gte('request_date', filters.dateFrom);
-    }
-    if (filters.dateTo) {
-      viewQuery = viewQuery.lte('request_date', filters.dateTo);
-    }
-    viewQuery = viewQuery.order('request_date', { ascending: false }).range(offset, offset + limit - 1);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    viewQuery = applyBoardFilters(viewQuery, filters)
+      .order('request_date', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     const { data: viewData } = await viewQuery;
     if (viewData && viewData.length > 0) {
-      const validItems = viewData.filter((item: any) => !item.current_agent_id || item.current_agent_id === user.id);
+      const validItems = viewData.filter((item: any) => !item.current_agent_id || item.current_agent_id === userId);
       if (validItems.length > 0) {
-        return validItems.map((item: any) => ({
-          id: item.board_id,
-          name: item.full_name || 'Unknown',
-          cnic: item.cnic || '00000-0000000-0',
-          phone: item.phone || item.primary_phone || 'N/A',
-          staff: item.created_by_name || item.current_agent_name || 'Agent',
-          date: item.request_date,
-          status: 'downloaded',
-          later: item.later || false,
-          isRead: item.is_read || false,
-          profileData: item,
-        }));
+        return validItems.map((item: any) => mapViewRowToRequestItem(item, 'downloaded'));
       }
     }
 
@@ -201,7 +223,7 @@ export async function fetchAgentColumnRequests(
     const { data: myProfs } = await supabase
       .from('profiles')
       .select('id')
-      .eq('current_agent_id', user.id);
+      .eq('current_agent_id', userId);
     const myProfIds = (myProfs || []).map((p: any) => p.id);
 
     let irQuery = supabase
@@ -209,9 +231,9 @@ export async function fetchAgentColumnRequests(
       .select('id, created_at, is_read, source_profile_id');
 
     if (myProfIds.length > 0) {
-      irQuery = irQuery.or(`requested_by.eq.${user.id},source_profile_id.in.(${myProfIds.join(',')})`);
+      irQuery = irQuery.or(`requested_by.eq.${userId},source_profile_id.in.(${myProfIds.join(',')})`);
     } else {
-      irQuery = irQuery.eq('requested_by', user.id);
+      irQuery = irQuery.eq('requested_by', userId);
     }
 
     irQuery = irQuery
@@ -261,41 +283,21 @@ export async function fetchAgentColumnRequests(
 
   if (status === 'completed_outside') {
     // 1. First check if the database view directly returns completed_outside requests
+    if (!userId) return [];
     let viewQuery = supabase
       .from('vw_agent_requests_board')
       .select('*')
       .eq('request_status', 'completed_outside');
 
-    if (filters.search) {
-      const cleanSearch = sanitizePostgrestParam(filters.search);
-      if (cleanSearch) {
-        const q = `%${cleanSearch}%`;
-        viewQuery = viewQuery.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
-      }
-    }
-    if (filters.dateFrom) viewQuery = viewQuery.gte('request_date', filters.dateFrom);
-    if (filters.dateTo) viewQuery = viewQuery.lte('request_date', filters.dateTo);
-    viewQuery = viewQuery.order('request_date', { ascending: false }).range(offset, offset + limit - 1);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    viewQuery = applyBoardFilters(viewQuery, filters)
+      .order('request_date', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     const { data: viewData } = await viewQuery;
     if (viewData && viewData.length > 0) {
-      const validItems = viewData.filter((item: any) => !item.current_agent_id || item.current_agent_id === user.id);
+      const validItems = viewData.filter((item: any) => !item.current_agent_id || item.current_agent_id === userId);
       if (validItems.length > 0) {
-        return validItems.map((item: any) => ({
-          id: item.board_id,
-          name: item.full_name || 'Unknown',
-          cnic: item.cnic || '00000-0000000-0',
-          phone: item.phone || item.primary_phone || 'N/A',
-          staff: item.created_by_name || item.current_agent_name || 'Agent',
-          date: item.request_date,
-          status: 'completed_outside',
-          later: item.later || false,
-          isRead: item.is_read || false,
-          profileData: item,
-        }));
+        return validItems.map((item: any) => mapViewRowToRequestItem(item, 'completed_outside'));
       }
     }
 
@@ -303,7 +305,7 @@ export async function fetchAgentColumnRequests(
     const { data: myProfs } = await supabase
       .from('profiles')
       .select('id')
-      .eq('current_agent_id', user.id);
+      .eq('current_agent_id', userId);
     const myProfIds = (myProfs || []).map((p: any) => p.id);
 
     let irQuery = supabase
@@ -311,9 +313,9 @@ export async function fetchAgentColumnRequests(
       .select('id, created_at, is_read, source_profile_id');
 
     if (myProfIds.length > 0) {
-      irQuery = irQuery.or(`requested_by.eq.${user.id},source_profile_id.in.(${myProfIds.join(',')})`);
+      irQuery = irQuery.or(`requested_by.eq.${userId},source_profile_id.in.(${myProfIds.join(',')})`);
     } else {
-      irQuery = irQuery.eq('requested_by', user.id);
+      irQuery = irQuery.eq('requested_by', userId);
     }
 
     irQuery = irQuery
@@ -361,30 +363,12 @@ export async function fetchAgentColumnRequests(
       });
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
-
   let query = supabase
     .from('vw_agent_requests_board')
     .select('*')
     .eq('request_status', status);
 
-  // Database-Level Filtering with input sanitization
-  if (filters.search) {
-    const cleanSearch = sanitizePostgrestParam(filters.search);
-    if (cleanSearch) {
-      const q = `%${cleanSearch}%`;
-      query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",phone.ilike."${q}"`);
-    }
-  }
-  if (filters.dateFrom) {
-    query = query.gte('request_date', filters.dateFrom);
-  }
-  if (filters.dateTo) {
-    query = query.lte('request_date', filters.dateTo);
-  }
-
-  // Pagination & Sorting
-  query = query
+  query = applyBoardFilters(query, filters)
     .order('request_date', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -395,7 +379,7 @@ export async function fetchAgentColumnRequests(
     return [];
   }
 
-  const rawData = (data || []).filter((item: any) => !user || !item.current_agent_id || item.current_agent_id === user.id);
+  const rawData = (data || []).filter((item: any) => !userId || !item.current_agent_id || item.current_agent_id === userId);
 
   // If status is 'requested', filter out any items that are actually DOWNLOADED in information_requests
   if (status === 'requested' && rawData.length > 0) {
@@ -409,32 +393,66 @@ export async function fetchAgentColumnRequests(
     const downloadedSet = new Set((downloadedRows || []).map((r: any) => r.id));
     return rawData
       .filter((item: any) => !downloadedSet.has(item.request_id) && !downloadedSet.has(item.board_id))
-      .map((item: any) => ({
-        id: item.board_id,
-        name: item.full_name || 'Unknown',
-        cnic: item.cnic || '00000-0000000-0',
-        phone: item.phone || item.primary_phone || 'N/A',
-        staff: item.created_by_name || item.current_agent_name || 'Agent',
-        date: item.request_date,
-        status: item.request_status,
-        later: item.later || false,
-        isRead: item.is_read || false,
-        profileData: item,
-      }));
+      .map((item: any) => mapViewRowToRequestItem(item));
   }
 
-  return rawData.map((item: any) => ({
-    id: item.board_id,
-    name: item.full_name || 'Unknown',
-    cnic: item.cnic || '00000-0000000-0',
-    phone: item.phone || item.primary_phone || 'N/A',
-    staff: item.created_by_name || item.current_agent_name || 'Agent',
-    date: item.request_date,
-    status: item.request_status,
-    later: item.later || false,
-    isRead: item.is_read || false,
-    profileData: item, // Full profile payload attached
-  }));
+  return rawData.map((item: any) => mapViewRowToRequestItem(item));
+}
+
+export async function fetchAgentColumnRequests(
+  status: string,
+  filters: FilterState,
+  offset: number = 0,
+  limit: number = 20
+): Promise<RequestItem[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return fetchAgentColumnRequestsWithClient(supabase, user?.id ?? null, status, filters, offset, limit);
+}
+
+// =======================================================================
+// Batched Initial Load for all Agent Board Columns (1 auth check + parallel queries)
+// =======================================================================
+const AGENT_COLUMN_KEYS = ['logged', 'requested', 'responded', 'downloaded', 'done', 'completed_outside'] as const;
+
+export async function fetchAgentBoardInitialColumns(
+  filters: FilterState,
+  limit: number = 15
+): Promise<Record<string, RequestItem[]>> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return {};
+
+  let query = supabase.from('vw_agent_requests_board').select('*');
+  query = applyBoardFilters(query, filters)
+    .order('request_date', { ascending: false })
+    .limit(limit * AGENT_COLUMN_KEYS.length);
+
+  const { data, error } = await query;
+
+  const columnMap: Record<string, RequestItem[]> = {};
+  AGENT_COLUMN_KEYS.forEach((colKey) => {
+    columnMap[colKey] = [];
+  });
+
+  if (error) {
+    console.error('Supabase agent board initial query error:', error);
+    return columnMap;
+  }
+
+  const validRows = (data || []).filter(
+    (item: any) => !item.current_agent_id || item.current_agent_id === user.id
+  );
+  const mappedItems = validRows.map((item: any) => mapViewRowToRequestItem(item));
+  const uniqueItems = deduplicateByProfile(mappedItems);
+
+  uniqueItems.forEach((item) => {
+    if (columnMap[item.status] && columnMap[item.status].length < limit) {
+      columnMap[item.status].push(item);
+    }
+  });
+
+  return columnMap;
 }
 
 // Backward-compatible alias

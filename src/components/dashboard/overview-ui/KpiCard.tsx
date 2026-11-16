@@ -41,7 +41,7 @@ export function KpiCard({
   return (
     <div
       onClick={onClick}
-      className={`bg-white/85 backdrop-blur-md rounded-[26px] border border-[#E9E4DC]/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03),0_1px_4px_rgba(0,0,0,0.02)] p-5 sm:p-6 transition-all duration-200 hover:shadow-[0_8px_30px_-6px_rgba(0,0,0,0.06)] flex flex-col justify-between min-w-0 ${
+      className={`bg-white sm:bg-white/85 sm:backdrop-blur-md rounded-xl sm:rounded-[26px] border border-[#E9E4DC]/80 shadow-none sm:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03),0_1px_4px_rgba(0,0,0,0.02)] p-3 sm:p-5 md:p-6 transition-all duration-200 sm:hover:shadow-[0_8px_30px_-6px_rgba(0,0,0,0.06)] flex flex-col justify-between min-w-0 ${
         isClickable
           ? 'cursor-pointer hover:border-[#1F3B34]/40 active:scale-98'
           : ''

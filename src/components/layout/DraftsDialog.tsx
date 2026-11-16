@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, FileEdit, Clock, Trash2, Loader2 } from 'lucide-react';
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ProfileService } from '@/lib/services/profile-service';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { toast } from 'sonner';
 
 interface DraftProfile {
   id: string;
@@ -31,23 +33,16 @@ export default function DraftsDialog({ isOpen, onClose }: DraftsDialogProps) {
   const [draftToDelete, setDraftToDelete] = useState<DraftProfile | null>(null);
   const [deleteInput, setDeleteInput] = useState('');
   const router = useRouter();
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const { user } = useAuth();
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchDrafts();
+  const fetchDrafts = useCallback(async (isCancelled?: () => boolean) => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
     }
-  }, [isOpen]);
-
-  const fetchDrafts = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
+      const supabase = createClient();
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -65,13 +60,29 @@ export default function DraftsDialog({ isOpen, onClose }: DraftsDialogProps) {
         console.error('Supabase query error:', error);
         throw error;
       }
-      setDrafts(data || []);
+      if (!isCancelled?.()) {
+        setDrafts(data || []);
+      }
     } catch (err) {
       console.error('Error fetching drafts:', err);
+      if (!isCancelled?.()) {
+        toast.error('Failed to load drafts');
+      }
     } finally {
-      setLoading(false);
+      if (!isCancelled?.()) {
+        setLoading(false);
+      }
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    fetchDrafts(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, fetchDrafts]);
 
   const handleResume = (id: string) => {
     onClose();
@@ -95,7 +106,7 @@ export default function DraftsDialog({ isOpen, onClose }: DraftsDialogProps) {
       setDraftToDelete(null);
     } catch (err) {
       console.error('Error deleting draft:', err);
-      alert('Failed to delete draft');
+      toast.error('Failed to delete draft');
     } finally {
       setDeletingId(null);
     }

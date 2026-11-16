@@ -180,7 +180,7 @@ export const useReferenceDataStore = create<ReferenceDataState>((set, get) => ({
         });
       }
 
-      // Store ALL data — even partial success is better than nothing
+      // Store ALL data — partial failure keeps isLoaded: false so ReferenceDataProvider shows error + retry
       set({
         countries: (countriesRes.data || []) as Country[],
         provinces: (provincesRes.data || []) as Province[],
@@ -192,7 +192,7 @@ export const useReferenceDataStore = create<ReferenceDataState>((set, get) => ({
         educationLevels: (educationLevelsRes.data || []) as EducationLevel[],
         occupations: (occupationsRes.data || []) as Occupation[],
         rejectionReasons: (rejectionReasonsRes.data || []) as RejectionReason[],
-        isLoaded: true,
+        isLoaded: errors.length === 0,
         isLoading: false,
       });
     } catch (err) {

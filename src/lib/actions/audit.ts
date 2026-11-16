@@ -16,24 +16,18 @@ interface LogProfileEditParams {
  */
 export async function logProfileEditAction({
   profileId,
-  role,
   newData = {},
   metadata = {},
 }: LogProfileEditParams): Promise<{ success: boolean; skipped?: boolean; error?: string }> {
   try {
-    // 1. If role passed is Admin, skip immediately
-    if (role === 'HIGH_LEVEL_ADMIN') {
-      return { success: true, skipped: true };
-    }
-
-    // 2. Authenticate current user
+    // 1. Authenticate current user (never trust client-supplied role)
     const supabase = await createClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
       return { success: false, error: 'User not authenticated' };
     }
 
-    // 3. Execute PostgreSQL RPC function rpc_log_profile_edit
+    // 2. Execute PostgreSQL RPC function rpc_log_profile_edit (handles HIGH_LEVEL_ADMIN skip atomically)
     const { data: rpcData, error: rpcError } = await supabase.rpc('rpc_log_profile_edit', {
       p_profile_id: profileId,
       p_new_data: newData,

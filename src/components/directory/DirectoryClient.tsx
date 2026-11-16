@@ -152,12 +152,12 @@ export function DirectoryClient() {
     !hasActiveFilters && (mode === 'exact' || mode === 'similar') ? 'all' : mode;
 
   // 2. Live API Filter Queries
-  // Skip API call if no active filters (use baseEntries directly, Rule 2.1)
+  // Skip API call if no active filters or in 'similar' mode (computed client-side from baseEntries)
   // Check cache immediately if query already cached (instant 0ms response)
   useEffect(() => {
     if (isLoading) return;
 
-    if (!hasActiveFilters) {
+    if (!hasActiveFilters || effectiveMode === 'similar') {
       if (baseEntries.length > 0) {
         setEntries(baseEntries);
       }
@@ -202,44 +202,49 @@ export function DirectoryClient() {
   }, [filters, effectiveMode, isLoading, hasActiveFilters, baseEntries]);
 
   // 3. Supabase Realtime Listener (Auto-sync when new data is added or modified in DB)
+  const hasActiveFiltersRef = React.useRef(hasActiveFilters);
+  hasActiveFiltersRef.current = hasActiveFilters;
+
   useEffect(() => {
     const supabase = createClient();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let isDisposed = false;
+
+    const handleRealtimeRefresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        if (isDisposed) return;
+        clearDirectoryCache();
+        getDirectoryEntries().then((fresh) => {
+          if (isDisposed) return;
+          setBaseEntries(fresh);
+          if (!hasActiveFiltersRef.current) {
+            setEntries(fresh);
+          }
+        });
+      }, 400);
+    };
+
     const channel = supabase
       .channel('directory-realtime-sync')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'profiles' },
-        () => {
-          // Clear query cache so next filter actions fetch fresh DB data
-          clearDirectoryCache();
-          // Silently re-fetch baseline
-          getDirectoryEntries().then((fresh) => {
-            setBaseEntries(fresh);
-            if (!hasActiveFilters) {
-              setEntries(fresh);
-            }
-          });
-        }
+        handleRealtimeRefresh
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'information_requests' },
-        () => {
-          clearDirectoryCache();
-          getDirectoryEntries().then((fresh) => {
-            setBaseEntries(fresh);
-            if (!hasActiveFilters) {
-              setEntries(fresh);
-            }
-          });
-        }
+        handleRealtimeRefresh
       )
       .subscribe();
 
     return () => {
+      isDisposed = true;
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [hasActiveFilters]);
+  }, []);
 
   // Update an individual filter key
   const handleUpdateFilter = useCallback(

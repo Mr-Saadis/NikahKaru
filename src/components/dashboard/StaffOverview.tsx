@@ -40,6 +40,7 @@ import {
   FIXED_STEP_SECTIONS,
 } from './overview-ui';
 import { toast } from 'sonner';
+import { useDashboardCacheStore } from '@/lib/stores/dashboard-cache-store';
 import { generateReleasedProfilesPDF } from '@/lib/utils/pdfExport';
 import { notificationService } from '@/lib/services/notification-service';
 
@@ -103,8 +104,10 @@ export default function StaffOverview() {
     try {
       const res = await DashboardService.getDashboardData('AGENT');
       if (!res) return;
+      const updatedAt = formatKarachiTime(new Date());
+      useDashboardCacheStore.getState().setAgent(res as AgentOverviewData, updatedAt);
       setData(res as AgentOverviewData);
-      setLastUpdated(formatKarachiTime(new Date()));
+      setLastUpdated(updatedAt);
       setError(null);
       setLoading(false);
     } catch (err: unknown) {
@@ -118,12 +121,22 @@ export default function StaffOverview() {
   };
 
   useEffect(() => {
+    const cached = useDashboardCacheStore.getState().agent;
+    if (cached) {
+      setData(cached.data);
+      setLastUpdated(cached.lastUpdated);
+      setLoading(false);
+      return;
+    }
+
     let isCancelled = false;
     DashboardService.getDashboardData('AGENT')
       .then((res) => {
         if (isCancelled || !res) return;
+        const updatedAt = formatKarachiTime(new Date());
+        useDashboardCacheStore.getState().setAgent(res as AgentOverviewData, updatedAt);
         setData(res as AgentOverviewData);
-        setLastUpdated(formatKarachiTime(new Date()));
+        setLastUpdated(updatedAt);
         setError(null);
         setLoading(false);
       })
@@ -193,12 +206,15 @@ export default function StaffOverview() {
   }, [readyForDeliveryRaw]);
 
   // Dynamically fetch releases for requests in attention that are missing candidate payload
+  const fetchedExtraReleaseIdsRef = React.useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!attention || attention.length === 0) return;
     const missingReleaseRequestIds = attention
       .filter(
         (a) =>
           a.kind === 'release_ready' &&
+          !fetchedExtraReleaseIdsRef.current.has(a.entity_id) &&
           (!candidatesByRequestId.has(a.entity_id) ||
             (candidatesByRequestId.get(a.entity_id)?.length || 0) === 0)
       )
@@ -208,7 +224,7 @@ export default function StaffOverview() {
 
     let cancelled = false;
     missingReleaseRequestIds.forEach(async (reqId) => {
-      if (extraCandidatesMap[reqId]) return;
+      fetchedExtraReleaseIdsRef.current.add(reqId);
       try {
         const details = await notificationService.getRequestWithReleases(reqId);
         if (cancelled || !details?.releases || details.releases.length === 0) return;
@@ -266,7 +282,7 @@ export default function StaffOverview() {
     return () => {
       cancelled = true;
     };
-  }, [attention, candidatesByRequestId, extraCandidatesMap]);
+  }, [attention, candidatesByRequestId]);
 
   // Unified list of Needs Attention items (Client profiles remain main items)
   const mergedAttentionList = React.useMemo(() => {
@@ -585,8 +601,8 @@ export default function StaffOverview() {
                       router.push(linkHref);
                     };
 
-                    // Alternating horizontal offset: even entries (2nd, 4th, etc.) placed slightly forward
-                    const horizontalOffset = idx % 2 === 1 ? 'ml-3 sm:ml-6' : 'ml-0';
+                    // Alternating horizontal offset on sm+ screens only (keeps mobile cards aligned full-width)
+                    const horizontalOffset = idx % 2 === 1 ? 'sm:ml-6' : 'ml-0';
 
                     // Flat crisp card styling (NO GRADIENTS, NO BORDER ACCENTS)
                     const cardBgClass = isUrgent

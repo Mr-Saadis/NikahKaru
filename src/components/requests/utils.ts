@@ -28,10 +28,11 @@ export function getMatchProfileGroups(match: any): ProfileGroup[] {
   const childrenVal = d.number_of_children !== null && d.number_of_children !== undefined 
     ? d.number_of_children 
     : d.personal_information?.number_of_children;
+  const profilePicUrl = d.profile_url || d.profile_URL || d.profile_picture || d.personal_information?.profile_picture;
 
   return [
     ["Basic Information", [
-      ["Profile picture", "Include", "personal_information.profile_picture"],
+      ...(profilePicUrl ? [["Profile picture", "Include", "personal_information.profile_picture"] as ProfileField] : []),
       ["Full name", d.full_name || d.personal_information?.full_name || 'N/A', "personal_information.full_name"], 
       ...(d.gender || d.personal_information?.gender ? [["Gender", (d.gender || d.personal_information?.gender), "profiles.gender"] as ProfileField] : []),
       ["Phone", d.phone || d.primary_phone || d.personal_information?.phone || 'N/A', "personal_information.phone"], 

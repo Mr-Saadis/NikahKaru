@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { XIcon, CheckIcon } from './icons';
 import { CheckBox } from './CheckBox';
 import { MatchRing } from './MatchRing';
@@ -53,6 +53,13 @@ export function MatchProfilePanel({
 
   const p = (matchProfile as any)?.fullProfile || matchProfile?.candidateData;
   const cName = p?.full_name || p?.personal_information?.full_name || 'Candidate';
+  const rawProfilePicUrl: string | null = p?.profile_url || p?.profile_URL || p?.profile_picture || null;
+  const canShowProfilePic = !!rawProfilePicUrl && (!isAgent || allowedFields.has('personal_information.profile_picture'));
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [matchProfile?.candidateProfileId, rawProfilePicUrl]);
 
   // Role-based masking of top candidate summary attributes:
   const hasDob = allowedFields.has('personal_information.date_of_birth') || !isAgent;
@@ -151,10 +158,19 @@ export function MatchProfilePanel({
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-[18px_16px_20px] overscroll-contain sheet-hidden-scrollbar">
           <div className="text-center p-[10px_8px_16px] rounded-[22px] bg-gradient-to-b from-[#f3f2ec] to-white mb-3">
             <div
-              className="w-[72px] h-[72px] mx-auto mb-[10px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[22px] shadow-[0_0_0_4px_#fff,_0_10px_22px_rgba(0,0,0,.12)]"
+              className="w-[72px] h-[72px] mx-auto mb-[10px] rounded-full overflow-hidden flex items-center justify-center font-[700] text-[#111] text-[22px] shadow-[0_0_0_4px_#fff,_0_10px_22px_rgba(0,0,0,.12)]"
               style={{ background: AVC[matchProfile.candidateProfileId.charCodeAt(0) % 5] }}
             >
-              {getInitials(cName)}
+              {canShowProfilePic && !imgError ? (
+                <img
+                  src={rawProfilePicUrl!}
+                  alt={cName}
+                  onError={() => setImgError(true)}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                getInitials(cName)
+              )}
             </div>
             <h3 className="m-0 text-[19px] font-[700] tracking-[-0.5px]">{cName}</h3>
             {summaryParts.length > 0 && (

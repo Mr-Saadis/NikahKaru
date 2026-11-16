@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from '@/components/layout/Header';
 import { UserPlus, ShieldCheck, Mail, Lock, User as UserIcon, Edit2, Check, X, Trash2, Phone, Power, PowerOff } from 'lucide-react';
 import {
@@ -26,6 +26,8 @@ export default function AdminSettings() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editRole, setEditRole] = useState<string>('');
   const [editPhone, setEditPhone] = useState<string>('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [userToDelete, setUserToDelete] = useState<any>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -48,6 +50,12 @@ export default function AdminSettings() {
       fetchUsers();
     }
   }, [isAuthorized]);
+
+  useEffect(() => {
+    return () => {
+      if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
+    };
+  }, []);
 
   if (authLoading || !isInitialized) {
     return (
@@ -72,7 +80,8 @@ export default function AdminSettings() {
 
   const showNotification = (message: string, type: 'success' | 'error') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000);
+    if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
+    notificationTimerRef.current = setTimeout(() => setNotification(null), 4000);
   };
 
   const fetchUsers = async () => {
@@ -117,6 +126,8 @@ export default function AdminSettings() {
   };
 
   const handleSaveChanges = async (userId: string) => {
+    if (isSavingEdit) return;
+    setIsSavingEdit(true);
     try {
       const res = await fetch('/api/admin/users', {
         method: 'PUT',
@@ -133,6 +144,8 @@ export default function AdminSettings() {
       }
     } catch (error) {
       showNotification('Failed to update user details.', 'error');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -241,7 +254,6 @@ export default function AdminSettings() {
                       <SelectItem value="HIGH_LEVEL_ADMIN">High Level Admin</SelectItem>
                       <SelectItem value="MANAGER">Manager</SelectItem>
                       <SelectItem value="AGENT">Agent</SelectItem>
-                      <SelectItem value={"DEVELOPER" as any}>Developer</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -336,13 +348,13 @@ export default function AdminSettings() {
                             <div className="flex justify-end items-center gap-1">
                               {editingUserId === u.User_ID ? (
                                 <>
-                                  <button onClick={() => handleSaveChanges(u.User_ID)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E9E4DC] bg-white hover:bg-[#E5EFE9] text-[#137333] shadow-sm"><Check size={14} strokeWidth={3} /></button>
+                                  <button disabled={isSavingEdit} onClick={() => handleSaveChanges(u.User_ID)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E9E4DC] bg-white hover:bg-[#E5EFE9] text-[#137333] shadow-sm disabled:opacity-50"><Check size={14} strokeWidth={3} /></button>
                                   <button onClick={() => setEditingUserId(null)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E9E4DC] bg-white hover:bg-[#FEE2E2] text-[#991B1B] shadow-sm"><X size={14} strokeWidth={3} /></button>
                                 </>
                               ) : (
                                 <>
                                   {canEdit && (
-                                    <button onClick={() => handleEditClick(u)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E9E4DC] bg-white hover:bg-[#F4ECE1] text-[#24211D] shadow-sm opacity-0 group-hover:opacity-100 transition-opacity" title="Edit Role & Phone">
+                                    <button onClick={() => handleEditClick(u)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E9E4DC] bg-white hover:bg-[#F4ECE1] text-[#24211D] shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" title="Edit Role & Phone">
                                       <Edit2 size={14} />
                                     </button>
                                   )}

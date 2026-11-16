@@ -71,7 +71,7 @@ export async function fetchBoardRequests(filters: FilterState): Promise<RequestI
       name: item.full_name || 'Unknown',
       cnic: item.cnic || '00000-0000000-0',
       phone: item.primary_phone || item.phone || 'N/A',
-      staff: item.current_agent_name || item.created_by_name || 'System',
+      staff: item.stage_actor_name || item.current_agent_name || item.created_by_name || 'System',
       date: item.request_date,
       status,
       later: item.later || false,
@@ -119,7 +119,7 @@ export async function fetchColumnRequests(
         name: item.full_name || 'Unknown',
         cnic: item.cnic || '00000-0000000-0',
         phone: item.primary_phone || item.phone || 'N/A',
-        staff: item.current_agent_name || item.created_by_name || 'System',
+        staff: item.stage_actor_name || item.current_agent_name || item.created_by_name || 'System',
         date: item.request_date,
         status: 'completed_outside',
         later: item.later || false,
@@ -218,7 +218,7 @@ export async function fetchColumnRequests(
     name: item.full_name || 'Unknown',
     cnic: item.cnic || '00000-0000000-0',
     phone: item.primary_phone || item.phone || 'N/A',
-    staff: item.current_agent_name || item.created_by_name || 'System',
+    staff: item.stage_actor_name || item.current_agent_name || item.created_by_name || 'System',
     date: item.request_date,
     status: item.request_status,
     later: item.later || false,
@@ -227,10 +227,88 @@ export async function fetchColumnRequests(
   }));
 }
 
+const MANAGER_COLUMN_KEYS = [
+  'new',
+  'first',
+  'second',
+  'responded',
+  'downloaded',
+  'done',
+  'completed_outside',
+  'pause',
+  'feedback',
+  'archive',
+] as const;
+
+export async function fetchManagerBoardInitialColumns(
+  filters: FilterState,
+  limit: number = 15
+): Promise<Record<string, RequestItem[]>> {
+  const supabase = await createClient();
+
+  let query = supabase.from('vw_manager_requests_board').select('*');
+
+  if (filters.search) {
+    const cleanSearch = sanitizePostgrestParam(filters.search);
+    if (cleanSearch) {
+      const q = `%${cleanSearch}%`;
+      query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
+    }
+  }
+  if (filters.dateFrom) {
+    query = query.gte('request_date', filters.dateFrom);
+  }
+  if (filters.dateTo) {
+    query = query.lte('request_date', filters.dateTo);
+  }
+  if (filters.staff) {
+    const cleanStaff = sanitizePostgrestParam(filters.staff);
+    if (cleanStaff) {
+      query = query.or(`current_agent_name.eq."${cleanStaff}",created_by_name.eq."${cleanStaff}"`);
+    }
+  }
+
+  // Single view query instead of 10 concurrent heavy view evaluations (prevents 57014 statement timeout)
+  const { data, error } = await query
+    .order('request_date', { ascending: false })
+    .limit(limit * MANAGER_COLUMN_KEYS.length);
+
+  const columnMap: Record<string, RequestItem[]> = {};
+  MANAGER_COLUMN_KEYS.forEach((colKey) => {
+    columnMap[colKey] = [];
+  });
+
+  if (error) {
+    console.error('Supabase manager board initial query error:', error);
+    return columnMap;
+  }
+
+  (data || []).forEach((item: any) => {
+    const colKey = item.request_status || 'new';
+    if (!columnMap[colKey]) columnMap[colKey] = [];
+    if (columnMap[colKey].length < limit) {
+      columnMap[colKey].push({
+        id: item.board_id,
+        name: item.full_name || 'Unknown',
+        cnic: item.cnic || '00000-0000000-0',
+        phone: item.primary_phone || item.phone || 'N/A',
+        staff: item.stage_actor_name || item.current_agent_name || item.created_by_name || 'System',
+        date: item.request_date,
+        status: colKey,
+        later: item.later || false,
+        isRead: item.is_read || false,
+        profileData: item,
+      });
+    }
+  });
+
+  return columnMap;
+}
+
 // =======================================================================
 // Fetch Real Agent Names for the Filter Dropdown
 // =======================================================================
-export const fetchAgentNames = unstable_cache(async (): Promise<string[]> => {
+const fetchAgentNamesCached = unstable_cache(async (): Promise<string[]> => {
   const supabase = createAdminClient();
   
   const { data, error } = await supabase
@@ -251,7 +329,7 @@ export const fetchAgentNames = unstable_cache(async (): Promise<string[]> => {
   // Extract names
   const names = new Set<string>();
   data.forEach((row: any) => {
-    let name = row.users?.full_name;
+    const name = row.users?.full_name;
     if (name) {
       names.add(name);
     }
@@ -259,6 +337,13 @@ export const fetchAgentNames = unstable_cache(async (): Promise<string[]> => {
 
   return Array.from(names).sort();
 }, ['agent-names-cache'], { revalidate: 3600, tags: ['agents'] });
+
+export async function fetchAgentNames(): Promise<string[]> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return [];
+  return fetchAgentNamesCached();
+}
 
 // =======================================================================
 // Mark a Request as Read
@@ -495,7 +580,7 @@ export async function fetchSentProfilesForRequest(
     };
   });
 
-  // 3. Fetch scores if sourceProfileId provided
+  // 3. Fetch scores if sourceProfileId provided (strip detailed breakdowns for AGENT)
   let viewResults: any[] = [];
   if (sourceProfileId) {
     const { data: scoresData } = await supabase
@@ -503,7 +588,11 @@ export async function fetchSentProfilesForRequest(
       .select('*')
       .eq('source_profile_id', sourceProfileId)
       .in('candidate_profile_id', candidateIds);
-    if (scoresData) viewResults = scoresData;
+    if (scoresData) {
+      viewResults = isAgent
+        ? scoresData.map(({ score_breakdowns, breakdowns, ...rest }: any) => rest)
+        : scoresData;
+    }
   }
 
   // 4. CRITICAL AGENT SECURITY: Strip unapproved fields if caller is an AGENT!
@@ -736,7 +825,31 @@ function formatAuditAction(log: any): { title: string; description: string } {
 export async function fetchProfileAuditLogs(profileId: string): Promise<ProfileAuditLogItem[]> {
   if (!profileId) return [];
 
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return [];
+
   const supabase = createAdminClient();
+
+  const { data: roleData } = await supabase
+    .from('user_roles')
+    .select('roles(name)')
+    .eq('user_id', user.id)
+    .limit(1)
+    .maybeSingle();
+  const roleObj: any = roleData?.roles;
+  const roleName = (Array.isArray(roleObj) ? roleObj[0]?.name : roleObj?.name)?.toUpperCase() || '';
+
+  if (roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN') {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('id, current_agent_id, created_by')
+      .eq('id', profileId)
+      .maybeSingle();
+    if (!prof || (prof.current_agent_id !== user.id && prof.created_by !== user.id)) {
+      return [];
+    }
+  }
 
   // 1. Get all requests associated with this profile
   const { data: sourceRequests } = await supabase
@@ -878,7 +991,24 @@ export interface AgentOption {
 }
 
 export async function fetchAgentsList(): Promise<AgentOption[]> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return [];
+
   const supabase = createAdminClient();
+
+  const { data: roleData } = await supabase
+    .from('user_roles')
+    .select('roles(name)')
+    .eq('user_id', user.id)
+    .limit(1)
+    .maybeSingle();
+  const roleObj: any = roleData?.roles;
+  const roleName = (Array.isArray(roleObj) ? roleObj[0]?.name : roleObj?.name)?.toUpperCase() || '';
+  if (roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN') {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('user_roles')
     .select(`

@@ -527,15 +527,15 @@ export default function RequestDetailsSheet({
     }
   }, [item, matching, scrollRef, isCompleted]);
 
-  const handleRematch = useCallback(() => {
+  const handleRematch = useCallback(async () => {
     if (!item) return;
     if (isCompleted) {
       onToast('Profile is completed. Rematching is not allowed.');
       return;
     }
-    // Real rematch logic could reset state, but for now just toast
-    onToast('Matches refreshed (from cache)');
-  }, [item, onToast, isCompleted]);
+    await matching.toggleMatches(item, true);
+    onToast('Matches refreshed');
+  }, [item, onToast, isCompleted, matching]);
 
   const handleAgentSubmitRequest = useCallback(async () => {
     if (!item) return;
@@ -678,10 +678,14 @@ export default function RequestDetailsSheet({
                 full_name: p?.full_name || h.candidate_name || 'Candidate',
                 gender: p?.gender,
                 marital_status: p?.marital_status,
+                profile_url: p?.profile_url || p?.profile_URL || null,
               },
               score: match?.finalScore,
               rank: match?.rank,
-              fields: (h.selected_fields || []).map((f: string) => ({ field_path: f, field_value: '' })),
+              fields: (h.selected_fields || []).map((f: string) => ({
+                field_path: f,
+                field_value: f === 'personal_information.profile_picture' ? (p?.profile_url || p?.profile_URL || '') : '',
+              })),
               released_at: h.released_at,
             };
           });
@@ -852,7 +856,7 @@ export default function RequestDetailsSheet({
                 router.push(`/add-profile?edit=${profileId}`);
               }}
               title="Edit Profile"
-              className="inline-flex items-center gap-1.5 h-[28px] px-2.5 rounded-full bg-white text-[#111] text-[11px] font-semibold border border-black/10 hover:bg-gray-100 transition-colors shadow-sm ml-1 cursor-pointer"
+              className="inline-flex items-center gap-1.5 h-[28px] px-2.5 rounded-full bg-transparent text-[#1F1E1B] text-[11px] font-semibold border border-[#1F1E1B]/20 hover:bg-black/5 transition-colors ml-1 cursor-pointer"
             >
               <Pencil size={11} />
               <span>Edit</span>
@@ -906,7 +910,7 @@ export default function RequestDetailsSheet({
                   <a href={`tel:${digitsOnly(item.phone)}`} className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[#111] text-white text-[12px] font-[600] no-underline transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_16px_rgba(0,0,0,.14)]">
                     <PhoneIcon size={14} /> Call now
                   </a>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleCopy(item.phone, item.phone); }} className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[rgba(255,255,255,.75)] backdrop-blur-[8px] text-[#111] text-[12px] font-[600] border-none cursor-pointer transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_16px_rgba(0,0,0,.14)]">
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleCopy(item.phone, item.phone); }} className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-transparent text-[#1F1E1B] text-[12px] font-[600] border border-[#1F1E1B]/20 hover:bg-black/5 cursor-pointer transition-all duration-200 hover:-translate-y-[1px]">
                     <CopyIcon size={14} /> Copy phone
                   </button>
 
@@ -919,7 +923,7 @@ export default function RequestDetailsSheet({
                         router.push(`/add-profile?edit=${profileId}`);
                       }}
                       title="Edit this profile in Add Profile form"
-                      className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[rgba(255,255,255,.85)] hover:bg-white text-[#111] text-[12px] font-[600] border-none cursor-pointer shadow-sm transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_16px_rgba(0,0,0,.14)]"
+                      className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-transparent text-[#1F1E1B] text-[12px] font-[600] border border-[#1F1E1B]/20 hover:bg-black/5 cursor-pointer transition-all duration-200 hover:-translate-y-[1px]"
                     >
                       <Pencil size={13} />
                       <span>Edit Profile</span>
@@ -1091,8 +1095,8 @@ export default function RequestDetailsSheet({
                           </div>
                         )}
 
-                        {/* Dropdown for Downloaded Profiles (Agent View) */}
-                        {item.status === 'downloaded' && (
+                        {/* Dropdown for Downloaded Profiles (Manager/Admin only) */}
+                        {!isAgent && item.status === 'downloaded' && (
                           <div className="relative" ref={statusDropdownRef}>
                             <button
                               type="button"

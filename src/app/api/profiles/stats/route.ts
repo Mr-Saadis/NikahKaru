@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       const r: any = userRoleData.roles;
       roleName = (Array.isArray(r) ? r[0]?.name : r?.name)?.toUpperCase() || '';
     }
-    const isAgent = roleName === 'AGENT';
+    const isManagerOrAdmin = roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN';
 
     let totalQ = supabase.from('profiles').select('id', { count: 'exact', head: true });
     let activeQ = supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE');
@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
     let pausedQ = supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'PAUSED');
     let archivedQ = supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'ARCHIVED');
 
-    if (isAgent) {
+    // Fail-closed: Only MANAGER / HIGH_LEVEL_ADMIN see global counts
+    if (!isManagerOrAdmin) {
       totalQ = totalQ.eq('current_agent_id', user.id);
       activeQ = activeQ.eq('current_agent_id', user.id);
       draftQ = draftQ.eq('current_agent_id', user.id);

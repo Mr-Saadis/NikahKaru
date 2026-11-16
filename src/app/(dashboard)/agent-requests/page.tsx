@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import RequestsBoard from '@/components/requests/RequestsBoard';
 import { AGENT_COLUMNS } from '@/components/requests/constants';
-import { fetchAgentRequests, fetchAgentColumnRequests, fetchAgentNames } from '@/lib/actions/agent-requests';
+import { fetchAgentBoardInitialColumns, fetchAgentColumnRequests, fetchAgentNames } from '@/lib/actions/agent-requests';
 import { markRequestAsRead } from '@/lib/actions/requests';
 
 // ============================================================
@@ -56,10 +56,11 @@ export default function AgentRequestsPage() {
       <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading board...</div>}>
         <RequestsBoard 
           columns={AGENT_COLUMNS}
-          fetchRequests={fetchAgentRequests}
+          fetchInitialColumns={fetchAgentBoardInitialColumns}
           fetchColumnRequests={fetchAgentColumnRequests}
           fetchNames={fetchAgentNames}
           hideStaffFilter={true}
+          enableRealtime={true}
         />
       </Suspense>
     </div>

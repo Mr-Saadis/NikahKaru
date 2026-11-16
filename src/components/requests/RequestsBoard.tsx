@@ -22,14 +22,25 @@ import { getMatchProfileGroups } from './utils';
 
 export interface RequestsBoardProps {
   columns: ColumnDef[];
+  fetchInitialColumns?: (filters: FilterState, limit?: number) => Promise<Record<string, RequestItem[]>>;
   fetchColumnRequests?: (status: string, filters: FilterState, offset: number, limit: number) => Promise<RequestItem[]>;
   fetchRequests?: (filters: FilterState) => Promise<RequestItem[]>;
   fetchNames: () => Promise<string[]>;
   hideStaffFilter?: boolean;
+  enableRealtime?: boolean;
   onMarkAsRead?: (id: string) => Promise<void>;
 }
 
-export default function RequestsBoard({ columns, fetchColumnRequests, fetchRequests, fetchNames, hideStaffFilter, onMarkAsRead }: RequestsBoardProps) {
+export default function RequestsBoard({
+  columns,
+  fetchInitialColumns,
+  fetchColumnRequests,
+  fetchRequests,
+  fetchNames,
+  hideStaffFilter,
+  enableRealtime,
+  onMarkAsRead,
+}: RequestsBoardProps) {
   const {
     filteredItems,
     columnCards,
@@ -58,7 +69,15 @@ export default function RequestsBoard({ columns, fetchColumnRequests, fetchReque
     loadMoreColumn,
     isLoadingMore,
     columnHasMore,
-  } = useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, fetchNames });
+  } = useRequestsBoard({
+    columns,
+    fetchInitialColumns,
+    fetchColumnRequests,
+    fetchRequests,
+    fetchNames,
+    hideStaffFilter,
+    enableRealtime,
+  });
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const leftColRef = useRef<HTMLDivElement>(null);

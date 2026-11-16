@@ -298,10 +298,6 @@ export default function ProfilesListPage() {
     }
   }, [isInitialized, isAgent, router]);
 
-  if (isInitialized && !isAgent) {
-    return null;
-  }
-
   // ── State ─────────────────────────────────────────────────────
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -476,7 +472,7 @@ export default function ProfilesListPage() {
     if (!selectedId || !selectedProfile) return;
     
     if (selectedProfile.status !== 'ACTIVE') {
-      alert("Matching can only be run on ACTIVE profiles. Please ensure the profile is active first.");
+      toast.error("Matching can only be run on ACTIVE profiles. Please ensure the profile is active first.");
       return;
     }
     
@@ -506,7 +502,7 @@ export default function ProfilesListPage() {
 
     } catch (error: any) {
       console.error("Error running matches:", error);
-      alert(error.message || "Failed to run algorithm. Please check if this profile has active preferences setup.");
+      toast.error(error.message || "Failed to run algorithm. Please check if this profile has active preferences setup.");
     } finally {
       setRunningMatchesMap(prev => ({ ...prev, [currentId]: false }));
       removeLock(currentId);
@@ -1844,16 +1840,16 @@ export default function ProfilesListPage() {
   // ════════════════════════════════════════════════════════════════
   // RENDER
   // ════════════════════════════════════════════════════════════════
-  if (isInitialized && (role === 'MANAGER' || role === 'HIGH_LEVEL_ADMIN')) {
+  if (isInitialized && !isAgent) {
     return null;
   }
 
   return (
     <>
-      <div className="flex-1 flex min-h-0 py-2">
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 py-2">
         {/* ═══════════════ LEFT PANEL: Profile Directory ═══════════════ */}
         {/* Sits completely flush against the global sidebar (which now dynamically expands to touch it) */}
-        <div className="w-[300px] min-w-[280px] shrink-0 flex flex-col bg-[#1F3B34] text-white border-r border-[#172D28] rounded-r-[28px] overflow-hidden ml-0 z-0 relative shadow-none">
+        <div className="w-full md:w-[300px] md:min-w-[280px] max-h-[38vh] md:max-h-none shrink-0 flex flex-col bg-[#1F3B34] text-white border-r border-[#172D28] rounded-[28px] md:rounded-l-none md:rounded-r-[28px] overflow-hidden ml-0 z-0 relative shadow-none">
           {/* Subtle glow in dark panel */}
           <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 blur-3xl pointer-events-none rounded-full" />
 

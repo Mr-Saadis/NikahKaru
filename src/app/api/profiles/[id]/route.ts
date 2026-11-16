@@ -51,7 +51,8 @@ export async function GET(
       roleName = (Array.isArray(r) ? r[0]?.name : r?.name)?.toUpperCase() || '';
     }
 
-    if (roleName === 'AGENT' && coreData.current_agent_id !== user.id) {
+    const isManagerOrAdmin = roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN';
+    if (!isManagerOrAdmin && coreData.current_agent_id !== user.id) {
       return NextResponse.json({ error: 'Unauthorized: Profile not assigned to you' }, { status: 403 });
     }
 

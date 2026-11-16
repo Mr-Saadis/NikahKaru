@@ -21,7 +21,7 @@ export default function OverviewPage() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 w-full bg-[#FAF8F5]">
-      <div className="px-4 md:px-6 py-6 w-full min-w-0">
+      <div className="px-0 py-2 sm:px-5 sm:py-5 md:px-6 md:py-6 w-full min-w-0 overflow-x-hidden">
         {role === 'HIGH_LEVEL_ADMIN' && <AdminOverview />}
         {role === 'MANAGER' && <ManagerOverview />}
         {(role === 'AGENT' || !role) && <StaffOverview />}

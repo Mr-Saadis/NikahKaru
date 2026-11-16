@@ -45,23 +45,28 @@ import {
   FunnelBars,
 } from './overview-ui';
 import { toast } from 'sonner';
+import { useDashboardCacheStore } from '@/lib/stores/dashboard-cache-store';
 
 export default function AdminOverview() {
   const router = useRouter();
+  const [selectedDays, setSelectedDays] = useState<number>(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AdminOverviewData | null>(null);
-  const [selectedDays, setSelectedDays] = useState<number>(30);
   const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [isRangeLoading, setIsRangeLoading] = useState<boolean>(false);
   const [teamTab, setTeamTab] = useState<'MANAGERS' | 'AGENTS'>('MANAGERS');
 
   const fetchData = async (days: number, showLoading = false) => {
     if (showLoading) setLoading(true);
+    setIsRangeLoading(true);
     try {
       const res = await DashboardService.getDashboardData('HIGH_LEVEL_ADMIN', days);
       if (!res) return;
+      const updatedAt = formatKarachiTime(new Date());
+      useDashboardCacheStore.getState().setAdmin(days, res as AdminOverviewData, updatedAt);
       setData(res as AdminOverviewData);
-      setLastUpdated(formatKarachiTime(new Date()));
+      setLastUpdated(updatedAt);
       setError(null);
       setLoading(false);
     } catch (err: unknown) {
@@ -71,18 +76,33 @@ export default function AdminOverview() {
       setError(e?.message || 'Failed to load system dashboard');
       toast.error('Failed to load system overview');
       setLoading(false);
+    } finally {
+      setIsRangeLoading(false);
     }
   };
 
   useEffect(() => {
+    const cached = useDashboardCacheStore.getState().admin[selectedDays];
+    if (cached) {
+      setData(cached.data);
+      setLastUpdated(cached.lastUpdated);
+      setLoading(false);
+      setIsRangeLoading(false);
+      return;
+    }
+
     let isCancelled = false;
+    setIsRangeLoading(true);
     DashboardService.getDashboardData('HIGH_LEVEL_ADMIN', selectedDays)
       .then((res) => {
         if (isCancelled || !res) return;
+        const updatedAt = formatKarachiTime(new Date());
+        useDashboardCacheStore.getState().setAdmin(selectedDays, res as AdminOverviewData, updatedAt);
         setData(res as AdminOverviewData);
-        setLastUpdated(formatKarachiTime(new Date()));
+        setLastUpdated(updatedAt);
         setError(null);
         setLoading(false);
+        setIsRangeLoading(false);
       })
       .catch((err: unknown) => {
         if (isCancelled) return;
@@ -92,6 +112,7 @@ export default function AdminOverview() {
         setError(e?.message || 'Failed to load system dashboard');
         toast.error('Failed to load system overview');
         setLoading(false);
+        setIsRangeLoading(false);
       });
 
     return () => {
@@ -189,56 +210,61 @@ export default function AdminOverview() {
     overdueCount > 0 || inactiveAgentsCount > 0 || missingPrefsCount > 0;
 
   return (
-    <div className="w-full min-w-0 space-y-5 font-sans">
+    <div className="w-full min-w-0 space-y-3 sm:space-y-5 font-sans">
       {/* ════════════════════════════════════════════════════════════════
           1. PAGE HEADER (with range segmented control)
       ════════════════════════════════════════════════════════════════ */}
-      <PageHeader
-        title="Executive Report"
-        subtitle="Platform health, matchmaking throughput & demographic distribution"
-        icon={Layers}
-        lastUpdated={lastUpdated}
-        onRefresh={() => void fetchData(selectedDays, true)}
-        selectedDays={selectedDays}
-        onRangeChange={setSelectedDays}
-      />
+      <div className="px-3 sm:px-0">
+        <PageHeader
+          title="Executive Report"
+          subtitle="Platform health, matchmaking throughput & demographic distribution"
+          icon={Layers}
+          lastUpdated={lastUpdated}
+          onRefresh={() => void fetchData(selectedDays, true)}
+          selectedDays={selectedDays}
+          onRangeChange={setSelectedDays}
+          isRefreshing={isRangeLoading}
+        />
+      </div>
 
       {/* ════════════════════════════════════════════════════════════════
           2. COMBINED ACTION ALERT STRIP
       ════════════════════════════════════════════════════════════════ */}
       {hasSystemAlerts && (
-        <AlertStrip
-          variant="amber"
-          icon={AlertTriangle}
-          message={
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-bold">System Alerts:</span>
-              {overdueCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[11px] font-bold">
-                  {overdueCount} overdue requests
-                </span>
-              )}
-              {inactiveAgentsCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold">
-                  {inactiveAgentsCount} inactive agents (7d)
-                </span>
-              )}
-              {missingPrefsCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-stone-200 text-stone-800 text-[11px] font-bold">
-                  {missingPrefsCount} active profiles without preferences
-                </span>
-              )}
-            </div>
-          }
-          actionText="Inspect Queue"
-          actionHref="/requests"
-        />
+        <div className="px-3 sm:px-0">
+          <AlertStrip
+            variant="amber"
+            icon={AlertTriangle}
+            message={
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-[#1F1E1B]">System Notice:</span>
+                {overdueCount > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#FBF0EC] border border-[#C86A4A]/20 text-[#C86A4A] text-[11px] font-semibold">
+                    {overdueCount} overdue {overdueCount === 1 ? 'request' : 'requests'}
+                  </span>
+                )}
+                {inactiveAgentsCount > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#F4EFE7] border border-[#E5DED3] text-[#5C5449] text-[11px] font-semibold">
+                    {inactiveAgentsCount} inactive {inactiveAgentsCount === 1 ? 'agent' : 'agents'} (7d)
+                  </span>
+                )}
+                {missingPrefsCount > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#F4EFE7] border border-[#E5DED3] text-[#5C5449] text-[11px] font-semibold">
+                    {missingPrefsCount} active profiles without preferences
+                  </span>
+                )}
+              </div>
+            }
+            actionText="Inspect Queue"
+            actionHref="/requests"
+          />
+        </div>
       )}
 
       {/* ════════════════════════════════════════════════════════════════
           3. ROW OF 6 KPI CARDS WITH ANIMATED NUMERALS & DELTA CHIPS
       ════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 px-3 sm:px-0">
         <KpiCard
           icon={Users}
           label="ACTIVE PROFILES"
@@ -291,6 +317,13 @@ export default function AdminOverview() {
           onClick={() => router.push('/requests?column=done')}
         />
       </div>
+
+      {/* Demographics Widget (2nd Section) */}
+      {demographics && (
+        <OverviewCard icon={BarChart3} title="Demographic Distribution">
+          <DemographicsChart demographics={demographics} />
+        </OverviewCard>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════
           4. WEEKLY TREND (AREA CHART) & CONVERSION FUNNEL (TALL BARS)
@@ -439,7 +472,7 @@ export default function AdminOverview() {
                             <td key={bucket} className="p-1.5 text-center">
                               <div
                                 title={cellTitle}
-                                className={`p-1.5 rounded-lg tabular-nums text-[11px] transition-all duration-120 cursor-help ${cellBg}`}
+                                className={`p-1.5 rounded-lg tabular-nums text-[11px] whitespace-nowrap transition-all duration-120 cursor-help ${cellBg}`}
                               >
                                 {total > 0 ? (
                                   <span>
@@ -555,7 +588,7 @@ export default function AdminOverview() {
               size="sm"
             />
             {users?.agents_inactive_7d > 0 && (
-              <span className="hidden sm:inline-flex px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-full">
+              <span className="hidden sm:inline-flex px-2.5 py-0.5 bg-[#FBF0EC] border border-[#C86A4A]/25 text-[#C86A4A] text-xs font-semibold rounded-full">
                 {users.agents_inactive_7d} inactive
               </span>
             )}
@@ -892,13 +925,6 @@ export default function AdminOverview() {
           </div>
         )}
       </OverviewCard>
-
-      {/* Demographics Widget (Rule 14) */}
-      {demographics && (
-        <OverviewCard icon={BarChart3} title="Demographic Distribution">
-          <DemographicsChart demographics={demographics} />
-        </OverviewCard>
-      )}
     </div>
   );
 }

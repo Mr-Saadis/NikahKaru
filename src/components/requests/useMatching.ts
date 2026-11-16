@@ -188,24 +188,21 @@ export function useMatching() {
       }
 
       // Merge history matches if they are missing from results
-      setReleaseHistory(prevHistory => {
-        const history = prevHistory[requestId] || [];
-        if (history.length > 0) {
-          history.forEach(h => {
-            if (!results.some(r => r.candidateProfileId === h.candidate_profile_id)) {
-              results.push({
-                candidateProfileId: h.candidate_profile_id,
-                sourceToCandidateScore: 0,
-                candidateToSourceScore: 0,
-                finalScore: 0,
-                rank: 0,
-                breakdowns: { sourceToCandidate: [], candidateToSource: [] }
-              });
-            }
-          });
-        }
-        return prevHistory;
-      });
+      const history = releaseHistory[requestId] || [];
+      if (history.length > 0) {
+        history.forEach(h => {
+          if (!results.some(r => r.candidateProfileId === h.candidate_profile_id)) {
+            results.push({
+              candidateProfileId: h.candidate_profile_id,
+              sourceToCandidateScore: 0,
+              candidateToSourceScore: 0,
+              finalScore: 0,
+              rank: 0,
+              breakdowns: { sourceToCandidate: [], candidateToSource: [] }
+            });
+          }
+        });
+      }
 
       if (results && results.length > 0) {
         const ids = results.map(r => r.candidateProfileId);
@@ -263,7 +260,7 @@ export function useMatching() {
     } finally {
       setMatchingLoading(prev => ({ ...prev, [requestId]: false }));
     }
-  }, [matchesOn]);
+  }, [matchesOn, isAgent, releaseHistory]);
 
   const setPage = useCallback((requestId: string, page: number) => {
     setMatchPage((prev) => ({ ...prev, [requestId]: page }));
@@ -521,12 +518,8 @@ export function useMatching() {
         closePanel();
         onToast(`Sent details to ${n} candidate${n > 1 ? 's' : ''}`);
 
-        // If card was in downloaded stage, transition it to responded stage
-        if (item.status === 'downloaded') {
-          item.status = 'responded';
-          if (item.profileData) {
-            (item.profileData as any).request_status = 'IN_REVIEW';
-          }
+        // Transition card to responded stage immediately in UI when released from new/first/second/requested/downloaded
+        if (['new', 'first', 'second', 'requested', 'downloaded'].includes(item.status)) {
           onItemStatusUpdated?.(item.id, 'responded');
         }
 
@@ -537,7 +530,7 @@ export function useMatching() {
         setIsSending((prev) => ({ ...prev, [item.id]: false }));
       }
     },
-    [chosen, realMatches, sentExtra, isSending]
+    [chosen, realMatches, sentExtra, isSending, releaseHistory]
   );
 
   const deleteSentProfilesAction = useCallback(
@@ -548,7 +541,11 @@ export function useMatching() {
     ) => {
       if (!item || !candidateProfileIds.length) return;
       try {
-        await deleteSentProfiles(item.id, candidateProfileIds);
+        const res = await deleteSentProfiles(item.id, candidateProfileIds);
+        if (!res?.success) {
+          onToast(res?.error || 'Failed to delete sent profiles');
+          return;
+        }
 
         // Update release history locally
         setReleaseHistory((prev) => {

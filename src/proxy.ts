@@ -1,33 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-import { createServerClient } from "@supabase/ssr";
 
 export async function proxy(request: NextRequest) {
-  // 1. Update session (refreshes auth token if expired)
-  const response = await updateSession(request);
-
-  // 2. Check Auth Status for Routing reliably via Supabase client
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
+  // 1. Update session & get authenticated user in a single getUser() call
+  const { supabase, response, user } = await updateSession(request);
 
   const pathname = request.nextUrl.pathname;
   const isLoginRoute = pathname.startsWith('/login');

@@ -23,15 +23,22 @@ const PAGE_SIZE = 15;
 
 const formatTime = (isoString: string) => {
   const d = new Date(isoString);
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return d.toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Karachi',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 };
 
 const formatDate = (isoString: string) => {
   const d = new Date(isoString);
-  const day = d.getDate().toString().padStart(2, '0');
-  const month = d.toLocaleString('en-GB', { month: 'short' }).toUpperCase();
-  const year = d.getFullYear();
-  return `${day} ${month} ${year}`;
+  return d.toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Karachi',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).toUpperCase();
 };
 
 export default function NotificationsPage() {
@@ -262,6 +269,7 @@ export default function NotificationsPage() {
       const title = selectedNotification.title?.toLowerCase() || '';
       const isReleaseNotification = title.includes('release') || title.includes('sent');
 
+      let cancelled = false;
       setIsLoadingDetails(true);
 
       // Only load releases for release/sent notifications — not for "Request Submitted" or "New Match Analysis"
@@ -269,12 +277,24 @@ export default function NotificationsPage() {
         ? notificationService.getRequestWithReleases
         : notificationService.getRequestBasicDetails;
 
-      fetchFn(selectedNotification.entity_id).then(data => {
-        setRequestDetails(data);
-        setIsLoadingDetails(false);
-      });
+      fetchFn(selectedNotification.entity_id)
+        .then(data => {
+          if (!cancelled) setRequestDetails(data);
+        })
+        .catch(err => {
+          console.error('Failed to load notification details:', err);
+          if (!cancelled) setRequestDetails(null);
+        })
+        .finally(() => {
+          if (!cancelled) setIsLoadingDetails(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
     } else {
       setRequestDetails(null);
+      setIsLoadingDetails(false);
     }
   }, [selectedNotification?.id, role, selectedNotification?.entity_id, selectedNotification?.type]);
 

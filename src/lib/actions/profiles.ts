@@ -85,19 +85,27 @@ export async function deleteProfileViaRpc(profileId: string): Promise<{ success:
       return { success: false, error: 'Unauthorized: Please log in.' };
     }
 
+    // Verify HIGH_LEVEL_ADMIN role BEFORE touching storage or DB
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('roles(name)')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const roleName = ((roleData?.roles as any)?.name)?.toUpperCase() || '';
+    if (roleName !== 'HIGH_LEVEL_ADMIN') {
+      return { success: false, error: 'Forbidden: Only High-Level Admins can delete profiles.' };
+    }
+
     const adminClient = createAdminClient();
 
-    // 1. Fetch profile to get photo URL BEFORE database deletion
+    // 1. Fetch profile photo URL before database deletion
     const { data: profile } = await adminClient
       .from('profiles')
       .select('profile_URL')
       .eq('id', profileId)
       .maybeSingle();
 
-    // 2. DELETE PROFILE PICTURE FIRST from Supabase Storage
-    await purgeProfilePictureFromStorage(profileId, profile?.profile_URL || null);
-
-    // 3. Execute PostgreSQL RPC function
+    // 2. Execute PostgreSQL RPC function FIRST (enforces 0 information_requests atomically)
     const { error: rpcError } = await supabase.rpc('rpc_delete_profile', {
       p_profile_id: profileId,
       p_actor_user_id: user.id,
@@ -106,6 +114,9 @@ export async function deleteProfileViaRpc(profileId: string): Promise<{ success:
     if (rpcError) {
       return { success: false, error: rpcError.message };
     }
+
+    // 3. Only purge storage AFTER DB deletion succeeds
+    await purgeProfilePictureFromStorage(profileId, profile?.profile_URL || null);
 
     return { success: true };
   } catch (err: any) {

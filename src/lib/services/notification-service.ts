@@ -298,19 +298,22 @@ export const notificationService = {
           .in('profile_id', candidateIds),
         supabase
           .from('profiles')
-          .select('id, gender')
+          .select('id, gender, profile_URL')
           .in('id', candidateIds)
       ]);
 
       const genderMap: Record<string, string> = {};
+      const profileUrlMap: Record<string, string | null> = {};
       profsRes.data?.forEach((p: any) => {
         genderMap[p.id] = p.gender;
+        profileUrlMap[p.id] = p.profile_URL || null;
       });
 
       candsRes.data?.forEach((c: any) => {
         candidatesData[c.profile_id] = {
           ...c,
-          gender: genderMap[c.profile_id] || null
+          gender: genderMap[c.profile_id] || null,
+          profile_url: profileUrlMap[c.profile_id] || null,
         };
       });
     }

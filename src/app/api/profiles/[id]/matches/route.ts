@@ -34,7 +34,24 @@ export async function GET(
       const r: any = userRoleData.roles;
       roleName = (Array.isArray(r) ? r[0]?.name : r?.name)?.toUpperCase() || '';
     }
-    const isAgent = roleName === 'AGENT' || (!roleName && roleName !== 'MANAGER' && roleName !== 'HIGH_LEVEL_ADMIN');
+    const isManagerOrAdmin = roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN';
+    const isAgent = !isManagerOrAdmin;
+
+    // Ownership check: Agents may only view matches for profiles assigned to them
+    if (isAgent) {
+      const { data: prof } = await adminSupabase
+        .from('profiles')
+        .select('id, current_agent_id')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (!prof) {
+        return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+      }
+      if (prof.current_agent_id !== user.id) {
+        return NextResponse.json({ error: 'Forbidden: Profile not assigned to you' }, { status: 403 });
+      }
+    }
 
     // Query matches ledger and matched candidates
     let resultsData: any[] = [];

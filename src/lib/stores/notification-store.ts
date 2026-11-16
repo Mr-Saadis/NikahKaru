@@ -11,6 +11,7 @@ interface NotificationState {
   // Actions
   initialize: (userId: string, role: string) => Promise<void>;
   markAsReadOptimistic: (id: string) => void;
+  reset: () => void;
 }
 
 let realtimeChannel: any = null;
@@ -98,5 +99,21 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set(state => ({
       notifications: state.notifications.filter(n => n.id !== id)
     }));
-  }
+  },
+
+  reset: () => {
+    if (realtimeChannel) {
+      try {
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        supabase.removeChannel(realtimeChannel);
+      } catch {
+        // Ignore cleanup error
+      }
+      realtimeChannel = null;
+    }
+    set({ notifications: [], isInitialized: false, isLoading: false });
+  },
 }));

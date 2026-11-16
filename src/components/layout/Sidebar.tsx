@@ -274,6 +274,14 @@ export default function Sidebar({ activePage }: SidebarProps) {
     const supabase = createClient();
     await supabase.auth.signOut();
     useAuthStore.getState().clearSession();
+    try {
+      const { useNotificationStore } = await import('@/lib/stores/notification-store');
+      const { useDashboardCacheStore } = await import('@/lib/stores/dashboard-cache-store');
+      useNotificationStore.getState().reset();
+      useDashboardCacheStore.getState().clearAll();
+    } catch {
+      // Ignore cleanup error on logout
+    }
     window.location.href = '/login';
   };
 
@@ -542,28 +550,30 @@ export default function Sidebar({ activePage }: SidebarProps) {
       </div>
 
       {/* ─── MOBILE TOP BAR (visible on < md) ─── */}
-      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[#1F3B34] text-white shrink-0 z-40 shadow-sm w-full">
-        <div className="flex items-center gap-3">
+      <header className="md:hidden flex items-center justify-between px-3.5 h-[52px] bg-[#FAF8F5] text-[#1F1E1B] shrink-0 z-40 w-full max-w-full border-b border-[#E5DED3]">
+        <div className="flex items-center gap-2.5 min-w-0">
           <button
             onClick={() => setMobileOpen(true)}
             aria-label="Open Navigation Menu"
-            className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white transition-all cursor-pointer"
+            className="p-1.5 -ml-1 text-[#1F3B34] hover:bg-black/5 rounded-lg active:scale-95 flex items-center justify-center transition-colors cursor-pointer shrink-0"
           >
             <Menu size={20} />
           </button>
-          <div className="flex items-center gap-2">
-            <Image src="/nikah_icon_w.png" alt="Nikah Karu" width={28} height={28} />
-            <span className="font-bold text-[16px] text-white tracking-tight">Nikah Karu</span>
-          </div>
+          <span className="font-bold text-[15.5px] text-[#1F3B34] tracking-tight truncate">Nikah Karu</span>
         </div>
 
-        {/* User Initials Avatar on right */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-[#A3B18A] text-[#1F3B34] font-bold text-xs flex items-center justify-center shadow-sm">
+        {/* Role chip + User Initials Avatar on right */}
+        <div className="flex items-center gap-2 shrink-0">
+          {role && (
+            <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#EFE9DF] text-[#5C5449]">
+              {role === 'HIGH_LEVEL_ADMIN' ? 'Admin' : role === 'MANAGER' ? 'Manager' : 'Agent'}
+            </span>
+          )}
+          <div className="w-7 h-7 rounded-full bg-[#1F3B34] text-[#FAF8F5] font-bold text-[11px] flex items-center justify-center">
             {initials}
           </div>
         </div>
-      </div>
+      </header>
 
       {/* ─── MOBILE DRAWER OVERLAY & PANEL (visible on < md) ─── */}
       {/* Backdrop */}
@@ -583,7 +593,7 @@ export default function Sidebar({ activePage }: SidebarProps) {
         {/* Drawer Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
           <div className="flex items-center gap-2.5">
-            <Image src="/nikah_icon_w.png" alt="Nikah Karu" width={32} height={32} />
+            <Image src="/nikah_icon_w.png" alt="Nikah Karu" width={32} height={32} suppressHydrationWarning />
             <div>
               <div className="font-bold text-[17px] leading-tight text-white">Nikah Karu</div>
               <div className="text-[10px] uppercase font-bold tracking-wider text-[#A3B18A]">Matrimonial CRM</div>

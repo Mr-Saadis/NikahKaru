@@ -41,14 +41,15 @@ export async function GET(request: NextRequest) {
       const r: any = userRoleData.roles;
       roleName = (Array.isArray(r) ? r[0]?.name : r?.name)?.toUpperCase() || '';
     }
-    const isAgent = roleName === 'AGENT';
+    const isManagerOrAdmin = roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN';
 
     // 1. Fetch core data (Paginated)
     let query = supabase
       .from('vw_profile_core')
       .select('*', { count: 'exact' });
 
-    if (isAgent) {
+    // Fail-closed: Only MANAGER / HIGH_LEVEL_ADMIN see all profiles; everyone else restricted to assigned profiles
+    if (!isManagerOrAdmin) {
       query = query.eq('current_agent_id', user.id);
     }
 

@@ -168,7 +168,7 @@ export default function DemographicsChart({ demographics }: DemographicsChartPro
         </div>
 
         {/* Top Pool Metrics Pill Card */}
-        <div className="bg-[#FAF8F5] px-4 py-2 rounded-[18px] border border-[#E9E4DC] flex items-center gap-5 shrink-0 self-start sm:self-auto">
+        <div className="bg-[#FAF8F5] px-3 py-2 sm:px-4 rounded-[18px] border border-[#E9E4DC] flex items-center justify-between sm:justify-start gap-3 sm:gap-5 shrink-0 w-full sm:w-auto">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D766C] block">
               Total Pool
@@ -206,72 +206,72 @@ export default function DemographicsChart({ demographics }: DemographicsChartPro
       ════════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         
-        {/* Main 5 Filter Pills */}
-        <div className="overflow-x-auto no-scrollbar py-0.5">
-          <div className="bg-[#FAF8F5] p-1.5 rounded-full inline-flex items-center border border-[#E9E4DC] gap-1 whitespace-nowrap">
+        {/* Main 5 Filter Pills (wrap compactly on mobile, single pill bar on sm+) */}
+        <div className="w-full sm:w-auto">
+          <div className="bg-[#FAF8F5] p-1 rounded-2xl sm:rounded-full flex flex-wrap sm:inline-flex items-center border border-[#E9E4DC] gap-1">
             
             {/* 1. Occupation (Default) */}
             <button
               onClick={() => setActiveFilter('OCCUPATION')}
-              className={`px-3.5 py-1.5 rounded-full text-[11.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[10.5px] sm:text-[11.5px] font-bold flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 activeFilter === 'OCCUPATION'
                   ? 'bg-[#1F3B34] text-white shadow-xs'
                   : 'text-[#7D766C] hover:text-[#1F3B34]'
               }`}
             >
-              <Briefcase className="w-3.5 h-3.5" />
+              <Briefcase className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               <span>Occupation</span>
             </button>
 
             {/* 2. Education */}
             <button
               onClick={() => setActiveFilter('EDUCATION')}
-              className={`px-3.5 py-1.5 rounded-full text-[11.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[10.5px] sm:text-[11.5px] font-bold flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 activeFilter === 'EDUCATION'
                   ? 'bg-[#1F3B34] text-white shadow-xs'
                   : 'text-[#7D766C] hover:text-[#1F3B34]'
               }`}
             >
-              <GraduationCap className="w-3.5 h-3.5" />
+              <GraduationCap className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               <span>Education</span>
             </button>
 
             {/* 3. Location */}
             <button
               onClick={() => setActiveFilter('LOCATION')}
-              className={`px-3.5 py-1.5 rounded-full text-[11.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[10.5px] sm:text-[11.5px] font-bold flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 activeFilter === 'LOCATION'
                   ? 'bg-[#1F3B34] text-white shadow-xs'
                   : 'text-[#7D766C] hover:text-[#1F3B34]'
               }`}
             >
-              <MapPin className="w-3.5 h-3.5" />
+              <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               <span>Location</span>
             </button>
 
             {/* 4. Sect */}
             <button
               onClick={() => setActiveFilter('SECT')}
-              className={`px-3.5 py-1.5 rounded-full text-[11.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[10.5px] sm:text-[11.5px] font-bold flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 activeFilter === 'SECT'
                   ? 'bg-[#1F3B34] text-white shadow-xs'
                   : 'text-[#7D766C] hover:text-[#1F3B34]'
               }`}
             >
-              <Moon className="w-3.5 h-3.5" />
+              <Moon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               <span>Sect</span>
             </button>
 
             {/* 5. Income */}
             <button
               onClick={() => setActiveFilter('INCOME')}
-              className={`px-3.5 py-1.5 rounded-full text-[11.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[10.5px] sm:text-[11.5px] font-bold flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 activeFilter === 'INCOME'
                   ? 'bg-[#1F3B34] text-white shadow-xs'
                   : 'text-[#7D766C] hover:text-[#1F3B34]'
               }`}
             >
-              <Coins className="w-3.5 h-3.5" />
+              <Coins className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               <span>Income</span>
             </button>
           </div>
@@ -306,12 +306,13 @@ export default function DemographicsChart({ demographics }: DemographicsChartPro
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
-          CHART CONTAINER (Matches the user's screenshot layout)
+          CHART CONTAINER (Horizontally scrollable on mobile, full-width on tablet/desktop)
       ════════════════════════════════════════════════════════════════ */}
-      <div className="space-y-3 relative">
+      <div className="overflow-x-auto pb-2 -mx-1 px-1">
+        <div className="min-w-[540px] space-y-3 relative">
         
         {/* Top Axis Ruler: 0, AVG line, and Scale Markers */}
-        <div className="flex items-center text-[10.5px] font-bold text-[#A49C8F] select-none pl-[210px] pr-14 relative">
+        <div className="flex items-center text-[10.5px] font-bold text-[#A49C8F] select-none pl-[127px] sm:pl-[210px] pr-10 sm:pr-14 relative">
           <div className="w-full flex justify-between relative">
             <span>0</span>
             
@@ -362,9 +363,9 @@ export default function DemographicsChart({ demographics }: DemographicsChartPro
                 onMouseLeave={() => setHoveredItem(null)}
                 className="group flex items-center gap-3 text-[12.5px] py-1 cursor-pointer transition-colors"
               >
-                {/* Category Label (Left column, fixed width like in screenshot) */}
-                <div className="w-[195px] shrink-0 text-right pr-2">
-                  <span className="font-semibold text-[#1E2022] group-hover:text-[#1F3B34] transition-colors truncate block text-[13px]">
+                {/* Category Label (Left column, compact on mobile, full on desktop) */}
+                <div className="w-[115px] sm:w-[195px] shrink-0 text-right pr-2">
+                  <span className="font-semibold text-[#1E2022] group-hover:text-[#1F3B34] transition-colors truncate block text-[12px] sm:text-[13px]">
                     {item.name}
                   </span>
                 </div>
@@ -416,7 +417,7 @@ export default function DemographicsChart({ demographics }: DemographicsChartPro
             );
           })}
         </div>
-
+        </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════════

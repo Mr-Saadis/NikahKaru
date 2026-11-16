@@ -16,6 +16,8 @@ import {
   Activity,
 } from 'lucide-react';
 import { DashboardService, type ManagerOverviewData } from '@/lib/services/dashboard-service';
+import { createClient } from '@/lib/supabase/client';
+import { useDashboardCacheStore } from '@/lib/stores/dashboard-cache-store';
 import { COLUMNS } from '@/components/requests/constants';
 import {
   formatWaitingHours,
@@ -38,18 +40,20 @@ import { toast } from 'sonner';
 
 export default function ManagerOverview() {
   const router = useRouter();
+  const [selectedDays, setSelectedDays] = useState<number>(7);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ManagerOverviewData | null>(null);
-  const [selectedDays, setSelectedDays] = useState<number>(7);
   const [lastUpdated, setLastUpdated] = useState<string>('');
   const [isRangeLoading, setIsRangeLoading] = useState<boolean>(false);
-  const managerCacheRef = React.useRef<Record<number, ManagerOverviewData>>({});
 
   const handleRangeChange = (days: number) => {
     setSelectedDays(days);
-    if (managerCacheRef.current[days]) {
-      setData(managerCacheRef.current[days]);
+    const cached = useDashboardCacheStore.getState().manager[days];
+    if (cached) {
+      setData(cached.data);
+      setLastUpdated(cached.lastUpdated);
+      setLoading(false);
     } else {
       setIsRangeLoading(true);
     }
@@ -60,9 +64,10 @@ export default function ManagerOverview() {
     try {
       const res = await DashboardService.getDashboardData('MANAGER', days, 24);
       if (!res) return;
-      managerCacheRef.current[days] = res as ManagerOverviewData;
+      const updatedAt = formatKarachiTime(new Date());
+      useDashboardCacheStore.getState().setManager(days, res as ManagerOverviewData, updatedAt);
       setData(res as ManagerOverviewData);
-      setLastUpdated(formatKarachiTime(new Date()));
+      setLastUpdated(updatedAt);
       setError(null);
       setLoading(false);
       setIsRangeLoading(false);
@@ -78,13 +83,23 @@ export default function ManagerOverview() {
   };
 
   useEffect(() => {
+    const cached = useDashboardCacheStore.getState().manager[selectedDays];
+    if (cached) {
+      setData(cached.data);
+      setLastUpdated(cached.lastUpdated);
+      setLoading(false);
+      setIsRangeLoading(false);
+      return;
+    }
+
     let isCancelled = false;
     DashboardService.getDashboardData('MANAGER', selectedDays, 24)
       .then((res) => {
         if (isCancelled || !res) return;
-        managerCacheRef.current[selectedDays] = res as ManagerOverviewData;
+        const updatedAt = formatKarachiTime(new Date());
+        useDashboardCacheStore.getState().setManager(selectedDays, res as ManagerOverviewData, updatedAt);
         setData(res as ManagerOverviewData);
-        setLastUpdated(formatKarachiTime(new Date()));
+        setLastUpdated(updatedAt);
         setError(null);
         setLoading(false);
         setIsRangeLoading(false);
@@ -102,6 +117,48 @@ export default function ManagerOverview() {
 
     return () => {
       isCancelled = true;
+    };
+  }, [selectedDays]);
+
+  // Supabase Realtime sync for Manager Operations Desk
+  useEffect(() => {
+    const supabase = createClient();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let isDisposed = false;
+
+    const handleRealtimeChange = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        if (isDisposed) return;
+        try {
+          // Clear cached ranges so switching day filters fetches fresh totals
+          useDashboardCacheStore.getState().invalidateManager();
+          const res = await DashboardService.getDashboardData('MANAGER', selectedDays, 24);
+          if (isDisposed || !res) return;
+          const updatedAt = formatKarachiTime(new Date());
+          useDashboardCacheStore.getState().setManager(selectedDays, res as ManagerOverviewData, updatedAt);
+          setData(res as ManagerOverviewData);
+          setLastUpdated(updatedAt);
+          setError(null);
+        } catch (err) {
+          console.error('[ManagerOverview] realtime refresh error:', err);
+        }
+      }, 500);
+    };
+
+    const channel = supabase
+      .channel('manager-overview-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'information_requests' }, handleRealtimeChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, handleRealtimeChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'information_request_assignments' }, handleRealtimeChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'information_releases' }, handleRealtimeChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_runs' }, handleRealtimeChange)
+      .subscribe();
+
+    return () => {
+      isDisposed = true;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
     };
   }, [selectedDays]);
 

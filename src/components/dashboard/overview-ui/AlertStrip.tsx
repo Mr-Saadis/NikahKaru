@@ -26,19 +26,19 @@ export function AlertStrip({
 }: AlertStripProps) {
   const variantStyles = {
     emerald: {
-      container: 'bg-emerald-50/90 border-emerald-200 text-emerald-900 shadow-2xs',
-      iconBox: 'bg-emerald-100 text-emerald-700',
-      button: 'bg-emerald-700 hover:bg-emerald-800 text-white',
+      container: 'bg-white border-[#E5DED3] text-[#1F1E1B] shadow-[0_2px_10px_rgba(0,0,0,0.03)]',
+      iconBox: 'bg-[#E5EFE9] text-[#064e3b]',
+      button: 'bg-[#1F3B34] hover:bg-[#172D28] text-white',
     },
     amber: {
-      container: 'bg-amber-50/90 border-amber-200 text-amber-900 shadow-2xs',
-      iconBox: 'bg-amber-100 text-amber-700',
-      button: 'bg-amber-700 hover:bg-amber-800 text-white',
+      container: 'bg-white border-[#E5DED3] text-[#1F1E1B] shadow-[0_2px_10px_rgba(0,0,0,0.03)]',
+      iconBox: 'bg-[#FBF0EC] text-[#C86A4A]',
+      button: 'bg-[#1F3B34] hover:bg-[#172D28] text-white',
     },
     rose: {
-      container: 'bg-rose-50/90 border-rose-200 text-rose-900 shadow-2xs',
-      iconBox: 'bg-rose-100 text-rose-700',
-      button: 'bg-rose-700 hover:bg-rose-800 text-white',
+      container: 'bg-white border-[#E5DED3] text-[#1F1E1B] shadow-[0_2px_10px_rgba(0,0,0,0.03)]',
+      iconBox: 'bg-[#FBF0EC] text-[#991B1B]',
+      button: 'bg-[#1F1E1B] hover:bg-[#33312C] text-white',
     },
   };
 
@@ -47,7 +47,7 @@ export function AlertStrip({
   return (
     <div
       role="alert"
-      className={`w-full rounded-xl border p-3 md:px-4 md:py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-medium transition-all duration-200 animate-in fade-in slide-in-from-top-1 ${currentVariant.container} ${className}`}
+      className={`w-full rounded-[18px] border p-3 md:px-4 md:py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-medium transition-all duration-200 animate-in fade-in slide-in-from-top-1 ${currentVariant.container} ${className}`}
     >
       <div className="flex items-center gap-2.5 min-w-0">
         <div

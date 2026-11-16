@@ -25,6 +25,9 @@ interface HeaderProps {
   variant?: 'light' | 'dark';
 }
 
+let cachedDraftUserId: string | null = null;
+let cachedDraftCount: number | null = null;
+
 export default function Header({
   title,
   subtitle,
@@ -43,16 +46,17 @@ export default function Header({
   const { user } = useAuth();
 
   useEffect(() => {
+    if (!user?.id) return;
+    if (cachedDraftUserId === user.id && cachedDraftCount !== null && !isDraftsOpen) {
+      setDraftCount(cachedDraftCount);
+      return;
+    }
+
     let mounted = true;
     const fetchDraftCount = async () => {
       try {
-        if (!user) return;
-
-        const { createBrowserClient } = await import('@supabase/ssr');
-        const supabase = createBrowserClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
 
         const { count, error } = await supabase
           .from('profiles')
@@ -61,6 +65,8 @@ export default function Header({
           .eq('created_by', user.id);
 
         if (!error && count !== null && mounted) {
+          cachedDraftUserId = user.id;
+          cachedDraftCount = count;
           setDraftCount(count);
         }
       } catch (err) {
@@ -68,12 +74,14 @@ export default function Header({
       }
     };
 
-    fetchDraftCount();
+    if (!isDraftsOpen) {
+      fetchDraftCount();
+    }
 
     return () => {
       mounted = false;
     };
-  }, [isDraftsOpen, user]);
+  }, [isDraftsOpen, user?.id]);
 
   const isDark = variant === 'dark';
   const btnClass = `relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${

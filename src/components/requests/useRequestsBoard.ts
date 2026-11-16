@@ -4,15 +4,29 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import type { RequestItem, FilterState, ExpandedFilter, RequestStatus, ColumnDef } from './types';
 import { useDebounce } from '@/lib/hooks/useDebounce';
+import { createClient } from '@/lib/supabase/client';
+
+const INITIAL_COLUMN_LIMIT = 15;
 
 interface UseRequestsBoardProps {
   columns: ColumnDef[];
+  fetchInitialColumns?: (filters: FilterState, limit?: number) => Promise<Record<string, RequestItem[]>>;
   fetchColumnRequests?: (status: string, filters: FilterState, offset: number, limit: number) => Promise<RequestItem[]>;
   fetchRequests?: (filters: FilterState) => Promise<RequestItem[]>;
   fetchNames: () => Promise<string[]>;
+  hideStaffFilter?: boolean;
+  enableRealtime?: boolean;
 }
 
-export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, fetchNames }: UseRequestsBoardProps) {
+export function useRequestsBoard({
+  columns,
+  fetchInitialColumns,
+  fetchColumnRequests,
+  fetchRequests,
+  fetchNames,
+  hideStaffFilter,
+  enableRealtime,
+}: UseRequestsBoardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -46,14 +60,15 @@ export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, 
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Load agent names for filter dropdown (Once)
+  // Load agent names for filter dropdown (Once, skip if staff filter is hidden)
   useEffect(() => {
+    if (hideStaffFilter) return;
     let mounted = true;
     fetchNames().then((names) => {
       if (mounted) setRealAgentNames(names);
     }).catch(console.error);
     return () => { mounted = false; };
-  }, [fetchNames]);
+  }, [fetchNames, hideStaffFilter]);
 
   // 1-second debounce for search input ONLY
   const debouncedSearch = useDebounce(filters.search, 1000);
@@ -87,8 +102,7 @@ export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, 
       staff: urlStaff,
     };
 
-    const processData = (processedData: RequestItem[]) => {
-      if (!mounted) return;
+    const applyLocalStorageFlags = (items: RequestItem[]): RequestItem[] => {
       try {
         const storedRead = localStorage.getItem('agent_read_requests');
         const storedLater = localStorage.getItem('respond_later_requests');
@@ -96,14 +110,20 @@ export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, 
         const readIds = new Set(storedRead ? JSON.parse(storedRead) : []);
         const laterIds = new Set(storedLater ? JSON.parse(storedLater) : []);
         
-        processedData = processedData.map(item => ({
+        return items.map(item => ({
           ...item,
           isRead: readIds.has(item.id) ? true : item.isRead,
           later: laterIds.has(item.id) ? true : item.later
         }));
       } catch (e) {
         console.error('Failed to parse local storage states', e);
+        return items;
       }
+    };
+
+    const processData = (processedData: RequestItem[]) => {
+      if (!mounted) return;
+      processedData = applyLocalStorageFlags(processedData);
 
       setAllItems(processedData);
 
@@ -142,7 +162,27 @@ export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, 
       }
     };
 
-    if (fetchRequests) {
+    if (fetchInitialColumns) {
+      fetchInitialColumns(activeUrlFilters, INITIAL_COLUMN_LIMIT)
+        .then(colMap => {
+          if (!mounted) return;
+          let allFetched: RequestItem[] = [];
+          const newOffsets: Record<string, number> = {};
+          const newHasMore: Record<string, boolean> = {};
+
+          columns.forEach(c => {
+            const res = colMap[c.key] || [];
+            allFetched = [...allFetched, ...res];
+            newOffsets[c.key] = res.length;
+            newHasMore[c.key] = res.length === INITIAL_COLUMN_LIMIT;
+          });
+
+          setColumnOffsets(newOffsets);
+          setColumnHasMore(newHasMore);
+          processData(allFetched);
+        })
+        .catch(console.error);
+    } else if (fetchRequests) {
       fetchRequests(activeUrlFilters)
         .then(results => {
           if (mounted) {
@@ -191,6 +231,90 @@ export function useRequestsBoard({ columns, fetchColumnRequests, fetchRequests, 
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlSearch, urlDateFrom, urlDateTo, urlStaff]);
+
+  // Supabase Realtime sync (re-fetches via view when underlying tables change)
+  useEffect(() => {
+    if (!enableRealtime) return;
+
+    const supabase = createClient();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let isDisposed = false;
+
+    const silentRefresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        if (isDisposed) return;
+
+        const currentFilters: FilterState = {
+          search: urlSearch,
+          dateFrom: urlDateFrom,
+          dateTo: urlDateTo,
+          staff: urlStaff,
+        };
+
+        const applyFlags = (items: RequestItem[]): RequestItem[] => {
+          try {
+            const storedRead = localStorage.getItem('agent_read_requests');
+            const storedLater = localStorage.getItem('respond_later_requests');
+            const readIds = new Set(storedRead ? JSON.parse(storedRead) : []);
+            const laterIds = new Set(storedLater ? JSON.parse(storedLater) : []);
+            return items.map(item => ({
+              ...item,
+              isRead: readIds.has(item.id) ? true : item.isRead,
+              later: laterIds.has(item.id) ? true : item.later,
+            }));
+          } catch {
+            return items;
+          }
+        };
+
+        try {
+          if (fetchInitialColumns) {
+            const colMap = await fetchInitialColumns(currentFilters, INITIAL_COLUMN_LIMIT);
+            if (isDisposed) return;
+            let allFetched: RequestItem[] = [];
+            const newOffsets: Record<string, number> = {};
+            const newHasMore: Record<string, boolean> = {};
+
+            columns.forEach(c => {
+              const res = colMap[c.key] || [];
+              allFetched = [...allFetched, ...res];
+              newOffsets[c.key] = res.length;
+              newHasMore[c.key] = res.length === INITIAL_COLUMN_LIMIT;
+            });
+
+            setColumnOffsets(newOffsets);
+            setColumnHasMore(newHasMore);
+            setAllItems(applyFlags(allFetched));
+          } else if (fetchRequests) {
+            const results = await fetchRequests(currentFilters);
+            if (!isDisposed) setAllItems(applyFlags(results));
+          } else if (fetchColumnRequests) {
+            const results = await Promise.all(
+              columns.map(c => fetchColumnRequests(c.key, currentFilters, 0, 20))
+            );
+            if (!isDisposed) setAllItems(applyFlags(results.flat()));
+          }
+        } catch (err) {
+          console.error('Realtime refresh failed:', err);
+        }
+      }, 400);
+    };
+
+    const channel = supabase
+      .channel('agent-requests-board-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'information_requests' }, silentRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, silentRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'information_request_assignments' }, silentRefresh)
+      .subscribe();
+
+    return () => {
+      isDisposed = true;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enableRealtime, urlSearch, urlDateFrom, urlDateTo, urlStaff]);
 
   // Listen for open_target_request event (e.g. from NotificationDropdown when already on /requests page)
   useEffect(() => {

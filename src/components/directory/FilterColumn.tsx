@@ -119,6 +119,25 @@ export function FilterColumn({
     );
   }, [activeCategoryTab, normalizedQuery, filters]);
 
+  // Memoize multi-select option counts so typing/UI state changes don't recompute over all entries
+  const multiOptionCounts = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof getFilterOptionCounts>>();
+    for (const cfg of FILTER_CONFIGS) {
+      if (cfg.type === 'multi') {
+        map.set(
+          cfg.id,
+          getFilterOptionCounts(
+            entries,
+            cfg.id as keyof ActiveFilterValues,
+            filters,
+            referenceData
+          )
+        );
+      }
+    }
+    return map;
+  }, [entries, filters, referenceData]);
+
   // Total matching count
   const totalMatchingFilters = filteredKeyConfigs.length + filteredMoreConfigs.length;
 
@@ -163,12 +182,7 @@ export function FilterColumn({
     }
 
     if (cfg.type === 'multi') {
-      const options = getFilterOptionCounts(
-        entries,
-        cfg.id as keyof ActiveFilterValues,
-        filters,
-        referenceData
-      );
+      const options = multiOptionCounts.get(cfg.id) || [];
       return (
         <div key={cfg.id}>
           <SelectFilter

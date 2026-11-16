@@ -196,11 +196,11 @@ export function MatchesSection({
                         setSelectedForDeletion(new Set());
                         setOpenProfile(null);
                       }}
-                      title="Delete sent profiles"
-                      className="inline-flex items-center gap-1.5 h-[38px] px-[16px] border border-[#fca5a5] rounded-full font-inherit text-[12.5px] font-[600] text-[#b91c1c] bg-[#fff5f5] hover:bg-[#fee2e2] transition-all duration-220 cursor-pointer shadow-[0_2px_8px_rgba(185,28,28,0.06)] disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Remove sent profiles"
+                      className="inline-flex items-center gap-1.5 h-[38px] px-[15px] border border-[#E5DED3] rounded-full font-inherit text-[12.5px] font-[600] text-[#5C5449] bg-white hover:bg-[#FAF8F5] hover:border-[#C86A4A]/50 hover:text-[#991B1B] transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Trash2 size={13} />
-                      <span>Delete</span>
+                      <span>Remove</span>
                     </button>
                   )}
 
@@ -243,7 +243,7 @@ export function MatchesSection({
                   </button>
                 </>
               ) : (
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-nowrap">
                   <button
                     type="button"
                     disabled={isDeleting}
@@ -251,7 +251,7 @@ export function MatchesSection({
                       setIsDeleteMode(false);
                       setSelectedForDeletion(new Set());
                     }}
-                    className="inline-flex items-center h-[34px] px-[13px] rounded-full text-[12px] font-[600] bg-[#f1f0ea] text-[#444] hover:bg-[#e4e3dc] transition-all cursor-pointer"
+                    className="inline-flex items-center h-[34px] px-[13px] rounded-full text-[12px] font-[600] whitespace-nowrap bg-[#F4EFE7] text-[#5C5449] hover:bg-[#E9E2D6] transition-all cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -266,9 +266,9 @@ export function MatchesSection({
                         setSelectedForDeletion(new Set(sentCandidateIds));
                       }
                     }}
-                    className="inline-flex items-center h-[34px] px-[13px] rounded-full text-[12px] font-[600] border border-[#fca5a5] bg-white text-[#b91c1c] hover:bg-[#fff5f5] transition-all cursor-pointer"
+                    className="inline-flex items-center h-[34px] px-[13px] rounded-full text-[12px] font-[600] whitespace-nowrap border border-[#E5DED3] bg-white text-[#1F1E1B] hover:bg-[#FAF8F5] transition-all cursor-pointer"
                   >
-                    {selectedForDeletion.size === sentCandidateIds.size ? 'Deselect All' : `Select All Sent (${sentCandidateIds.size})`}
+                    {selectedForDeletion.size === sentCandidateIds.size ? 'Deselect All' : `Select All (${sentCandidateIds.size})`}
                   </button>
 
                   <button
@@ -287,14 +287,14 @@ export function MatchesSection({
                         setIsDeleting(false);
                       }
                     }}
-                    className={`inline-flex items-center gap-1.5 h-[34px] px-[16px] rounded-full font-inherit text-[12.5px] font-[600] transition-all duration-200
+                    className={`inline-flex items-center gap-1.5 h-[34px] px-[15px] rounded-full font-inherit text-[12px] font-[600] whitespace-nowrap transition-all duration-200
                       ${selectedForDeletion.size === 0 || isDeleting
-                        ? 'bg-[#fca5a5] text-white opacity-50 cursor-not-allowed'
-                        : 'bg-[#dc2626] text-white hover:bg-[#b91c1c] shadow-[0_4px_12px_rgba(220,38,38,0.25)] cursor-pointer hover:-translate-y-[1px]'
+                        ? 'bg-[#e4e3dc] text-[#9a9992] cursor-not-allowed'
+                        : 'bg-[#1F1E1B] text-white hover:bg-[#991B1B] shadow-[0_4px_12px_rgba(31,30,27,0.16)] cursor-pointer hover:-translate-y-[1px]'
                       }`}
                   >
-                    <Trash2 size={13} className={isDeleting ? 'animate-spin' : ''} />
-                    <span>{isDeleting ? 'Deleting...' : `Confirm Delete${selectedForDeletion.size > 0 ? ` (${selectedForDeletion.size})` : ''}`}</span>
+                    <Trash2 size={12.5} className={isDeleting ? 'animate-spin' : ''} />
+                    <span>{isDeleting ? 'Removing...' : `Remove${selectedForDeletion.size > 0 ? ` (${selectedForDeletion.size})` : ''}`}</span>
                   </button>
                 </div>
               )}
@@ -303,12 +303,12 @@ export function MatchesSection({
         </div>
 
         {isDeleteMode && (
-          <div className="mb-3 px-3.5 py-2 rounded-[14px] bg-[#fff5f5] border border-[#fca5a5] flex items-center justify-between text-[12px] text-[#991b1b] animate-[rise_.3s_ease]">
-            <span className="font-[600]">
-              Safety Mode: Only already sent profiles can be selected for deletion.
+          <div className="mb-3 px-3.5 py-2 rounded-[14px] bg-[#FAF8F5] border border-[#E5DED3] flex items-center justify-between text-[12px] text-[#5C5449] animate-[rise_.3s_ease]">
+            <span className="font-[500]">
+              Select sent profiles to revoke from this request
             </span>
-            <span className="text-[11px] font-[600] bg-[#fee2e2] px-2 py-0.5 rounded-full text-[#b91c1c]">
-              {selectedForDeletion.size} / {sentCandidateIds.size} selected
+            <span className="text-[11px] font-[600] bg-[#EFE9DF] px-2.5 py-0.5 rounded-full text-[#1F1E1B]">
+              {selectedForDeletion.size} / {sentCandidateIds.size}
             </span>
           </div>
         )}
@@ -406,8 +406,8 @@ export function MatchesSection({
                 }}
                 className={`flex items-center gap-3 w-full border rounded-[20px] p-[10px_14px_10px_10px] mb-[10px] text-left cursor-pointer transition-all duration-[220ms] last:mb-0
                   ${isSelected
-                    ? 'bg-[#fff5f5] border-[#f87171] ring-2 ring-[#ef4444] shadow-[0_4px_16px_rgba(239,68,68,0.15)]'
-                    : 'bg-white border-[#fca5a5] hover:bg-[#fffafa] hover:border-[#f87171]'
+                    ? 'bg-[#FAF8F5] border-[#1F1E1B] ring-1 ring-[#1F1E1B] shadow-[0_4px_14px_rgba(31,30,27,0.07)]'
+                    : 'bg-white border-[#E5DED3] hover:bg-[#FAF8F5]/60 hover:border-[#C8BFB0]'
                   }
                 `}
               >
@@ -436,13 +436,13 @@ export function MatchesSection({
                 <div className="flex-1 min-w-0">
                   <b className="block text-[14.5px] font-[600] tracking-[-0.2px] truncate">
                     {cName}
-                    <span className={`inline-flex items-center gap-1 ml-2 align-[1px] rounded-full px-[8px] py-[2px] text-[10px] font-[700] ${
+                    <span className={`inline-flex items-center gap-1 ml-2 align-[1px] rounded-full px-[8px] py-[2px] text-[10px] font-[600] ${
                       isSelected
-                        ? 'bg-[#fee2e2] text-[#b91c1c]'
+                        ? 'bg-[#FBF0EC] text-[#C86A4A]'
                         : 'bg-[#e3f4e8] text-[#2d7a4b]'
                     }`}>
                       {isSelected ? <Trash2 size={10} /> : <CheckIcon size={10} strokeWidth={3} />}
-                      {isSelected ? 'To Delete' : 'Sent'}
+                      {isSelected ? 'Selected' : 'Sent'}
                     </span>
                   </b>
                   {cardSub && (
@@ -566,16 +566,16 @@ export function MatchesSection({
       <div className="bg-white border border-[#eeede6] shadow-[0_6px_18px_rgba(30,30,50,.05)] rounded-[24px] p-[18px_20px] flex flex-col">
         {isDeleteMode ? (
           <div className="text-center p-6 m-auto">
-            <div className="w-12 h-12 rounded-full bg-[#fff5f5] text-[#dc2626] flex items-center justify-center mx-auto mb-3">
-              <Trash2 size={24} />
+            <div className="w-11 h-11 rounded-full bg-[#FAF8F5] border border-[#E5DED3] text-[#5C5449] flex items-center justify-center mx-auto mb-3">
+              <Trash2 size={20} />
             </div>
-            <h4 className="text-[14px] font-[700] text-[#991b1b] mb-1">Delete Sent Data Mode</h4>
-            <p className="text-[12px] text-[#8d8c86] max-w-[260px] mx-auto leading-relaxed">
-              Select already sent profiles from the list to revoke/delete the sent data. Unsent profiles cannot be selected.
+            <h4 className="text-[14px] font-[700] text-[#1F1E1B] mb-1">Revoke Sent Profiles</h4>
+            <p className="text-[12px] text-[#8d8c86] max-w-[250px] mx-auto leading-relaxed">
+              Select sent candidates on the left to revoke them from this request.
             </p>
             {selectedForDeletion.size > 0 && (
-              <div className="mt-4 inline-block px-3 py-1.5 rounded-full bg-[#fee2e2] text-[#991b1b] text-[12px] font-[600]">
-                {selectedForDeletion.size} profile{selectedForDeletion.size > 1 ? 's' : ''} marked for deletion
+              <div className="mt-4 inline-block px-3.5 py-1.5 rounded-full bg-[#F4EFE7] text-[#1F1E1B] text-[12px] font-[600]">
+                {selectedForDeletion.size} profile{selectedForDeletion.size > 1 ? 's' : ''} selected
               </div>
             )}
           </div>
@@ -637,7 +637,7 @@ export function MatchesSection({
         ) : (
           <>
             <h4 className="flex items-baseline gap-2 m-0 text-[14px] font-[700] tracking-[-0.2px] mb-3">
-              Sent history for <small className="text-[#8d8c86] text-[11px] font-[500] truncate max-w-[120px]">{activeMatch.candidateData?.personal_information?.full_name || 'Candidate'}</small>
+              Sent history for <small className="text-[#8d8c86] text-[11px] font-[500] truncate max-w-[140px]">{(activeMatch as any).fullProfile?.full_name || activeMatch.candidateData?.personal_information?.full_name || 'Candidate'}</small>
             </h4>
             
             {(() => {
@@ -657,9 +657,9 @@ export function MatchesSection({
               }
               
               return (
-                <div className="flex flex-col min-h-0 overflow-y-auto pr-1">
+                <div className="flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
                   {completeHistory.map((h, i) => (
-                    <div key={h.release_id || i} className="flex items-center gap-[10px] w-[calc(100%+16px)] border-0 bg-transparent text-left rounded-[14px] p-[8px] -mx-[8px] border-t border-[#eeede6] first:border-transparent mt-[4px] pt-[12px] first:mt-0 first:pt-2">
+                    <div key={h.release_id || i} className="flex items-center gap-[10px] w-full border-0 bg-transparent text-left rounded-[14px] px-1 py-[8px] border-t border-[#eeede6] first:border-transparent mt-[4px] pt-[12px] first:mt-0 first:pt-2">
                       <div
                         className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-[700] text-[#111] text-[11px] shrink-0"
                         style={{ background: AVC[(h.other_profile_id || '').charCodeAt(0) % 5] || AVC[0] }}
