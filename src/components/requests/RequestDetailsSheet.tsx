@@ -339,7 +339,7 @@ export default function RequestDetailsSheet({
     return profileId ? (preferencesCache.get(profileId) || null) : null;
   });
   const [isLoadingPrefs, setIsLoadingPrefs] = useState(() => {
-    return profileId ? !preferencesCache.has(profileId) : false;
+    return profileId ? !preferencesCache.get(profileId) : false;
   });
 
   useEffect(() => {
@@ -349,8 +349,9 @@ export default function RequestDetailsSheet({
       return;
     }
 
-    if (preferencesCache.has(profileId)) {
-      setPreferences(preferencesCache.get(profileId));
+    const cachedPrefs = preferencesCache.get(profileId);
+    if (cachedPrefs) {
+      setPreferences(cachedPrefs);
       setIsLoadingPrefs(false);
       return;
     }
@@ -364,7 +365,9 @@ export default function RequestDetailsSheet({
 
     fetchProfileActivePreferences(profileId)
       .then((data) => {
-        preferencesCache.set(profileId, data || null);
+        if (data) {
+          preferencesCache.set(profileId, data);
+        }
         setPreferences(data || null);
       })
       .catch((err) => {

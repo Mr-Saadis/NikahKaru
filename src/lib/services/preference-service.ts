@@ -110,13 +110,40 @@ export class PreferenceService {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    const { data: prefSet, error } = await supabase
+    // 1. Prefer enriched view (includes lookup name_en / name_ur)
+    const { data: viewRows, error: viewError } = await supabase
+      .from('vw_profile_active_preferences')
+      .select('*')
+      .eq('profile_id', profileId)
+      .order('version', { ascending: false })
+      .limit(1);
+
+    if (!viewError && viewRows && viewRows.length > 0) {
+      const row = viewRows[0] as any;
+      return {
+        basic: row.basic || null,
+        physical: row.physical || null,
+        education: row.education || null,
+        profession: row.profession || null,
+        religion: row.religion || null,
+        location: row.location || null,
+        family: row.family || null,
+        lifestyle: row.lifestyle || null,
+        relocation: row.relocation || null,
+      };
+    }
+
+    // 2. Fallback directly to preference_sets (even if is_current was false)
+    const { data: setRows, error } = await supabase
       .from('preference_sets')
       .select('id')
       .eq('profile_id', profileId)
-      .eq('is_current', true)
-      .maybeSingle();
+      .order('is_current', { ascending: false })
+      .order('version', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1);
 
+    const prefSet = setRows?.[0];
     if (error || !prefSet) return null;
 
     const setId = prefSet.id;
@@ -124,27 +151,27 @@ export class PreferenceService {
     const [
       basicReq, physicalReq, eduReq, profReq, relReq, locReq, famReq, lifeReq, relocReq
     ] = await Promise.all([
-      supabase.from('basic_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-      supabase.from('physical_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-      supabase.from('education_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-      supabase.from('profession_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-      supabase.from('religion_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-      supabase.from('location_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-      supabase.from('family_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-      supabase.from('lifestyle_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
-      supabase.from('relocation_preferences').select('*').eq('preference_set_id', setId).maybeSingle(),
+      supabase.from('basic_preferences').select('*').eq('preference_set_id', setId).limit(1),
+      supabase.from('physical_preferences').select('*').eq('preference_set_id', setId).limit(1),
+      supabase.from('education_preferences').select('*').eq('preference_set_id', setId).limit(1),
+      supabase.from('profession_preferences').select('*').eq('preference_set_id', setId).limit(1),
+      supabase.from('religion_preferences').select('*').eq('preference_set_id', setId).limit(1),
+      supabase.from('location_preferences').select('*').eq('preference_set_id', setId).limit(1),
+      supabase.from('family_preferences').select('*').eq('preference_set_id', setId).limit(1),
+      supabase.from('lifestyle_preferences').select('*').eq('preference_set_id', setId).limit(1),
+      supabase.from('relocation_preferences').select('*').eq('preference_set_id', setId).limit(1),
     ]);
 
     return {
-      basic: basicReq.data || null,
-      physical: physicalReq.data || null,
-      education: eduReq.data || null,
-      profession: profReq.data || null,
-      religion: relReq.data || null,
-      location: locReq.data || null,
-      family: famReq.data || null,
-      lifestyle: lifeReq.data || null,
-      relocation: relocReq.data || null,
+      basic: basicReq.data?.[0] || null,
+      physical: physicalReq.data?.[0] || null,
+      education: eduReq.data?.[0] || null,
+      profession: profReq.data?.[0] || null,
+      religion: relReq.data?.[0] || null,
+      location: locReq.data?.[0] || null,
+      family: famReq.data?.[0] || null,
+      lifestyle: lifeReq.data?.[0] || null,
+      relocation: relocReq.data?.[0] || null,
     };
   }
 }

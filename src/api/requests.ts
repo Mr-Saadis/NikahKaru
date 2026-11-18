@@ -967,18 +967,83 @@ export async function fetchProfileAuditLogs(profileId: string): Promise<ProfileA
 export async function fetchProfileActivePreferences(profileId: string): Promise<any | null> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  const { data: viewRows, error } = await supabase
     .from('vw_profile_active_preferences')
     .select('*')
     .eq('profile_id', profileId)
-    .maybeSingle();
+    .order('version', { ascending: false })
+    .limit(1);
+
+  if (!error && viewRows && viewRows.length > 0) {
+    return viewRows[0];
+  }
 
   if (error) {
     console.error('Error fetching profile preferences from view:', error);
-    return null;
   }
 
-  return data || null;
+  // Fallback: check preference_sets directly (e.g., if latest set had is_current = false)
+  const { data: setRows } = await supabase
+    .from('preference_sets')
+    .select('id, version, is_current, created_by, created_at')
+    .eq('profile_id', profileId)
+    .order('is_current', { ascending: false })
+    .order('version', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  const latestSet = setRows?.[0];
+  if (!latestSet) return null;
+
+  if (!latestSet.is_current) {
+    await supabase
+      .from('preference_sets')
+      .update({ is_current: true })
+      .eq('id', latestSet.id);
+
+    const { data: refreshedRows } = await supabase
+      .from('vw_profile_active_preferences')
+      .select('*')
+      .eq('profile_id', profileId)
+      .order('version', { ascending: false })
+      .limit(1);
+
+    if (refreshedRows && refreshedRows.length > 0) {
+      return refreshedRows[0];
+    }
+  }
+
+  const setId = latestSet.id;
+  const [
+    basicReq, physicalReq, eduReq, profReq, relReq, locReq, famReq, lifeReq, relocReq,
+  ] = await Promise.all([
+    supabase.from('basic_preferences').select('*').eq('preference_set_id', setId).limit(1),
+    supabase.from('physical_preferences').select('*').eq('preference_set_id', setId).limit(1),
+    supabase.from('education_preferences').select('*').eq('preference_set_id', setId).limit(1),
+    supabase.from('profession_preferences').select('*').eq('preference_set_id', setId).limit(1),
+    supabase.from('religion_preferences').select('*').eq('preference_set_id', setId).limit(1),
+    supabase.from('location_preferences').select('*').eq('preference_set_id', setId).limit(1),
+    supabase.from('family_preferences').select('*').eq('preference_set_id', setId).limit(1),
+    supabase.from('lifestyle_preferences').select('*').eq('preference_set_id', setId).limit(1),
+    supabase.from('relocation_preferences').select('*').eq('preference_set_id', setId).limit(1),
+  ]);
+
+  return {
+    profile_id: profileId,
+    preference_set_id: setId,
+    version: latestSet.version,
+    preference_created_by: latestSet.created_by,
+    preference_created_at: latestSet.created_at,
+    basic: basicReq.data?.[0] || null,
+    physical: physicalReq.data?.[0] || null,
+    education: eduReq.data?.[0] || null,
+    profession: profReq.data?.[0] || null,
+    religion: relReq.data?.[0] || null,
+    location: locReq.data?.[0] || null,
+    family: famReq.data?.[0] || null,
+    lifestyle: lifeReq.data?.[0] || null,
+    relocation: relocReq.data?.[0] || null,
+  };
 }
 
 // =======================================================================

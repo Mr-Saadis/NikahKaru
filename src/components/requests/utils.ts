@@ -1,5 +1,6 @@
 import type { RequestItem } from './types';
 import type { MatchResult } from '@/lib/matching/types';
+import { useReferenceDataStore } from '@/lib/stores/reference-data-store';
 
 export type ProfileField = [string, string, string?]; // [label, value, field_path]
 export type ProfileGroup = [string, ProfileField[]];
@@ -135,6 +136,7 @@ export function formatPartnerPreferences(preferences?: any, isLoadingPrefs?: boo
   }
 
   const { basic, physical, education, profession, religion, location, family, lifestyle, relocation } = preferences;
+  const refStore = useReferenceDataStore.getState();
   const fields: ProfileField[] = [];
 
   // 1. Basic Preferences
@@ -203,9 +205,20 @@ export function formatPartnerPreferences(preferences?: any, isLoadingPrefs?: boo
   }
 
   // 3. Education & Profession
-  fields.push(["Min Education", formatPrefItem(education?.minimum_education_level_name_en, education?.education_importance)]);
+  const minEduName =
+    education?.minimum_education_level_name_en ||
+    (education?.minimum_education_level_id
+      ? refStore.getEducationLevelById(Number(education.minimum_education_level_id))?.name_en
+      : null);
+  fields.push(["Min Education", formatPrefItem(minEduName, education?.education_importance)]);
   fields.push(["Field of Study", formatPrefItem(education?.preferred_field_of_study, education?.field_importance)]);
-  fields.push(["Preferred Profession", formatPrefItem(profession?.preferred_occupation_name_en, profession?.occupation_importance)]);
+
+  const prefOccName =
+    profession?.preferred_occupation_name_en ||
+    (profession?.preferred_occupation_id
+      ? refStore.getOccupationById(Number(profession.preferred_occupation_id))?.name_en
+      : null);
+  fields.push(["Preferred Profession", formatPrefItem(prefOccName, profession?.occupation_importance)]);
 
   const empTypeVal = profession?.preferred_employment_type
     ? profession.preferred_employment_type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase())
@@ -223,9 +236,19 @@ export function formatPartnerPreferences(preferences?: any, isLoadingPrefs?: boo
   fields.push(["Monthly Income", formatPrefItem(incomeVal, profession?.income_importance)]);
 
   // 4. Religion & Culture
-  fields.push(["Religion", formatPrefItem(religion?.religion_name_en, religion?.religion_importance)]);
-  fields.push(["Sect", formatPrefItem(religion?.sect_name_en, religion?.sect_importance)]);
-  fields.push(["Caste", formatPrefItem(religion?.caste_name_en, religion?.caste_importance)]);
+  const prefReligionName =
+    religion?.religion_name_en ||
+    (religion?.religion_id ? refStore.getReligionById(Number(religion.religion_id))?.name_en : null);
+  const prefSectName =
+    religion?.sect_name_en ||
+    (religion?.sect_id ? refStore.getSectById(Number(religion.sect_id))?.name_en : null);
+  const prefCasteName =
+    religion?.caste_name_en ||
+    (religion?.caste_id ? refStore.getCasteById(Number(religion.caste_id))?.name_en : null);
+
+  fields.push(["Religion", formatPrefItem(prefReligionName, religion?.religion_importance)]);
+  fields.push(["Sect", formatPrefItem(prefSectName, religion?.sect_importance)]);
+  fields.push(["Caste", formatPrefItem(prefCasteName, religion?.caste_importance)]);
 
   const practiceRaw = religion?.religious_practice || lifestyle?.religious_practice;
   const practiceImp = religion?.religious_practice_importance || lifestyle?.religious_practice_importance;
@@ -235,9 +258,19 @@ export function formatPartnerPreferences(preferences?: any, isLoadingPrefs?: boo
   fields.push(["Religious Practice", formatPrefItem(practiceVal, practiceImp)]);
 
   // 5. Location Preferences
-  fields.push(["Preferred Country", formatPrefItem(location?.country_name_en, location?.country_importance)]);
-  fields.push(["Preferred Province", formatPrefItem(location?.province_name_en, location?.province_importance)]);
-  fields.push(["Preferred City", formatPrefItem(location?.city_name_en, location?.city_importance)]);
+  const prefLocCountry =
+    location?.country_name_en ||
+    (location?.country_id ? refStore.getCountryById(Number(location.country_id))?.name_en : null);
+  const prefLocProvince =
+    location?.province_name_en ||
+    (location?.province_id ? refStore.getProvinceById(Number(location.province_id))?.name_en : null);
+  const prefLocCity =
+    location?.city_name_en ||
+    (location?.city_id ? refStore.getCityById(Number(location.city_id))?.name_en : null);
+
+  fields.push(["Preferred Country", formatPrefItem(prefLocCountry, location?.country_importance)]);
+  fields.push(["Preferred Province", formatPrefItem(prefLocProvince, location?.province_importance)]);
+  fields.push(["Preferred City", formatPrefItem(prefLocCity, location?.city_importance)]);
 
   // 6. Family & Living
   const familySetupVal = family?.family_setup
@@ -271,7 +304,16 @@ export function formatPartnerPreferences(preferences?: any, isLoadingPrefs?: boo
   const reloVal = reloRaw === 'YES' ? 'Must be willing to relocate' : reloRaw === 'NO' ? 'No relocation required' : null;
   fields.push(["Relocation", formatPrefItem(reloVal, relocation?.relocation_importance)]);
 
-  const reloLoc = [relocation?.country_name_en, relocation?.province_name_en, relocation?.city_name_en].filter(Boolean).join(', ');
+  const reloCountry =
+    relocation?.country_name_en ||
+    (relocation?.country_id ? refStore.getCountryById(Number(relocation.country_id))?.name_en : null);
+  const reloProvince =
+    relocation?.province_name_en ||
+    (relocation?.province_id ? refStore.getProvinceById(Number(relocation.province_id))?.name_en : null);
+  const reloCity =
+    relocation?.city_name_en ||
+    (relocation?.city_id ? refStore.getCityById(Number(relocation.city_id))?.name_en : null);
+  const reloLoc = [reloCountry, reloProvince, reloCity].filter(Boolean).join(', ');
   fields.push(["Relocation Target", formatPrefItem(reloLoc || null, relocation?.relocation_importance)]);
 
   return fields;
@@ -304,7 +346,7 @@ export function getProfileGroups(item: RequestItem, preferences?: any, isLoading
       ["Education Level", d.qualification || d.education_level_name_en || d.education_records?.[0]?.qualification || d.education_records?.[0]?.education_level_name_en || 'N/A'], 
       ["Field of Study", d.field_of_study || d.education_records?.[0]?.field_of_study || 'N/A'], 
       ["Job Title", d.job_title || d.occupation_name_en || d.employment_records?.[0]?.job_title || d.employment_records?.[0]?.occupation_name_en || 'N/A'], 
-      ["Income", d.monthly_income_min ? `Rs ${Number(d.monthly_income_min).toLocaleString()} - ${Number(d.monthly_income_max).toLocaleString()}` : 'N/A']
+      ["Income", d.monthly_income_min ? (d.monthly_income_max && Number(d.monthly_income_max) > Number(d.monthly_income_min) ? `Rs ${Number(d.monthly_income_min).toLocaleString()} - ${Number(d.monthly_income_max).toLocaleString()}` : `Rs ${Number(d.monthly_income_min).toLocaleString()}`) : 'N/A']
     ]],
     ["Religion & Culture", [
       ["Religion", d.religion_name_en || 'Islam'], 
