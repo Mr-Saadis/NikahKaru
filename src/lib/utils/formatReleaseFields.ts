@@ -1,4 +1,5 @@
 import { useReferenceDataStore } from '@/lib/stores/reference-data-store';
+import { formatAgeFromDob } from '@/components/requests/utils';
 
 export interface FormattedReleaseField {
   path: string;
@@ -16,7 +17,7 @@ const FIELD_LABEL_MAP: Record<string, string> = {
   full_name: 'Full Name',
   phone: 'Phone',
   primary_phone: 'Phone',
-  date_of_birth: 'Date of Birth',
+  date_of_birth: 'Age',
   marital_status: 'Marital Status',
   number_of_children: 'Children',
   children: 'Children',
@@ -77,6 +78,9 @@ export function resolveFieldValue(path: string, rawVal: any): string {
   }
 
   const lastPart = (path.split('.').pop() || path).toLowerCase();
+  if (lastPart === 'date_of_birth' || lastPart === 'dob' || lastPart === 'age') {
+    return formatAgeFromDob(rawVal);
+  }
   const refStore = useReferenceDataStore.getState();
 
   // 1. Reference Data ID resolutions

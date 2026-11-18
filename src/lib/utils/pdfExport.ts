@@ -854,7 +854,7 @@ export async function generateReleasedProfilesPDF(data: {
   const releases = data.releases || [];
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const todayBilingual = formatBilingualValue('date_of_birth', todayIso);
+  const todayBilingual = formatBilingualValue('document_date', todayIso);
   const clientDobBilingual = formatBilingualValue('date_of_birth', clientDobRaw);
   const clientMaritalBilingual = formatBilingualValue('marital_status', clientMaritalRaw);
   const clientLocBilingual = formatBilingualValue('current_city', clientLocationRaw);
@@ -1022,7 +1022,7 @@ export async function generateSingleProfilePDF(data: {
   const genderBilingual = formatBilingualValue('gender', profileData.gender);
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const todayBilingual = formatBilingualValue('date_of_birth', todayIso);
+  const todayBilingual = formatBilingualValue('document_date', todayIso);
 
   const picUrl = profileData.profile_url || profileData.profile_URL || profileData.profile_picture;
 

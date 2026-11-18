@@ -1473,7 +1473,6 @@ export default function ProfilesListPage() {
         <DetailSection title="Personal Information" accent="#1F3B34" icon={<User2 className="w-4 h-4" />}>
           <div className="space-y-0.5">
             <InfoRow label="Full Name" value={pi?.full_name} highlight />
-            <InfoRow label="Date of Birth" value={pi?.date_of_birth ? new Date(pi.date_of_birth).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : undefined} />
             <InfoRow label="Age" value={age !== '-' ? <span className="inline-flex items-center gap-1.5"><span className="font-black text-[#1F3B34]">{age}</span><span className="text-[#7C756B] font-normal">years old</span></span> : undefined} />
             <InfoRow label="Gender" value={
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E5EFE9] text-[#1F3B34] border border-[#d1e3dc]">{formatEnum(sp.gender)}</span>

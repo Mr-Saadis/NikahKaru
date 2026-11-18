@@ -1,4 +1,5 @@
 import { useReferenceDataStore } from '@/lib/stores/reference-data-store';
+import { formatAgeFromDob } from '@/components/requests/utils';
 
 export interface BilingualText {
   en: string;
@@ -25,8 +26,9 @@ const FIELD_LABEL_BILINGUAL_MAP: Record<string, BilingualText> = {
   phone: { en: 'Contact Number', ur: 'فون نمبر' },
   primary_phone: { en: 'Contact Number', ur: 'فون نمبر' },
   cnic: { en: 'CNIC No.', ur: 'شناختی کارڈ نمبر' },
-  date_of_birth: { en: 'Date of Birth', ur: 'تاریخِ پیدائش' },
-  dob: { en: 'Date of Birth', ur: 'تاریخِ پیدائش' },
+  age: { en: 'Age', ur: 'عمر' },
+  date_of_birth: { en: 'Age', ur: 'عمر' },
+  dob: { en: 'Age', ur: 'عمر' },
   marital_status: { en: 'Marital Status', ur: 'ازدواجی حیثیت' },
   'marital status': { en: 'Marital Status', ur: 'ازدواجی حیثیت' },
   number_of_children: { en: 'Children', ur: 'بچوں کی تعداد' },
@@ -598,7 +600,14 @@ function translateSingleToken(token: string): BilingualText {
     };
   }
 
-  // 8. Age ranges ("24 - 28 yrs", "24+ yrs", "Up to 28 yrs")
+  // 8. Age single or range ("25 yrs", "24 - 28 yrs", "24+ yrs", "Up to 28 yrs")
+  const ageSingleMatch = clean.match(/^(\d+)\s*(?:yrs?|years?(?:\s+old)?)$/i);
+  if (ageSingleMatch) {
+    return {
+      en: `${ageSingleMatch[1]} yrs`,
+      ur: `${ageSingleMatch[1]} سال`,
+    };
+  }
   const ageRangeMatch = clean.match(/^(\d+)\s*-\s*(\d+)\s*yrs$/i);
   if (ageRangeMatch) {
     return {
@@ -751,8 +760,15 @@ export function formatBilingualValue(
     };
   }
 
-  // Income field when raw number or string number
+  // Age / DOB field -> calculate age in years
   const keyLower = labelOrPath.toLowerCase();
+  if (keyLower === 'age' || keyLower === 'dob' || keyLower.endsWith('date_of_birth')) {
+    const computed = formatAgeFromDob(strVal);
+    if (computed === 'N/A') return { en: 'N/A', ur: '' };
+    return translateSingleToken(computed);
+  }
+
+  // Income field when raw number or string number
   if ((keyLower.includes('income') || keyLower.includes('monthly_income')) && /^\d+$/.test(strVal)) {
     const formatted = Number(strVal).toLocaleString();
     return {

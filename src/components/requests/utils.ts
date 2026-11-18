@@ -5,6 +5,29 @@ import { useReferenceDataStore } from '@/lib/stores/reference-data-store';
 export type ProfileField = [string, string, string?]; // [label, value, field_path]
 export type ProfileGroup = [string, ProfileField[]];
 
+export function formatAgeFromDob(dob?: string | number | null): string {
+  if (dob === null || dob === undefined || dob === '') return 'N/A';
+  if (typeof dob === 'number') {
+    return dob >= 0 && dob <= 120 ? `${Math.floor(dob)} yrs` : 'N/A';
+  }
+  const str = String(dob).trim();
+  if (!str) return 'N/A';
+  const ageStrMatch = str.match(/^(\d{1,3})\s*(?:yrs?|years?(?:\s+old)?)?$/i);
+  if (ageStrMatch) {
+    const n = Number(ageStrMatch[1]);
+    return n >= 0 && n <= 120 ? `${n} yrs` : 'N/A';
+  }
+  const birth = new Date(str);
+  if (isNaN(birth.getTime())) return 'N/A';
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age >= 0 && age <= 120 ? `${age} yrs` : 'N/A';
+}
+
 export function getMatchProfileGroups(match: any): ProfileGroup[] {
   const d = match.fullProfile || match.candidateData;
   if (!d) return [];
@@ -38,7 +61,7 @@ export function getMatchProfileGroups(match: any): ProfileGroup[] {
       ...(d.gender || d.personal_information?.gender ? [["Gender", (d.gender || d.personal_information?.gender), "profiles.gender"] as ProfileField] : []),
       ["Phone", d.phone || d.primary_phone || d.personal_information?.phone || 'N/A', "personal_information.phone"], 
       ["CNIC", d.cnic || d.personal_information?.cnic || 'N/A', "personal_information.cnic"],
-      ["DOB", dobVal ? new Date(dobVal).toLocaleDateString() : 'N/A', "personal_information.date_of_birth"], 
+      ["Age", formatAgeFromDob(dobVal), "personal_information.date_of_birth"],
       ["Marital status", maritalVal ? maritalVal.replace(/_/g, ' ') : 'N/A', "personal_information.marital_status"],
       ...(maritalVal !== 'NEVER_MARRIED' ? [["Children", childrenVal !== null && childrenVal !== undefined ? String(childrenVal) : 'N/A', "personal_information.number_of_children"] as ProfileField] : [])
     ]],
@@ -332,7 +355,7 @@ export function getProfileGroups(item: RequestItem, preferences?: any, isLoading
       ...(d.gender ? [["Gender", d.gender] as ProfileField] : []),
       ["Phone", d.primary_phone || item.phone], 
       ["CNIC", d.cnic || item.cnic], 
-      ["DOB", d.date_of_birth ? new Date(d.date_of_birth).toLocaleDateString() : 'N/A'], 
+      ["Age", formatAgeFromDob(d.date_of_birth)],
       ["Marital status", d.marital_status || 'N/A'],
       ...(d.marital_status !== 'NEVER_MARRIED' ? [["Children", d.number_of_children !== null ? String(d.number_of_children) : 'N/A'] as ProfileField] : [])
     ]],
