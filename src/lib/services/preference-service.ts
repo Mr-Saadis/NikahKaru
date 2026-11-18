@@ -4,7 +4,9 @@ import type { AllPreferences } from '../types/database.types';
 export class PreferenceService {
   /**
    * Save preferences for a profile.
-   * This creates a new preference_set version and inserts/updates all 9 preference sub-tables.
+   * Updates the current preference_set in place (upsert) to avoid duplicate versions
+   * on auto-save, creating a new version only if none exists or the current one is
+   * already referenced by an official match_run.
    */
   static async savePreferences(profileId: string, data: AllPreferences, createdBy: string): Promise<void> {
     const supabase = createBrowserClient(
@@ -12,78 +14,91 @@ export class PreferenceService {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // 1. Mark existing preference sets as not current
-    await supabase
-      .from('preference_sets')
-      .update({ is_current: false })
-      .eq('profile_id', profileId);
+    let setId: string | null = null;
 
-    // 2. Determine next version
-    const { data: latestSet } = await supabase
+    // 1. Reuse existing current preference_set if not locked by an official match_run
+    const { data: currentSet } = await supabase
       .from('preference_sets')
-      .select('version')
+      .select('id, version')
       .eq('profile_id', profileId)
+      .eq('is_current', true)
       .order('version', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    const nextVersion = latestSet ? latestSet.version + 1 : 1;
+    if (currentSet) {
+      const { count: matchRunCount, error: matchRunError } = await supabase
+        .from('match_runs')
+        .select('id', { count: 'exact', head: true })
+        .eq('preference_set_id', currentSet.id);
 
-    // 3. Create new preference_set
-    const { data: newSet, error: setError } = await supabase
-      .from('preference_sets')
-      .insert({
-        profile_id: profileId,
-        version: nextVersion,
-        is_current: true,
-        created_by: createdBy,
-      })
-      .select('id')
-      .single();
-
-    if (setError || !newSet) {
-      throw new Error(`Failed to create preference set: ${setError?.message}`);
+      if (!matchRunError && (matchRunCount ?? 0) === 0) {
+        setId = currentSet.id;
+      }
     }
 
-    const setId = newSet.id;
+    // 2. Create a new preference_set only when none exists or current is tied to a match_run
+    if (!setId) {
+      await supabase
+        .from('preference_sets')
+        .update({ is_current: false })
+        .eq('profile_id', profileId);
 
-    // 4. Insert all sub-tables in parallel
-    const tasks = [];
+      const { data: latestSet } = await supabase
+        .from('preference_sets')
+        .select('version')
+        .eq('profile_id', profileId)
+        .order('version', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (data.basic) {
-      tasks.push(supabase.from('basic_preferences').insert({ ...data.basic, preference_set_id: setId }));
+      const nextVersion = latestSet ? latestSet.version + 1 : 1;
+
+      const { data: newSet, error: setError } = await supabase
+        .from('preference_sets')
+        .insert({
+          profile_id: profileId,
+          version: nextVersion,
+          is_current: true,
+          created_by: createdBy,
+        })
+        .select('id')
+        .single();
+
+      if (setError || !newSet) {
+        throw new Error(`Failed to create preference set: ${setError?.message}`);
+      }
+
+      setId = newSet.id;
     }
-    if (data.physical) {
-      tasks.push(supabase.from('physical_preferences').insert({ ...data.physical, preference_set_id: setId }));
-    }
-    if (data.education) {
-      tasks.push(supabase.from('education_preferences').insert({ ...data.education, preference_set_id: setId }));
-    }
-    if (data.profession) {
-      tasks.push(supabase.from('profession_preferences').insert({ ...data.profession, preference_set_id: setId }));
-    }
-    if (data.religion) {
-      tasks.push(supabase.from('religion_preferences').insert({ ...data.religion, preference_set_id: setId }));
-    }
-    if (data.location) {
-      tasks.push(supabase.from('location_preferences').insert({ ...data.location, preference_set_id: setId }));
-    }
-    if (data.family) {
-      tasks.push(supabase.from('family_preferences').insert({ ...data.family, preference_set_id: setId }));
-    }
-    if (data.lifestyle) {
-      tasks.push(supabase.from('lifestyle_preferences').insert({ ...data.lifestyle, preference_set_id: setId }));
-    }
-    if (data.relocation) {
-      tasks.push(supabase.from('relocation_preferences').insert({ ...data.relocation, preference_set_id: setId }));
-    }
+
+    // 3. Upsert all provided preference sub-tables in parallel
+    const sectionTables: Array<[keyof AllPreferences, string]> = [
+      ['basic', 'basic_preferences'],
+      ['physical', 'physical_preferences'],
+      ['education', 'education_preferences'],
+      ['profession', 'profession_preferences'],
+      ['religion', 'religion_preferences'],
+      ['location', 'location_preferences'],
+      ['family', 'family_preferences'],
+      ['lifestyle', 'lifestyle_preferences'],
+      ['relocation', 'relocation_preferences'],
+    ];
+
+    const tasks = sectionTables
+      .filter(([key]) => Boolean(data[key]))
+      .map(([key, table]) =>
+        supabase
+          .from(table)
+          .upsert({ ...data[key], preference_set_id: setId }, { onConflict: 'preference_set_id' })
+      );
 
     const results = await Promise.all(tasks);
-    
+
     // Check for errors
     for (const result of results) {
       if (result.error) {
-        console.error('Preference insertion error:', result.error);
+        console.error('Preference upsert error:', result.error);
         throw new Error(`Failed to save a preference section: ${result.error.message}`);
       }
     }
