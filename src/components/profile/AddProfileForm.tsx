@@ -58,7 +58,7 @@ const defaultStep4 = (): Step4Data => ({ religion_id: 1, sect_id: '', caste_id: 
 const defaultStep5 = (): Step5Data => ({ current_country_id: '', current_province_id: '', current_city_id: '', permanent_country_id: '', permanent_province_id: '', permanent_city_id: '', current_location_text: '', permanent_location_text: '', house_status: '', property_type: '', family_setup: '', living_with: '', living_with_other_details: '' });
 const defaultStep6 = (): Step6Data => ({ parents: [], siblings: [], family_profession_business: '', social_background: '', family_values: '', family_introduction: '', important_family_circumstances: '', additional_details: '' });
 const defaultStep7 = (): Step7Data => ({ beard: '', hijab: '', religious_practice: '', smoking: '', other_lifestyle_information: '', willing_to_relocate: '', preferred_country_id: '', preferred_province_id: '', preferred_city_id: '', relocation_details: '' });
-const defaultStep8 = (): Step8Data => ({ pref_min_age: '', pref_max_age: '', pref_age_importance: '', pref_marital_status: '', pref_marital_importance: '', pref_children_allowed: '', pref_children_importance: '', pref_min_height: '', pref_max_height: '', pref_height_importance: '', pref_min_weight: '', pref_max_weight: '', pref_weight_importance: '', pref_complexion: '', pref_complexion_importance: '', pref_disability_allowed: '', pref_disability_importance: '', pref_beard: '', pref_beard_importance: '', pref_hijab: '', pref_hijab_importance: '', pref_education_level_id: '', pref_education_importance: '', pref_field_of_study: '', pref_field_importance: '', pref_occupation_id: '', pref_occupation_importance: '', pref_employment_type: '', pref_employment_type_importance: '', pref_min_income: '', pref_max_income: '', pref_income_importance: '', pref_religion_id: 1, pref_religion_importance: '', pref_sect_id: '', pref_sect_importance: '', pref_caste_id: '', pref_caste_importance: '', pref_religious_practice: '', pref_religious_practice_importance: '', pref_location_country_id: '', pref_location_country_importance: '', pref_location_province_id: '', pref_location_province_importance: '', pref_location_city_id: '', pref_location_city_importance: '', pref_family_setup: '', pref_family_setup_importance: '', pref_living_with: '', pref_living_with_importance: '', pref_parents_status: '', pref_parents_status_importance: '', pref_smoking: '', pref_smoking_importance: '', pref_additional_lifestyle: '', pref_willing_to_relocate_required: '', pref_relocation_importance: '', pref_relocate_country_id: '', pref_relocate_province_id: '', pref_relocate_city_id: '' });
+const defaultStep8 = (): Step8Data => ({ pref_min_age: '', pref_max_age: '', pref_age_importance: '', pref_marital_status: '', pref_marital_importance: '', pref_children_allowed: '', pref_children_importance: '', pref_min_height: '', pref_max_height: '', pref_height_importance: '', pref_min_weight: '', pref_max_weight: '', pref_weight_importance: '', pref_complexion: '', pref_complexion_importance: '', pref_disability_allowed: '', pref_disability_importance: '', pref_beard: '', pref_beard_importance: '', pref_hijab: '', pref_hijab_importance: '', pref_education_level_id: '', pref_education_importance: '', pref_field_of_study: '', pref_field_importance: '', pref_occupation_id: '', pref_occupation_importance: '', pref_employment_type: '', pref_employment_type_importance: '', pref_min_income: '', pref_max_income: '', pref_income_importance: '', pref_religion_id: 1, pref_religion_importance: '', pref_sect_id: '', pref_sect_importance: '', pref_caste_id: '', pref_caste_importance: '', pref_religious_practice: '', pref_religious_practice_importance: '', pref_location_country_importance: '', pref_location_province_importance: '', pref_location_city_importance: '', pref_locations: [], pref_family_setup: '', pref_family_setup_importance: '', pref_living_with: '', pref_living_with_importance: '', pref_parents_status: '', pref_parents_status_importance: '', pref_smoking: '', pref_smoking_importance: '', pref_additional_lifestyle: '', pref_willing_to_relocate_required: '', pref_relocation_importance: '', pref_relocations: [] });
 
 export default function AddProfileForm() {
   const router = useRouter();
@@ -315,13 +315,18 @@ export default function AddProfileForm() {
                 pref_religious_practice_importance: prefs.religion.religious_practice_importance || 'DOES_NOT_MATTER',
               }),
               ...(prefs.location && {
-                pref_location_country_id: prefs.location.country_id || '',
                 pref_location_country_importance: prefs.location.country_importance || 'DOES_NOT_MATTER',
-                pref_location_province_id: prefs.location.province_id || '',
                 pref_location_province_importance: prefs.location.province_importance || 'DOES_NOT_MATTER',
-                pref_location_city_id: prefs.location.city_id || '',
                 pref_location_city_importance: prefs.location.city_importance || 'DOES_NOT_MATTER',
               }),
+              pref_locations: (prefs.preferredLocations || []).map((l: any) => ({
+                ...l,
+                _tempId: l.id || crypto.randomUUID(),
+                country_id: Number(l.country_id),
+                province_id: l.province_id ? Number(l.province_id) : null,
+                city_id: l.city_id ? Number(l.city_id) : null,
+                is_excluded: Boolean(l.is_excluded),
+              })),
               ...(prefs.family && {
                 pref_family_setup: prefs.family.family_setup || '',
                 pref_family_setup_importance: prefs.family.family_setup_importance || 'DOES_NOT_MATTER',
@@ -338,10 +343,15 @@ export default function AddProfileForm() {
               ...(prefs.relocation && {
                 pref_willing_to_relocate_required: prefs.relocation.willing_to_relocate_required || '',
                 pref_relocation_importance: prefs.relocation.relocation_importance || 'DOES_NOT_MATTER',
-                pref_relocate_country_id: prefs.relocation.country_id || '',
-                pref_relocate_province_id: prefs.relocation.province_id || '',
-                pref_relocate_city_id: prefs.relocation.city_id || '',
-              })
+              }),
+              pref_relocations: (prefs.preferredRelocations || []).map((l: any) => ({
+                ...l,
+                _tempId: l.id || crypto.randomUUID(),
+                country_id: Number(l.country_id),
+                province_id: l.province_id ? Number(l.province_id) : null,
+                city_id: l.city_id ? Number(l.city_id) : null,
+                is_excluded: Boolean(l.is_excluded),
+              }))
             }));
           }
           if (localData) {
@@ -486,7 +496,7 @@ export default function AddProfileForm() {
       if (dirtyKeys.includes('step3')) {
         const validEdus = data.step3.education_records.filter(e => e.education_level_id).map(({ _tempId, ...rest }) => rest);
         tasks.push(ProfileService.saveEducationRecords(pid, validEdus));
-        const validEmps = data.step3.employment_records.filter(e => e.occupation_id && e.employment_type).map(({ _tempId, ...rest }) => rest);
+        const validEmps = data.step3.employment_records.filter(e => e.occupation_id || e.employment_type || e.job_title?.trim() || e.organization_name?.trim() || e.details?.trim()).map(({ _tempId, ...rest }) => rest);
         tasks.push(ProfileService.saveEmploymentRecords(pid, validEmps));
         if (data.step3.monthly_income_min || data.step3.monthly_income_max) {
           tasks.push(ProfileService.saveIncomeInfo(pid, {
@@ -638,15 +648,18 @@ export default function AddProfileForm() {
           },
           location: {
             preference_set_id: '',
-            country_id: data.step8.pref_location_country_id ? Number(data.step8.pref_location_country_id) : null,
             country_importance: data.step8.pref_location_country_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_location_country_importance || null),
-            province_id: data.step8.pref_location_province_id ? Number(data.step8.pref_location_province_id) : null,
             province_importance: data.step8.pref_location_province_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_location_province_importance || null),
-            city_id: data.step8.pref_location_city_id ? Number(data.step8.pref_location_city_id) : null,
             city_importance: data.step8.pref_location_city_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_location_city_importance || null),
             location_details: null,
             created_at: new Date().toISOString()
           },
+          preferredLocations: (data.step8.pref_locations || []).map(l => ({
+            country_id: Number(l.country_id),
+            province_id: l.province_id ? Number(l.province_id) : null,
+            city_id: l.city_id ? Number(l.city_id) : null,
+            is_excluded: Boolean(l.is_excluded),
+          })),
           family: {
             preference_set_id: '',
             family_setup: data.step8.pref_family_setup || null,
@@ -674,14 +687,17 @@ export default function AddProfileForm() {
             preference_set_id: '',
             willing_to_relocate_required: data.step8.pref_willing_to_relocate_required || null,
             relocation_importance: data.step8.pref_relocation_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_relocation_importance || null),
-            country_id: data.step8.pref_relocate_country_id ? Number(data.step8.pref_relocate_country_id) : null,
             country_importance: null,
-            province_id: data.step8.pref_relocate_province_id ? Number(data.step8.pref_relocate_province_id) : null,
             province_importance: null,
-            city_id: data.step8.pref_relocate_city_id ? Number(data.step8.pref_relocate_city_id) : null,
             city_importance: null,
             created_at: new Date().toISOString()
-          }
+          },
+          preferredRelocations: (data.step8.pref_relocations || []).map(l => ({
+            country_id: Number(l.country_id),
+            province_id: l.province_id ? Number(l.province_id) : null,
+            city_id: l.city_id ? Number(l.city_id) : null,
+            is_excluded: Boolean(l.is_excluded),
+          }))
         }, user.id));
       }
 
@@ -903,7 +919,7 @@ export default function AddProfileForm() {
     } else if (stepNum === 3) {
       const validEdus = data.step3.education_records.filter((e: any) => e.education_level_id).map(({ _tempId, ...rest }: any) => rest);
       tasks.push(ProfileService.saveEducationRecords(pid, validEdus));
-      const validEmps = data.step3.employment_records.filter((e: any) => e.occupation_id && e.employment_type).map(({ _tempId, ...rest }: any) => rest);
+      const validEmps = data.step3.employment_records.filter((e: any) => e.occupation_id || e.employment_type || e.job_title?.trim() || e.organization_name?.trim() || e.details?.trim()).map(({ _tempId, ...rest }: any) => rest);
       tasks.push(ProfileService.saveEmploymentRecords(pid, validEmps));
       if (data.step3.monthly_income_min || data.step3.monthly_income_max) {
         tasks.push(ProfileService.saveIncomeInfo(pid, {
@@ -1014,7 +1030,7 @@ export default function AddProfileForm() {
           total += 1;
           if (step2.disability_details) completed++;
         }
-        const mandatoryComplete = !!(step2.height_cm && step2.weight_kg);
+        const mandatoryComplete = !!step2.height_cm;
         return { completed, total, mandatoryComplete };
       }
       case 3: {
@@ -1025,8 +1041,7 @@ export default function AddProfileForm() {
         if (step3.monthly_income_min) completed++;
         if (step3.monthly_income_max) completed++;
         const validEdu = step3.education_records.some(r => !!r.education_level_id);
-        const validEmp = step3.employment_records.some(r => !!(r.occupation_id && r.employment_type));
-        const mandatoryComplete = validEdu && validEmp;
+        const mandatoryComplete = validEdu;
         return { completed, total, mandatoryComplete };
       }
       case 4: {
@@ -1133,7 +1148,7 @@ export default function AddProfileForm() {
         countImp(step8.pref_religious_practice_importance, [step8.pref_religious_practice]);
 
         countImp(step8.pref_income_importance, [step8.pref_min_income]);
-        countImp(step8.pref_location_country_importance, [step8.pref_location_country_id]);
+        countImp(step8.pref_location_country_importance, [(step8.pref_locations && step8.pref_locations.length > 0) ? 'yes' : '']);
         countImp(step8.pref_family_setup_importance, [step8.pref_family_setup]);
         countImp(step8.pref_smoking_importance, [step8.pref_smoking]);
 
@@ -1175,13 +1190,11 @@ export default function AddProfileForm() {
     // Step 2
     const s2: string[] = [];
     if (!step2.height_cm) s2.push('Height');
-    if (!step2.weight_kg) s2.push('Weight');
     if (s2.length > 0) missing.push({ stepId: 2, stepName: 'Physical Information', missingFields: s2 });
 
     // Step 3
     const s3: string[] = [];
     if (!step3.education_records.some(r => !!r.education_level_id)) s3.push('Education Record (Level)');
-    if (!step3.employment_records.some(r => !!(r.occupation_id && r.employment_type))) s3.push('Employment Record (Occupation & Type)');
     if (s3.length > 0) missing.push({ stepId: 3, stepName: 'Education & Profession', missingFields: s3 });
 
     // Step 4
@@ -1306,7 +1319,7 @@ export default function AddProfileForm() {
           disability_details: step2.has_disability ? step2.disability_details : null,
         }),
         ProfileService.saveEducationRecords(pid, step3.education_records.filter(e => e.education_level_id).map(({ _tempId, ...rest }: any) => rest)),
-        ProfileService.saveEmploymentRecords(pid, step3.employment_records.filter(e => e.occupation_id && e.employment_type).map(({ _tempId, ...rest }: any) => rest)),
+        ProfileService.saveEmploymentRecords(pid, step3.employment_records.filter((e: any) => e.occupation_id || e.employment_type || e.job_title?.trim() || e.organization_name?.trim() || e.details?.trim()).map(({ _tempId, ...rest }: any) => rest)),
         ProfileService.saveReligionInfo(pid, {
           religion_id: step4.religion_id ? Number(step4.religion_id) : null,
           sect_id: step4.sect_id ? Number(step4.sect_id) : null,
@@ -1450,15 +1463,18 @@ export default function AddProfileForm() {
         },
         location: {
           preference_set_id: '',
-          country_id: step8.pref_location_country_id ? Number(step8.pref_location_country_id) : null,
           country_importance: step8.pref_location_country_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_location_country_importance || null),
-          province_id: step8.pref_location_province_id ? Number(step8.pref_location_province_id) : null,
           province_importance: step8.pref_location_province_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_location_province_importance || null),
-          city_id: step8.pref_location_city_id ? Number(step8.pref_location_city_id) : null,
           city_importance: step8.pref_location_city_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_location_city_importance || null),
           location_details: null,
           created_at: new Date().toISOString()
         },
+        preferredLocations: (step8.pref_locations || []).map(l => ({
+          country_id: Number(l.country_id),
+          province_id: l.province_id ? Number(l.province_id) : null,
+          city_id: l.city_id ? Number(l.city_id) : null,
+          is_excluded: Boolean(l.is_excluded),
+        })),
         family: {
           preference_set_id: '',
           family_setup: step8.pref_family_setup || null,
@@ -1486,14 +1502,17 @@ export default function AddProfileForm() {
           preference_set_id: '',
           willing_to_relocate_required: step8.pref_willing_to_relocate_required || null,
           relocation_importance: step8.pref_relocation_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_relocation_importance || null),
-          country_id: step8.pref_relocate_country_id ? Number(step8.pref_relocate_country_id) : null,
           country_importance: null,
-          province_id: step8.pref_relocate_province_id ? Number(step8.pref_relocate_province_id) : null,
           province_importance: null,
-          city_id: step8.pref_relocate_city_id ? Number(step8.pref_relocate_city_id) : null,
           city_importance: null,
           created_at: new Date().toISOString()
-        }
+        },
+        preferredRelocations: (step8.pref_relocations || []).map(l => ({
+          country_id: Number(l.country_id),
+          province_id: l.province_id ? Number(l.province_id) : null,
+          city_id: l.city_id ? Number(l.city_id) : null,
+          is_excluded: Boolean(l.is_excluded),
+        }))
       }, user.id);
 
       // 4. Update profile status based on whether all mandatory fields across all steps are filled

@@ -1,9 +1,10 @@
 'use client';
+import { useState, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Ban, Check, MapPin, Plus, X } from 'lucide-react';
 
-import type { PreferenceImportance, MaritalStatus, YesNo, ReligiousPracticeLevel, SmokingStatus, FamilySetup, LivingWith, EmploymentType } from '@/lib/types/database.types';
+import type { PreferenceImportance, MaritalStatus, YesNo, ReligiousPracticeLevel, SmokingStatus, FamilySetup, LivingWith, EmploymentType, PreferredLocation, PreferredRelocation } from '@/lib/types/database.types';
 import { useReferenceData } from '@/lib/hooks/useReferenceData';
 
 // ── Importance selector ──────────────────────────────────────
@@ -191,12 +192,17 @@ export type Step8Data = {
   pref_religious_practice_importance: PreferenceImportance | 'DOES_NOT_MATTER' | '';
 
   // Location
-  pref_location_country_id: number | '';
   pref_location_country_importance: PreferenceImportance | 'DOES_NOT_MATTER' | '';
-  pref_location_province_id: number | '';
   pref_location_province_importance: PreferenceImportance | 'DOES_NOT_MATTER' | '';
-  pref_location_city_id: number | '';
   pref_location_city_importance: PreferenceImportance | 'DOES_NOT_MATTER' | '';
+  pref_locations: Array<{
+    _tempId?: string;
+    id?: string;
+    country_id: number;
+    province_id: number | null;
+    city_id: number | null;
+    is_excluded?: boolean;
+  }>;
 
   // Family
   pref_family_setup: FamilySetup | '';
@@ -214,9 +220,14 @@ export type Step8Data = {
   // Relocation
   pref_willing_to_relocate_required: YesNo | '';
   pref_relocation_importance: PreferenceImportance | 'DOES_NOT_MATTER' | '';
-  pref_relocate_country_id: number | '';
-  pref_relocate_province_id: number | '';
-  pref_relocate_city_id: number | '';
+  pref_relocations: Array<{
+    _tempId?: string;
+    id?: string;
+    country_id: number;
+    province_id: number | null;
+    city_id: number | null;
+    is_excluded?: boolean;
+  }>;
 };
 
 interface Step8Props {
@@ -228,15 +239,190 @@ interface Step8Props {
 export default function Step8Preferences({ data, onChange, gender }: Step8Props) {
   const { religions, castes, countries, provinces, cities, getSectsByReligion, educationLevels, occupations } = useReferenceData();
   const availableSects = data.pref_religion_id ? getSectsByReligion(Number(data.pref_religion_id)) : [];
-  
-  const locProvinces = data.pref_location_country_id ? provinces.filter(p => p.country_id === data.pref_location_country_id) : [];
-  const locCities = data.pref_location_province_id ? cities.filter(c => c.province_id === data.pref_location_province_id) : (data.pref_location_country_id ? cities.filter(c => c.country_id === data.pref_location_country_id) : []);
 
-  const relProvinces = data.pref_relocate_country_id ? provinces.filter(p => p.country_id === data.pref_relocate_country_id) : [];
-  const relCities = data.pref_relocate_province_id ? cities.filter(c => c.province_id === data.pref_relocate_province_id) : (data.pref_relocate_country_id ? cities.filter(c => c.country_id === data.pref_relocate_country_id) : []);
+  // Local modes for Include vs Exclude
+  const [locMode, setLocMode] = useState<'INCLUDE' | 'EXCLUDE'>('INCLUDE');
+  const [relocMode, setRelocMode] = useState<'INCLUDE' | 'EXCLUDE'>('INCLUDE');
+
+  // Local states for adding region
+  const [locAddCountryId, setLocAddCountryId] = useState<number | ''>('');
+  const [locAddProvinceId, setLocAddProvinceId] = useState<number | ''>('');
+  const [relocAddCountryId, setRelocAddCountryId] = useState<number | ''>('');
+  const [relocAddProvinceId, setRelocAddProvinceId] = useState<number | ''>('');
+
+  const locFilterProvinces = locAddCountryId ? provinces.filter(p => p.country_id === locAddCountryId) : [];
+  const relocFilterProvinces = relocAddCountryId ? provinces.filter(p => p.country_id === relocAddCountryId) : [];
 
   const set = (field: keyof Step8Data, value: Step8Data[keyof Step8Data]) =>
     onChange({ ...data, [field]: value });
+
+  // Memoized city options with auto-resolved (Province, Country) labels
+  const cityOptions = useMemo(() => {
+    return [
+      { label: 'Choose or search city...', value: 'none' },
+      ...cities.map(c => {
+        const p = provinces.find(pr => pr.id === c.province_id);
+        const k = countries.find(co => co.id === c.country_id);
+        const sub = [p?.name_en, k?.name_en].filter(Boolean).join(', ');
+        return {
+          label: sub ? `${c.name_en} (${sub})` : c.name_en,
+          value: String(c.id),
+        };
+      })
+    ];
+  }, [cities, provinces, countries]);
+
+  // Helper to format a location chip
+  const formatLocationLabel = (loc: { country_id: number; province_id: number | null; city_id: number | null }) => {
+    const c = countries.find(k => k.id === loc.country_id);
+    const p = loc.province_id ? provinces.find(pr => pr.id === loc.province_id) : null;
+    const ct = loc.city_id ? cities.find(ci => ci.id === loc.city_id) : null;
+
+    if (ct) {
+      const parts = [p?.name_en, c?.name_en].filter(Boolean).join(', ');
+      return { main: ct.name_en, sub: parts };
+    }
+    if (p) {
+      return { main: p.name_en, sub: c?.name_en ? `${c.name_en} (Province)` : 'Province' };
+    }
+    return { main: c?.name_en || `Country #${loc.country_id}`, sub: 'Entire Country' };
+  };
+
+  const addLocationByCity = (cityIdStr: string) => {
+    if (!cityIdStr || cityIdStr === 'none') return;
+    const cid = Number(cityIdStr);
+    const city = cities.find(c => c.id === cid);
+    if (!city) return;
+    const current = data.pref_locations || [];
+    const isExcluded = locMode === 'EXCLUDE';
+    const existingIndex = current.findIndex(l => l.city_id === cid);
+    if (existingIndex >= 0) {
+      if (Boolean(current[existingIndex].is_excluded) === isExcluded) return;
+      const updated = [...current];
+      updated[existingIndex] = { ...updated[existingIndex], is_excluded: isExcluded };
+      set('pref_locations', updated);
+      return;
+    }
+    const newEntry = {
+      _tempId: crypto.randomUUID(),
+      country_id: city.country_id,
+      province_id: city.province_id || null,
+      city_id: city.id,
+      is_excluded: isExcluded,
+    };
+    set('pref_locations', [...current, newEntry]);
+  };
+
+  const addLocationByCountry = (countryId: number, provinceId?: number | null) => {
+    const current = data.pref_locations || [];
+    const isExcluded = locMode === 'EXCLUDE';
+    if (provinceId) {
+      const existingIndex = current.findIndex(l => l.province_id === provinceId && !l.city_id);
+      if (existingIndex >= 0) {
+        if (Boolean(current[existingIndex].is_excluded) === isExcluded) return;
+        const updated = [...current];
+        updated[existingIndex] = { ...updated[existingIndex], is_excluded: isExcluded };
+        set('pref_locations', updated);
+        return;
+      }
+      set('pref_locations', [...current, {
+        _tempId: crypto.randomUUID(),
+        country_id: countryId,
+        province_id: provinceId,
+        city_id: null,
+        is_excluded: isExcluded,
+      }]);
+    } else {
+      const existingIndex = current.findIndex(l => l.country_id === countryId && !l.province_id && !l.city_id);
+      if (existingIndex >= 0) {
+        if (Boolean(current[existingIndex].is_excluded) === isExcluded) return;
+        const updated = [...current];
+        updated[existingIndex] = { ...updated[existingIndex], is_excluded: isExcluded };
+        set('pref_locations', updated);
+        return;
+      }
+      set('pref_locations', [...current, {
+        _tempId: crypto.randomUUID(),
+        country_id: countryId,
+        province_id: null,
+        city_id: null,
+        is_excluded: isExcluded,
+      }]);
+    }
+  };
+
+  const removeLocation = (index: number) => {
+    const current = data.pref_locations || [];
+    set('pref_locations', current.filter((_, i) => i !== index));
+  };
+
+  const addRelocationByCity = (cityIdStr: string) => {
+    if (!cityIdStr || cityIdStr === 'none') return;
+    const cid = Number(cityIdStr);
+    const city = cities.find(c => c.id === cid);
+    if (!city) return;
+    const current = data.pref_relocations || [];
+    const isExcluded = relocMode === 'EXCLUDE';
+    const existingIndex = current.findIndex(l => l.city_id === cid);
+    if (existingIndex >= 0) {
+      if (Boolean(current[existingIndex].is_excluded) === isExcluded) return;
+      const updated = [...current];
+      updated[existingIndex] = { ...updated[existingIndex], is_excluded: isExcluded };
+      set('pref_relocations', updated);
+      return;
+    }
+    const newEntry = {
+      _tempId: crypto.randomUUID(),
+      country_id: city.country_id,
+      province_id: city.province_id || null,
+      city_id: city.id,
+      is_excluded: isExcluded,
+    };
+    set('pref_relocations', [...current, newEntry]);
+  };
+
+  const addRelocationByCountry = (countryId: number, provinceId?: number | null) => {
+    const current = data.pref_relocations || [];
+    const isExcluded = relocMode === 'EXCLUDE';
+    if (provinceId) {
+      const existingIndex = current.findIndex(l => l.province_id === provinceId && !l.city_id);
+      if (existingIndex >= 0) {
+        if (Boolean(current[existingIndex].is_excluded) === isExcluded) return;
+        const updated = [...current];
+        updated[existingIndex] = { ...updated[existingIndex], is_excluded: isExcluded };
+        set('pref_relocations', updated);
+        return;
+      }
+      set('pref_relocations', [...current, {
+        _tempId: crypto.randomUUID(),
+        country_id: countryId,
+        province_id: provinceId,
+        city_id: null,
+        is_excluded: isExcluded,
+      }]);
+    } else {
+      const existingIndex = current.findIndex(l => l.country_id === countryId && !l.province_id && !l.city_id);
+      if (existingIndex >= 0) {
+        if (Boolean(current[existingIndex].is_excluded) === isExcluded) return;
+        const updated = [...current];
+        updated[existingIndex] = { ...updated[existingIndex], is_excluded: isExcluded };
+        set('pref_relocations', updated);
+        return;
+      }
+      set('pref_relocations', [...current, {
+        _tempId: crypto.randomUUID(),
+        country_id: countryId,
+        province_id: null,
+        city_id: null,
+        is_excluded: isExcluded,
+      }]);
+    }
+  };
+
+  const removeRelocation = (index: number) => {
+    const current = data.pref_relocations || [];
+    set('pref_relocations', current.filter((_, i) => i !== index));
+  };
 
   const handleImportanceChange = (
     field: keyof Step8Data, 
@@ -250,6 +436,28 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
     } else {
       set(field, value as any);
     }
+  };
+
+  const isLocationActive = Boolean(
+    (data.pref_location_country_importance && data.pref_location_country_importance !== DOESNT_MATTER_VALUE) ||
+    (data.pref_location_province_importance && data.pref_location_province_importance !== DOESNT_MATTER_VALUE) ||
+    (data.pref_location_city_importance && data.pref_location_city_importance !== DOESNT_MATTER_VALUE)
+  );
+
+  const handleLocationImportance = (
+    field: 'pref_location_country_importance' | 'pref_location_province_importance' | 'pref_location_city_importance',
+    val: PreferenceImportance | 'DOES_NOT_MATTER' | ''
+  ) => {
+    const updated = { ...data, [field]: val };
+    const allDoesntMatter =
+      (field === 'pref_location_country_importance' ? val : updated.pref_location_country_importance) === DOESNT_MATTER_VALUE &&
+      (field === 'pref_location_province_importance' ? val : updated.pref_location_province_importance) === DOESNT_MATTER_VALUE &&
+      (field === 'pref_location_city_importance' ? val : updated.pref_location_city_importance) === DOESNT_MATTER_VALUE;
+
+    if (allDoesntMatter) {
+      updated.pref_locations = [];
+    }
+    onChange(updated);
   };
 
   const selectClass = "bg-white border border-[#EFE9DF] rounded-lg px-3 py-1.5 text-[12px] focus:border-[#064e3b] focus:outline-none min-w-[120px]";
@@ -542,51 +750,195 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
       </SectionCard>
 
       {/* Location */}
-      <SectionCard title="Location">
-        <ImportanceRow label={<>Country Importance <span className="text-red-500">*</span></>} value={data.pref_location_country_importance} onChange={(v) => handleImportanceChange('pref_location_country_importance', v, ['pref_location_country_id'])} />
-        {data.pref_location_country_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Preferred Country <span className="text-red-500">*</span></span>
-            <div className="w-[220px]">
-              <SearchableSelect
-                value={data.pref_location_country_id ? String(data.pref_location_country_id) : ''}
-                onChange={(val) => set('pref_location_country_id', val && val !== 'none' ? Number(val) : '')}
-                options={[{ label: 'Any', value: 'none' }, ...countries.map(c => ({ label: c.name_en, value: String(c.id) }))]}
-                placeholder="Any"
-                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
-              />
-            </div>
-          </div>
-        )}
-        
-        <ImportanceRow label={<>Province Importance</>} value={data.pref_location_province_importance} onChange={(v) => handleImportanceChange('pref_location_province_importance', v, ['pref_location_province_id'])} />
-        {data.pref_location_province_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Preferred Province</span>
-            <div className="w-[220px]">
-              <SearchableSelect
-                value={data.pref_location_province_id ? String(data.pref_location_province_id) : ''}
-                onChange={(val) => set('pref_location_province_id', val && val !== 'none' ? Number(val) : '')}
-                options={[{ label: 'Any', value: 'none' }, ...locProvinces.map(c => ({ label: c.name_en, value: String(c.id) }))]}
-                placeholder="Any"
-                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
-              />
-            </div>
-          </div>
-        )}
+      <SectionCard title="Location Preferences">
+        <ImportanceRow
+          label={<>Country Importance</>}
+          value={data.pref_location_country_importance}
+          onChange={(v) => handleLocationImportance('pref_location_country_importance', v)}
+        />
+        <ImportanceRow
+          label={<>Province Importance</>}
+          value={data.pref_location_province_importance}
+          onChange={(v) => handleLocationImportance('pref_location_province_importance', v)}
+        />
+        <ImportanceRow
+          label={<>City Importance</>}
+          value={data.pref_location_city_importance}
+          onChange={(v) => handleLocationImportance('pref_location_city_importance', v)}
+        />
 
-        <ImportanceRow label={<>City Importance</>} value={data.pref_location_city_importance} onChange={(v) => handleImportanceChange('pref_location_city_importance', v, ['pref_location_city_id'])} />
-        {data.pref_location_city_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Preferred City</span>
-            <div className="w-[220px]">
+        {isLocationActive && (
+          <div className="pt-3 border-t border-[#EFE9DF] space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[12px] font-bold text-[#2F3E51]">Preferred Locations</span>
+                <p className="text-[11px] text-[#8A968C]">
+                  Search cities (province & country auto-resolve) or add an entire country/province.
+                </p>
+              </div>
+              <span className="text-[11px] font-semibold text-[#064e3b] bg-[#064e3b]/10 px-2.5 py-0.5 rounded-full">
+                {(data.pref_locations || []).length} added
+              </span>
+            </div>
+
+            {/* Include / Exclude Mode Switcher */}
+            <div className="flex items-center justify-between pb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[11.5px] font-semibold text-[#4E473D]">Action:</span>
+                <div className="inline-flex p-0.5 bg-[#F4EFE6] border border-[#E5DFD3] rounded-full">
+                  <button
+                    type="button"
+                    onClick={() => setLocMode('INCLUDE')}
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                      locMode === 'INCLUDE'
+                        ? 'bg-[#064e3b] text-white shadow-xs'
+                        : 'text-[#676156] hover:text-[#064e3b]'
+                    }`}
+                  >
+                    <Check size={12} />
+                    Include
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLocMode('EXCLUDE')}
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                      locMode === 'EXCLUDE'
+                        ? 'bg-[#DC2626] text-white shadow-xs'
+                        : 'text-[#676156] hover:text-[#DC2626]'
+                    }`}
+                  >
+                    <Ban size={12} />
+                    Exclude
+                  </button>
+                </div>
+              </div>
+              <span className="text-[11px] font-semibold">
+                {locMode === 'INCLUDE' ? (
+                  <span className="text-[#064e3b]">Add desired locations (Allowed)</span>
+                ) : (
+                  <span className="text-[#DC2626]">Add locations to exclude / filter out</span>
+                )}
+              </span>
+            </div>
+
+            {/* Quick Add City (Auto-resolves Province & Country) */}
+            <div className="space-y-1.5 bg-[#FAF8F5] p-3 rounded-[16px] border border-[#EFE9DF]">
+              <label className="block text-[11px] font-semibold text-[#4E473D]">
+                Quick Add by City <span className="text-[10px] text-[#8A968C] font-normal">(Province & Country detected automatically)</span>
+              </label>
               <SearchableSelect
-                value={data.pref_location_city_id ? String(data.pref_location_city_id) : ''}
-                onChange={(val) => set('pref_location_city_id', val && val !== 'none' ? Number(val) : '')}
-                options={[{ label: 'Any', value: 'none' }, ...locCities.map(c => ({ label: c.name_en, value: String(c.id) }))]}
-                placeholder="Any"
-                className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
+                value=""
+                onChange={(val) => {
+                  if (val && val !== 'none') {
+                    addLocationByCity(val);
+                  }
+                }}
+                options={cityOptions}
+                placeholder={locMode === 'INCLUDE' ? "Search city to INCLUDE e.g. Lahore, Islamabad, London..." : "Search city to EXCLUDE e.g. Gujrat, Faisalabad..."}
+                className="!h-[36px] text-[12px] bg-white"
               />
+            </div>
+
+            {/* Or Add Entire Country / Province */}
+            <div className="bg-[#FAF8F5] p-3 rounded-[16px] border border-[#EFE9DF] space-y-2">
+              <label className="block text-[11px] font-semibold text-[#4E473D]">
+                Or Add Entire Region <span className="text-[10px] text-[#8A968C] font-normal">(Country or Province)</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={locAddCountryId ? String(locAddCountryId) : ''}
+                    onChange={(val) => {
+                      const cid = val && val !== 'none' ? Number(val) : '';
+                      setLocAddCountryId(cid);
+                      setLocAddProvinceId('');
+                    }}
+                    options={[{ label: 'Select Country', value: 'none' }, ...countries.map(c => ({ label: c.name_en, value: String(c.id) }))]}
+                    placeholder="Select Country"
+                    className="!h-[34px] text-[12px] bg-white"
+                  />
+                </div>
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={locAddProvinceId ? String(locAddProvinceId) : ''}
+                    onChange={(val) => setLocAddProvinceId(val && val !== 'none' ? Number(val) : '')}
+                    options={[{ label: 'Any Province (All)', value: 'none' }, ...locFilterProvinces.map(p => ({ label: p.name_en, value: String(p.id) }))]}
+                    placeholder="Any Province"
+                    disabled={!locAddCountryId}
+                    className="!h-[34px] text-[12px] bg-white"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (locAddCountryId) {
+                      addLocationByCountry(Number(locAddCountryId), locAddProvinceId ? Number(locAddProvinceId) : null);
+                      setLocAddCountryId('');
+                      setLocAddProvinceId('');
+                    }
+                  }}
+                  disabled={!locAddCountryId}
+                  className={`px-3.5 h-[34px] rounded-full text-[11px] font-bold text-white transition-all shrink-0 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    locMode === 'EXCLUDE'
+                      ? 'bg-[#DC2626] hover:bg-[#DC2626]/90'
+                      : 'bg-[#064e3b] hover:bg-[#064e3b]/90'
+                  }`}
+                >
+                  {locMode === 'EXCLUDE' ? <Ban size={13} /> : <Plus size={13} />}
+                  {locMode === 'EXCLUDE' ? 'Exclude Region' : 'Add Region'}
+                </button>
+              </div>
+            </div>
+
+            {/* List of Added Locations */}
+            <div className="space-y-1.5 pt-1">
+              {(!data.pref_locations || data.pref_locations.length === 0) ? (
+                <div className="p-3 rounded-xl bg-white border border-dashed border-[#E9E4DC] text-center text-[11.5px] text-[#8A968C]">
+                  No preferred locations added yet. Search cities or add regions above.
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {data.pref_locations.map((loc, idx) => {
+                    const label = formatLocationLabel(loc);
+                    const isExcluded = Boolean(loc.is_excluded);
+                    return (
+                      <div
+                        key={loc._tempId || loc.id || idx}
+                        className={`inline-flex items-center gap-1.5 shadow-xs px-3 py-1.5 rounded-full text-[12px] transition-all border ${
+                          isExcluded
+                            ? 'bg-[#FEF2F2] border-[#FCA5A5] text-[#991B1B] hover:border-red-400'
+                            : 'bg-[#F0FDF4] border-[#86EFAC] text-[#14532D] hover:border-emerald-400'
+                        }`}
+                      >
+                        <span
+                          className={`px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                            isExcluded ? 'bg-[#DC2626] text-white' : 'bg-[#064e3b] text-white'
+                          }`}
+                        >
+                          {isExcluded ? 'Exclude' : 'Include'}
+                        </span>
+                        <MapPin size={12} className={isExcluded ? 'text-[#DC2626] shrink-0' : 'text-[#064e3b] shrink-0'} />
+                        <span className={`font-semibold ${isExcluded ? 'line-through decoration-[#DC2626]/60' : ''}`}>
+                          {label.main}
+                        </span>
+                        {label.sub && (
+                          <span className={`text-[10px] ${isExcluded ? 'text-[#B91C1C]' : 'text-[#166534]'}`}>
+                            ({label.sub})
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeLocation(idx)}
+                          className="text-[#8A968C] hover:text-red-600 hover:bg-red-100/60 rounded-full p-0.5 ml-0.5 transition-colors"
+                          title="Remove"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -594,58 +946,227 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
 
       {/* Relocation */}
       <SectionCard title="Relocation Preferences">
-        <ImportanceRow label="Relocation Importance" value={data.pref_relocation_importance} onChange={(v) => handleImportanceChange('pref_relocation_importance', v, ['pref_willing_to_relocate_required', 'pref_relocate_country_id', 'pref_relocate_province_id', 'pref_relocate_city_id'])} />
-        {data.pref_relocation_importance !== DOESNT_MATTER_VALUE && (
-          <>
+        <ImportanceRow
+          label="Relocation Importance"
+          value={data.pref_relocation_importance}
+          onChange={(v) => {
+            if (v === DOESNT_MATTER_VALUE) {
+              onChange({
+                ...data,
+                pref_relocation_importance: v,
+                pref_willing_to_relocate_required: '',
+                pref_relocations: [],
+              });
+            } else {
+              set('pref_relocation_importance', v);
+            }
+          }}
+        />
+        {data.pref_relocation_importance !== DOESNT_MATTER_VALUE && Boolean(data.pref_relocation_importance) && (
+          <div className="space-y-3">
             <div className="flex items-center justify-between gap-2 py-2">
               <span className="text-[12px] font-medium text-[#4E473D] flex-1">Must be willing to relocate?</span>
               <div className="flex gap-1.5">
                 {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
-                  <button key={v} type="button" onClick={() => set('pref_willing_to_relocate_required', data.pref_willing_to_relocate_required === v ? '' : v as YesNo)}
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${data.pref_willing_to_relocate_required === v ? 'bg-[#064e3b] text-white border-[#064e3b]' : 'bg-white border-[#E9E4DC] text-[#676156]'}`}>{l}</button>
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => {
+                      const newVal = data.pref_willing_to_relocate_required === v ? '' : (v as YesNo);
+                      onChange({
+                        ...data,
+                        pref_willing_to_relocate_required: newVal,
+                        pref_relocations: newVal !== 'YES' ? [] : (data.pref_relocations || []),
+                      });
+                    }}
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                      data.pref_willing_to_relocate_required === v
+                        ? 'bg-[#064e3b] text-white border-[#064e3b]'
+                        : 'bg-white border-[#E9E4DC] text-[#676156]'
+                    }`}
+                  >
+                    {l}
+                  </button>
                 ))}
               </div>
             </div>
-            
-            <div className="flex items-center justify-between gap-2 py-2">
-              <span className="text-[12px] font-medium text-[#4E473D] flex-1">To Country</span>
-              <div className="w-[220px]">
-                <SearchableSelect
-                  value={data.pref_relocate_country_id ? String(data.pref_relocate_country_id) : ''}
-                  onChange={(val) => set('pref_relocate_country_id', val && val !== 'none' ? Number(val) : '')}
-                  options={[{ label: 'Any', value: 'none' }, ...countries.map(c => ({ label: c.name_en, value: String(c.id) }))]}
-                  placeholder="Any"
-                  className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
-                />
+
+            {data.pref_willing_to_relocate_required === 'YES' && (
+              <div className="pt-2 border-t border-[#EFE9DF] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[12px] font-bold text-[#2F3E51]">Preferred Relocation Destinations</span>
+                    <p className="text-[11px] text-[#8A968C]">
+                      Where would you consider relocating? Add specific cities or entire countries.
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-semibold text-[#064e3b] bg-[#064e3b]/10 px-2.5 py-0.5 rounded-full">
+                    {(data.pref_relocations || []).length} added
+                  </span>
+                </div>
+
+                {/* Include / Exclude Mode Switcher for Relocation */}
+                <div className="flex items-center justify-between pb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11.5px] font-semibold text-[#4E473D]">Action:</span>
+                    <div className="inline-flex p-0.5 bg-[#F4EFE6] border border-[#E5DFD3] rounded-full">
+                      <button
+                        type="button"
+                        onClick={() => setRelocMode('INCLUDE')}
+                        className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                          relocMode === 'INCLUDE'
+                            ? 'bg-[#064e3b] text-white shadow-xs'
+                            : 'text-[#676156] hover:text-[#064e3b]'
+                        }`}
+                      >
+                        <Check size={12} />
+                        Include
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRelocMode('EXCLUDE')}
+                        className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                          relocMode === 'EXCLUDE'
+                            ? 'bg-[#DC2626] text-white shadow-xs'
+                            : 'text-[#676156] hover:text-[#DC2626]'
+                        }`}
+                      >
+                        <Ban size={12} />
+                        Exclude
+                      </button>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold">
+                    {relocMode === 'INCLUDE' ? (
+                      <span className="text-[#064e3b]">Add desired destination</span>
+                    ) : (
+                      <span className="text-[#DC2626]">Add destination to avoid / exclude</span>
+                    )}
+                  </span>
+                </div>
+
+                {/* Quick Add City */}
+                <div className="space-y-1.5 bg-[#FAF8F5] p-3 rounded-[16px] border border-[#EFE9DF]">
+                  <label className="block text-[11px] font-semibold text-[#4E473D]">
+                    Quick Add Destination City <span className="text-[10px] text-[#8A968C] font-normal">(Province & Country detected automatically)</span>
+                  </label>
+                  <SearchableSelect
+                    value=""
+                    onChange={(val) => {
+                      if (val && val !== 'none') {
+                        addRelocationByCity(val);
+                      }
+                    }}
+                    options={cityOptions}
+                    placeholder={relocMode === 'INCLUDE' ? "Search city to INCLUDE e.g. Dubai, London, Toronto, Islamabad..." : "Search city to EXCLUDE..."}
+                    className="!h-[36px] text-[12px] bg-white"
+                  />
+                </div>
+
+                {/* Or Add Entire Country / Province */}
+                <div className="bg-[#FAF8F5] p-3 rounded-[16px] border border-[#EFE9DF] space-y-2">
+                  <label className="block text-[11px] font-semibold text-[#4E473D]">
+                    Or Add Destination Country / Region
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <SearchableSelect
+                        value={relocAddCountryId ? String(relocAddCountryId) : ''}
+                        onChange={(val) => {
+                          const cid = val && val !== 'none' ? Number(val) : '';
+                          setRelocAddCountryId(cid);
+                          setRelocAddProvinceId('');
+                        }}
+                        options={[{ label: 'Select Country', value: 'none' }, ...countries.map(c => ({ label: c.name_en, value: String(c.id) }))]}
+                        placeholder="Select Country"
+                        className="!h-[34px] text-[12px] bg-white"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <SearchableSelect
+                        value={relocAddProvinceId ? String(relocAddProvinceId) : ''}
+                        onChange={(val) => setRelocAddProvinceId(val && val !== 'none' ? Number(val) : '')}
+                        options={[{ label: 'Any Province (All)', value: 'none' }, ...relocFilterProvinces.map(p => ({ label: p.name_en, value: String(p.id) }))]}
+                        placeholder="Any Province"
+                        disabled={!relocAddCountryId}
+                        className="!h-[34px] text-[12px] bg-white"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (relocAddCountryId) {
+                          addRelocationByCountry(Number(relocAddCountryId), relocAddProvinceId ? Number(relocAddProvinceId) : null);
+                          setRelocAddCountryId('');
+                          setRelocAddProvinceId('');
+                        }
+                      }}
+                      disabled={!relocAddCountryId}
+                      className={`px-3.5 h-[34px] rounded-full text-[11px] font-bold text-white transition-all shrink-0 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        relocMode === 'EXCLUDE'
+                          ? 'bg-[#DC2626] hover:bg-[#DC2626]/90'
+                          : 'bg-[#064e3b] hover:bg-[#064e3b]/90'
+                      }`}
+                    >
+                      {relocMode === 'EXCLUDE' ? <Ban size={13} /> : <Plus size={13} />}
+                      {relocMode === 'EXCLUDE' ? 'Exclude Region' : 'Add Region'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* List of Added Relocations */}
+                <div className="space-y-1.5 pt-1">
+                  {(!data.pref_relocations || data.pref_relocations.length === 0) ? (
+                    <div className="p-3 rounded-xl bg-white border border-dashed border-[#E9E4DC] text-center text-[11.5px] text-[#8A968C]">
+                      No specific destination added yet (open to anywhere or general).
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {data.pref_relocations.map((rel, idx) => {
+                        const label = formatLocationLabel(rel);
+                        const isExcluded = Boolean(rel.is_excluded);
+                        return (
+                          <div
+                            key={rel._tempId || rel.id || idx}
+                            className={`inline-flex items-center gap-1.5 shadow-xs px-3 py-1.5 rounded-full text-[12px] transition-all border ${
+                              isExcluded
+                                ? 'bg-[#FEF2F2] border-[#FCA5A5] text-[#991B1B] hover:border-red-400'
+                                : 'bg-[#F0FDF4] border-[#86EFAC] text-[#14532D] hover:border-emerald-400'
+                            }`}
+                          >
+                            <span
+                              className={`px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                isExcluded ? 'bg-[#DC2626] text-white' : 'bg-[#064e3b] text-white'
+                              }`}
+                            >
+                              {isExcluded ? 'Exclude' : 'Include'}
+                            </span>
+                            <MapPin size={12} className={isExcluded ? 'text-[#DC2626] shrink-0' : 'text-[#064e3b] shrink-0'} />
+                            <span className={`font-semibold ${isExcluded ? 'line-through decoration-[#DC2626]/60' : ''}`}>
+                              {label.main}
+                            </span>
+                            {label.sub && (
+                              <span className={`text-[10px] ${isExcluded ? 'text-[#B91C1C]' : 'text-[#166534]'}`}>
+                                ({label.sub})
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeRelocation(idx)}
+                              className="text-[#8A968C] hover:text-red-600 hover:bg-red-100/60 rounded-full p-0.5 ml-0.5 transition-colors"
+                              title="Remove"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            
-            <div className="flex items-center justify-between gap-2 py-2">
-              <span className="text-[12px] font-medium text-[#4E473D] flex-1">To Province</span>
-              <div className="w-[220px]">
-                <SearchableSelect
-                  value={data.pref_relocate_province_id ? String(data.pref_relocate_province_id) : ''}
-                  onChange={(val) => set('pref_relocate_province_id', val && val !== 'none' ? Number(val) : '')}
-                  options={[{ label: 'Any', value: 'none' }, ...relProvinces.map(c => ({ label: c.name_en, value: String(c.id) }))]}
-                  placeholder="Any"
-                  className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
-                />
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between gap-2 py-2">
-              <span className="text-[12px] font-medium text-[#4E473D] flex-1">To City</span>
-              <div className="w-[220px]">
-                <SearchableSelect
-                  value={data.pref_relocate_city_id ? String(data.pref_relocate_city_id) : ''}
-                  onChange={(val) => set('pref_relocate_city_id', val && val !== 'none' ? Number(val) : '')}
-                  options={[{ label: 'Any', value: 'none' }, ...relCities.map(c => ({ label: c.name_en, value: String(c.id) }))]}
-                  placeholder="Any"
-                  className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
-                />
-              </div>
-            </div>
-          </>
+            )}
+          </div>
         )}
       </SectionCard>
 

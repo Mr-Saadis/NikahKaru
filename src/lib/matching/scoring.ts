@@ -407,20 +407,92 @@ export function evaluateSoftScoring(
     if (b) breakdowns.push(b);
   }
 
-  // ── 16. Country (EXACT) ───────────────────────────────────
-  if (prefs.location?.country_importance && prefs.location.country_id) {
-    const candCountry = Array.isArray(candidate.profile_locations)
-      ? candidate.profile_locations[0]?.current_country_id
-      : candidate.profile_locations?.current_country_id;
-    const b = scoreCriterion(
-      'COUNTRY', candCountry, prefs.location.country_id,
-      prefs.location.country_importance, 'EXACT',
-      () => {
-        if (candCountry === prefs.location?.country_id) return { score: 1.0, explanation: 'Country matches' };
-        return { score: 0, explanation: 'Country does not match' };
+  // ── 16. Location Preferences (Country, Province, City) ────────
+  if (prefs.location && prefs.preferredLocations && prefs.preferredLocations.length > 0) {
+    const candLocations = Array.isArray(candidate.profile_locations)
+      ? candidate.profile_locations
+      : (candidate.profile_locations ? [candidate.profile_locations] : []);
+    const candCountry = candLocations[0]?.current_country_id ?? null;
+    const candProv = candLocations[0]?.current_province_id ?? null;
+    const candCity = candLocations[0]?.current_city_id ?? null;
+
+    const excludedLocations = prefs.preferredLocations.filter(l => Boolean(l.is_excluded));
+    const includedLocations = prefs.preferredLocations.filter(l => !l.is_excluded);
+
+    if (prefs.location.country_importance) {
+      const excludedCountryIds = new Set(excludedLocations.filter(l => !l.province_id && !l.city_id).map(l => l.country_id));
+      const includedCountryIds = new Set(includedLocations.map(l => l.country_id));
+
+      if (excludedCountryIds.size > 0 || includedCountryIds.size > 0) {
+        const b = scoreCriterion(
+          'COUNTRY', candCountry, Array.from(includedCountryIds).join(','),
+          prefs.location.country_importance, 'EXACT',
+          () => {
+            if (candCountry && excludedCountryIds.has(candCountry)) {
+              return { score: 0, explanation: 'Country is in excluded list' };
+            }
+            if (includedCountryIds.size > 0) {
+              if (candCountry && includedCountryIds.has(candCountry)) {
+                return { score: 1.0, explanation: 'Country matches one of preferred countries' };
+              }
+              return { score: 0, explanation: 'Country does not match any preferred country' };
+            }
+            return { score: 1.0, explanation: 'Country is not in excluded list' };
+          }
+        );
+        if (b) breakdowns.push(b);
       }
-    );
-    if (b) breakdowns.push(b);
+    }
+
+    if (prefs.location.province_importance) {
+      const excludedProvIds = new Set(excludedLocations.filter(l => l.province_id && !l.city_id).map(l => l.province_id!));
+      const includedProvIds = new Set(includedLocations.map(l => l.province_id).filter((p): p is number => Boolean(p)));
+
+      if (excludedProvIds.size > 0 || includedProvIds.size > 0) {
+        const b = scoreCriterion(
+          'PROVINCE', candProv, Array.from(includedProvIds).join(','),
+          prefs.location.province_importance, 'EXACT',
+          () => {
+            if (candProv && excludedProvIds.has(candProv)) {
+              return { score: 0, explanation: 'Province is in excluded list' };
+            }
+            if (includedProvIds.size > 0) {
+              if (candProv && includedProvIds.has(candProv)) {
+                return { score: 1.0, explanation: 'Province matches one of preferred provinces' };
+              }
+              return { score: 0, explanation: 'Province does not match any preferred province' };
+            }
+            return { score: 1.0, explanation: 'Province is not in excluded list' };
+          }
+        );
+        if (b) breakdowns.push(b);
+      }
+    }
+
+    if (prefs.location.city_importance) {
+      const excludedCityIds = new Set(excludedLocations.map(l => l.city_id).filter((c): c is number => Boolean(c)));
+      const includedCityIds = new Set(includedLocations.map(l => l.city_id).filter((c): c is number => Boolean(c)));
+
+      if (excludedCityIds.size > 0 || includedCityIds.size > 0) {
+        const b = scoreCriterion(
+          'CITY', candCity, Array.from(includedCityIds).join(','),
+          prefs.location.city_importance, 'EXACT',
+          () => {
+            if (candCity && excludedCityIds.has(candCity)) {
+              return { score: 0, explanation: 'City is in excluded list' };
+            }
+            if (includedCityIds.size > 0) {
+              if (candCity && includedCityIds.has(candCity)) {
+                return { score: 1.0, explanation: 'City matches one of preferred cities' };
+              }
+              return { score: 0, explanation: 'City does not match any preferred city' };
+            }
+            return { score: 1.0, explanation: 'City is not in excluded list' };
+          }
+        );
+        if (b) breakdowns.push(b);
+      }
+    }
   }
 
   // ── 17. Family Setup (EXACT) ──────────────────────────────

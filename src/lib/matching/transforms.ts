@@ -12,7 +12,7 @@
  * so we do NOT touch any scoring/filtering logic.
  */
 
-import type { AllPreferences } from '../types/database.types';
+import type { AllPreferences, PreferredLocation, PreferredRelocation } from '../types/database.types';
 
 // ─── Candidate / Profile Transformer ────────────────────────────
 // Converts a flat row from get_matching_candidates() or mv_matching_profiles
@@ -180,15 +180,15 @@ export function transformFlatPrefsToAllPreferences(row: any): AllPreferences {
 
     location: {
       preference_set_id: setId,
-      country_id: row.preferred_country_id ?? null,
       country_importance: row.country_importance ?? null,
-      province_id: row.preferred_province_id ?? null,
       province_importance: row.province_importance ?? null,
-      city_id: row.preferred_city_id ?? null,
       city_importance: row.city_importance ?? null,
       location_details: row.location_details ?? null,
       created_at: '',
     },
+    preferredLocations: (typeof row.preferred_locations === 'string'
+      ? JSON.parse(row.preferred_locations)
+      : (row.preferred_locations || [])) as PreferredLocation[],
 
     family: {
       preference_set_id: setId,
@@ -219,13 +219,13 @@ export function transformFlatPrefsToAllPreferences(row: any): AllPreferences {
       preference_set_id: setId,
       willing_to_relocate_required: row.willing_to_relocate_required ?? null,
       relocation_importance: row.relocation_importance ?? null,
-      country_id: row.relocation_country_id ?? null,
       country_importance: row.relocation_country_importance ?? null,
-      province_id: row.relocation_province_id ?? null,
       province_importance: row.relocation_province_importance ?? null,
-      city_id: row.relocation_city_id ?? null,
       city_importance: row.relocation_city_importance ?? null,
       created_at: '',
     },
+    preferredRelocations: (typeof row.preferred_relocations === 'string'
+      ? JSON.parse(row.preferred_relocations)
+      : (row.preferred_relocations || [])) as PreferredRelocation[],
   };
 }

@@ -170,6 +170,28 @@ export default function Step9Review({ step1, step2, step3, step4, step5, step6, 
           <ReviewRow label="Income (PKR)" value={(step8.pref_min_income || step8.pref_max_income) ? `${step8.pref_min_income?.toLocaleString() || '?'} – ${step8.pref_max_income?.toLocaleString() || '?'}` : null} />
           <ReviewRow label="Religion Pref" value={step8.pref_religion_id ? getReligionById(Number(step8.pref_religion_id))?.name_en : null} />
           <ReviewRow label="Marital Status Pref" value={step8.pref_marital_status?.replace(/_/g, ' ')} />
+          <ReviewRow
+            label="Preferred Locations"
+            value={(() => {
+              if (!step8.pref_locations || step8.pref_locations.length === 0) return null;
+              const inc = step8.pref_locations.filter(l => !l.is_excluded).length;
+              const exc = step8.pref_locations.filter(l => l.is_excluded).length;
+              if (inc > 0 && exc > 0) return `${inc} included, ${exc} excluded`;
+              if (exc > 0) return `${exc} excluded`;
+              return `${inc} included`;
+            })()}
+          />
+          <ReviewRow
+            label="Relocation Destinations"
+            value={(() => {
+              if (!step8.pref_relocations || step8.pref_relocations.length === 0) return null;
+              const inc = step8.pref_relocations.filter(l => !l.is_excluded).length;
+              const exc = step8.pref_relocations.filter(l => l.is_excluded).length;
+              if (inc > 0 && exc > 0) return `${inc} included, ${exc} excluded`;
+              if (exc > 0) return `${exc} excluded`;
+              return `${inc} included`;
+            })()}
+          />
         </ReviewSection>
       </div>
     </div>

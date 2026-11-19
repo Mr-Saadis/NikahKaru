@@ -145,7 +145,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
 
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Weight (kg) <span className="text-red-500">*</span>
+            Weight (kg)
           </label>
           <input
             type="text"
