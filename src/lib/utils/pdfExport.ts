@@ -39,7 +39,7 @@ const COLORS = {
 };
 
 const FONT_URL =
-  'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Noto+Naskh+Arabic:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap';
+  'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap';
 
 function mm(val: number): number {
   return val * PX_PER_MM;
@@ -57,40 +57,74 @@ function fontDisplay(sizePt: number, weight: 600 | 700 = 700): string {
   return `${weight} ${pt(sizePt).toFixed(2)}px "Cormorant Garamond", Georgia, serif`;
 }
 
-function fontUr(sizePt: number, weight: 500 | 600 | 700 = 600): string {
-  return `${weight} ${pt(sizePt).toFixed(2)}px "Noto Naskh Arabic", "Tahoma", "Arial", sans-serif`;
+function fontUr(
+  sizePt: number,
+  weight: 400 | 500 | 600 | 700 = 600,
+  style: 'normal' | 'italic' = 'normal'
+): string {
+  const amiriWeight = weight >= 600 ? 700 : 400;
+  return `${style} ${amiriWeight} ${pt(sizePt * 1.12).toFixed(2)}px "AmiriPDF", "Amiri", "Tahoma", sans-serif`;
 }
+
+const LOCAL_URDU_FONT_FACES: Array<{
+  url: string;
+  weight: string;
+  style: string;
+}> = [
+  { url: '/fonts/Amiri-Regular.ttf', weight: '400', style: 'normal' },
+  { url: '/fonts/Amiri-Bold.ttf', weight: '700', style: 'normal' },
+  { url: '/fonts/Amiri-Italic.ttf', weight: '400', style: 'italic' },
+  { url: '/fonts/Amiri-BoldItalic.ttf', weight: '700', style: 'italic' },
+];
 
 let fontsReadyPromise: Promise<void> | null = null;
 async function ensurePdfFontsLoaded(): Promise<void> {
   if (typeof document === 'undefined') return;
   if (!fontsReadyPromise) {
     fontsReadyPromise = (async () => {
-      const existing = document.querySelector(`link[href="${FONT_URL}"]`) as HTMLLinkElement | null;
-      const linkEl =
-        existing ||
-        (() => {
-          const el = document.createElement('link');
-          el.rel = 'stylesheet';
-          el.href = FONT_URL;
-          document.head.appendChild(el);
-          return el;
-        })();
+      const loadLocalAmiri = async () => {
+        if (typeof FontFace === 'undefined') return;
+        await Promise.allSettled(
+          LOCAL_URDU_FONT_FACES.map(async (spec) => {
+            const face = new FontFace('AmiriPDF', `url("${spec.url}")`, {
+              weight: spec.weight,
+              style: spec.style,
+            });
+            const loaded = await face.load();
+            document.fonts.add(loaded);
+          })
+        );
+      };
 
-      await Promise.race([
-        new Promise<void>((resolve) => {
+      const loadGoogleFonts = async () => {
+        const existing = document.querySelector(`link[href="${FONT_URL}"]`) as HTMLLinkElement | null;
+        const linkEl =
+          existing ||
+          (() => {
+            const el = document.createElement('link');
+            el.rel = 'stylesheet';
+            el.href = FONT_URL;
+            document.head.appendChild(el);
+            return el;
+          })();
+
+        await new Promise<void>((resolve) => {
           if (linkEl.sheet) {
             resolve();
             return;
           }
           linkEl.addEventListener('load', () => resolve(), { once: true });
           linkEl.addEventListener('error', () => resolve(), { once: true });
-        }).then(async () => {
+        });
+      };
+
+      await Promise.race([
+        Promise.allSettled([loadLocalAmiri(), loadGoogleFonts()]).then(async () => {
           await Promise.allSettled([
             document.fonts.load('700 24px "Cormorant Garamond"'),
-            document.fonts.load('600 24px "Noto Naskh Arabic"'),
-            document.fonts.load('700 24px "Noto Naskh Arabic"'),
             document.fonts.load('600 24px "Plus Jakarta Sans"'),
+            document.fonts.load('400 24px "AmiriPDF"'),
+            document.fonts.load('700 24px "AmiriPDF"'),
           ]);
           await document.fonts.ready;
         }),
@@ -556,7 +590,7 @@ interface CellLayout {
 }
 
 const LABEL_EN_FONT = fontEn(9.2, 600);
-const LABEL_UR_FONT = fontUr(10.5, 600);
+const LABEL_UR_FONT = fontUr(10.5, 400);
 const VAL_EN_FONT = fontEn(12, 600);
 const VAL_UR_FONT = fontUr(12.8, 600);
 
