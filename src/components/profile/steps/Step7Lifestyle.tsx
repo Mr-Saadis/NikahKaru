@@ -86,7 +86,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
         ]}
       />
 
-      <div className="grid grid-cols-2 gap-8 lg:gap-12">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 xl:gap-8">
         {/* Smoking */}
         <div>
           <ToggleGroup
@@ -149,7 +149,7 @@ export default function Step7Lifestyle({ data, onChange, gender }: Step7Props) {
         />
 
         {data.willing_to_relocate === 'YES' && (
-          <div className="grid grid-cols-3 gap-4 lg:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 xl:gap-5">
             <div className="space-y-1.5">
               <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Preferred Country</label>
               <SearchableSelect

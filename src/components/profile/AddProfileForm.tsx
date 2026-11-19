@@ -1614,10 +1614,10 @@ export default function AddProfileForm() {
 
   return (
     <div className="block w-full h-full">
-      <div className="w-full max-w-[1500px] mx-auto min-h-full flex flex-col lg:flex-row justify-between gap-8 lg:gap-16 pt-2 pb-2 pl-4 pr-4 lg:pl-12 lg:pr-6">
+      <div className="w-full max-w-[1500px] mx-auto min-h-full flex flex-col lg:flex-row justify-between gap-6 lg:gap-5 xl:gap-8 2xl:gap-12 pt-2 pb-2 px-4 lg:px-5 xl:pl-8 xl:pr-6 2xl:pl-12 2xl:pr-6">
         {/* ── Main form area (Left) ── */}
         <div className="flex-1 flex flex-col min-w-0 lg:max-w-[850px] mx-auto lg:mx-0 lg:mt-2">
-          <div className="flex-1 bg-transparent p-6 lg:p-10 flex flex-col">
+          <div className="flex-1 bg-transparent p-4 sm:p-6 lg:p-4 xl:p-7 2xl:p-9 flex flex-col">
             <div className="flex-1 pb-10">
               {error && (
                 <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[13px] font-medium">
@@ -1650,12 +1650,12 @@ export default function AddProfileForm() {
             )}
 
             {/* Navigation buttons */}
-            <div className="shrink-0 flex items-center justify-between mt-auto pt-8 border-t border-[#EFE9DF]/50">
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 mt-auto pt-6 xl:pt-8 border-t border-[#EFE9DF]/50">
               <button
                 type="button"
                 onClick={back}
                 disabled={currentStep === 1 || isUploadingImage}
-                className="flex items-center gap-2 bg-[#EAE4D9] text-[#2F3E51] font-bold text-[14px] px-8 py-3.5 rounded-2xl hover:bg-[#DED5C5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="flex items-center gap-2 bg-[#EAE4D9] text-[#2F3E51] font-bold text-[14px] px-5 xl:px-8 py-3 xl:py-3.5 rounded-2xl hover:bg-[#DED5C5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 <ArrowLeft size={18} />
                 Back
@@ -1666,7 +1666,7 @@ export default function AddProfileForm() {
                   type="button"
                   onClick={next}
                   disabled={isUploadingImage || isSaving}
-                  className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-8 py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+                  className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-5 xl:px-8 py-3 xl:py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {isSaving && currentStep === 1 && !profileId ? (
                     <><Loader2 size={18} className="animate-spin" /> Creating...</>
@@ -1682,7 +1682,7 @@ export default function AddProfileForm() {
                   onClick={handleSaveClick}
                   disabled={isSaving || isUploadingImage || !step1.full_name || !step1.gender || !isConfirmedAccuracy}
                   title={!isConfirmedAccuracy ? "Please check the confirmation box above to enable saving" : undefined}
-                  className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-8 py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+                  className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-5 xl:px-8 py-3 xl:py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {isSaving ? (
                     <><Loader2 size={18} className="animate-spin" /> Saving...</>
@@ -1696,7 +1696,7 @@ export default function AddProfileForm() {
         </div>
 
         {/* ── Profile sidebar (Right) — floating dark panel ── */}
-        <div className="bg-[#2F3E51] !bg-opacity-100 mix-blend-normal opacity-100 rounded-[32px] lg:sticky lg:top-6 overflow-hidden p-8 lg:p-10 shadow-2xl w-full lg:w-[460px] shrink-0 h-auto lg:h-[calc(100vh-48px)] overflow-y-auto hide-scrollbar self-start">
+        <div className="bg-[#2F3E51] !bg-opacity-100 mix-blend-normal opacity-100 rounded-[28px] xl:rounded-[32px] lg:sticky lg:top-6 overflow-hidden p-5 lg:p-5 xl:p-7 2xl:p-9 shadow-2xl w-full lg:w-[290px] xl:w-[350px] 2xl:w-[420px] shrink-0 h-auto lg:h-[calc(100vh-48px)] overflow-y-auto hide-scrollbar self-start">
           <ProfileSidebar
             steps={dynamicSidebarSteps}
             currentStep={currentStep}

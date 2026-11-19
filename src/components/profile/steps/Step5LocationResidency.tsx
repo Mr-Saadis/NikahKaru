@@ -63,7 +63,7 @@ function LocationRow({
         </p>
         {headerRight}
       </div>
-      <div className="grid grid-cols-3 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 xl:gap-5">
         <div>
           <label className="block text-[10px] uppercase font-bold tracking-wider text-[#A8A296] mb-1.5">
             Country {isMandatory && <span className="text-red-500">*</span>}
@@ -179,7 +179,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
       />
 
       {/* Residency Info */}
-      <div className="grid grid-cols-2 gap-8 lg:gap-12">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:gap-8">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">House Status</label>
           <SearchableSelect

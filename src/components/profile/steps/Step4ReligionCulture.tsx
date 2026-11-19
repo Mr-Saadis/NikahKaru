@@ -33,7 +33,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
         <p className="text-[12px] text-[#7D766C]">Religious and cultural background details.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-8 lg:gap-12">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:gap-8">
         {/* Religion */}
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
@@ -65,7 +65,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-8 lg:gap-12">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:gap-8">
         {/* Caste */}
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">

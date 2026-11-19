@@ -252,7 +252,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
       {/* Income */}
       <section className="space-y-3">
         <h4 className="text-[13px] font-bold text-[#232326]">Monthly Income (PKR)</h4>
-        <div className="grid grid-cols-2 gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:gap-8">
           <div className="space-y-1.5">
             <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Minimum</label>
             <input

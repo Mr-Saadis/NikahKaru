@@ -33,7 +33,7 @@ export default function ProfileSidebar({
   return (
     <div className="bg-transparent h-full flex flex-col">
       {/* Profile avatar */}
-      <div className="flex items-center gap-3 mb-4 pb-6 border-b border-[#F2EDE1]/10 shrink-0">
+      <div className="flex items-center gap-3 mb-3 pb-4 xl:mb-4 xl:pb-6 border-b border-[#F2EDE1]/10 shrink-0">
         <div className="w-12 h-12 rounded-full bg-[#F2EDE1] border-2 border-white/20 flex items-center justify-center text-[#2F3E51] flex-shrink-0 overflow-hidden shadow-sm">
           {profilePicture ? (
             <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
@@ -86,7 +86,7 @@ export default function ProfileSidebar({
               <button
                 key={step.id}
                 onClick={() => onStepClick(step.id)}
-                className={`w-full text-left flex items-start gap-4 p-2 rounded-2xl transition-colors relative ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                className={`w-full text-left flex items-start gap-3 xl:gap-4 p-2 rounded-2xl transition-colors relative ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`}
               >
                 {/* Connector line for all but last step */}
                 {index !== steps.length - 1 && (
@@ -107,9 +107,9 @@ export default function ProfileSidebar({
 
                 {/* Step info */}
                 <div className="flex-1 min-w-0 mt-0.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1.5">
                     <p
-                      className={`text-[13px] font-semibold leading-tight flex items-center gap-1.5 ${isActive ? 'text-white' : 'text-white/70'
+                      className={`text-[12px] xl:text-[13px] font-semibold leading-tight flex items-center flex-wrap gap-1 ${isActive ? 'text-white' : 'text-white/70'
                         }`}
                     >
                       <span>{step.name}</span>

@@ -228,7 +228,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
         <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
           Gender <span className="text-red-500">*</span>
         </label>
-        <div className="flex gap-8 lg:gap-12">
+        <div className="flex flex-wrap gap-5 xl:gap-10">
           {(['MALE', 'FEMALE'] as ProfileGender[]).map((g) => (
             <button
               key={g}
@@ -260,7 +260,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
       </div>
 
       {/* Age */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-8">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Age <span className="text-red-500">*</span>
@@ -416,7 +416,7 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
 
 
       {/* Nationality */}
-      <div className="grid grid-cols-2 gap-8 lg:gap-12">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:gap-8">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Nationality

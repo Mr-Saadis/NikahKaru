@@ -105,13 +105,13 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
       </div>
 
       {/* Height & Weight */}
-      <div className="grid grid-cols-2 gap-8 lg:gap-12">
-        <div className="space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 xl:gap-8">
+        <div className="space-y-2 min-w-0">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Height <span className="text-red-500">*</span>
           </label>
           <div className="flex gap-2">
-            <div className="flex-1 relative">
+            <div className="flex-1 min-w-0 relative">
               <input
                 type="text"
                 inputMode="numeric"
@@ -121,11 +121,11 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
                   handleHeightChange(val ? Number(val) : '', currentInches);
                 }}
                 placeholder="Feet"
-                className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] pl-5 pr-8 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
+                className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] pl-3.5 pr-7 xl:pl-5 xl:pr-8 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#A8A296] pointer-events-none">ft</span>
+              <span className="absolute right-3 xl:right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#A8A296] pointer-events-none">ft</span>
             </div>
-            <div className="flex-1 relative">
+            <div className="flex-1 min-w-0 relative">
               <input
                 type="text"
                 inputMode="numeric"
@@ -135,15 +135,15 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
                   handleHeightChange(currentFeet, val ? Number(val) : '');
                 }}
                 placeholder="Inches"
-                className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] pl-5 pr-8 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
+                className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] pl-3.5 pr-7 xl:pl-5 xl:pr-8 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#A8A296] pointer-events-none">in</span>
+              <span className="absolute right-3 xl:right-4 top-1/2 -translate-y-1/2 text-[12px] text-[#A8A296] pointer-events-none">in</span>
             </div>
           </div>
           <p className="text-[10px] text-[#A8A296]">{data.height_cm ? `Saved as ${data.height_cm} cm` : 'Enter feet and inches'}</p>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
             Weight (kg)
           </label>
@@ -167,7 +167,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
         <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
           Complexion
         </label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 2xl:grid-cols-4 gap-2.5">
           {COMPLEXION_OPTIONS.map((c) => {
             const isSelected = data.complexion === c.value;
             return (
@@ -175,7 +175,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
                 key={c.value}
                 type="button"
                 onClick={() => set('complexion', isSelected ? '' : c.value)}
-                className={`group relative flex items-center gap-2.5 px-3.5 py-3 rounded-[20px] text-[13px] font-semibold border transition-all text-left ${
+                className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-[20px] text-[12.5px] sm:text-[13px] font-semibold border transition-all text-left min-w-0 ${
                   isSelected
                     ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md ring-2 ring-[#064e3b]/30'
                     : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
@@ -188,7 +188,7 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
                     borderColor: c.border,
                   }}
                 />
-                <span className="truncate flex-1 font-medium">{c.label}</span>
+                <span className="flex-1 font-medium leading-tight">{c.label}</span>
                 {isSelected && (
                   <Check size={14} className="text-emerald-400 shrink-0 ml-auto" strokeWidth={2.5} />
                 )}

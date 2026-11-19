@@ -26,9 +26,9 @@ function ImportanceRow({ label, value, onChange, hideMandatory }: {
   const opts = hideMandatory ? IMPORTANCE_OPTS.filter(o => o.value !== 'MANDATORY') : IMPORTANCE_OPTS;
   const isDoesntMatter = value === DOESNT_MATTER_VALUE;
   return (
-    <div className="flex items-center justify-between gap-2 py-2">
-      <span className="text-[12px] font-medium text-[#4E473D] flex-1">{label}</span>
-      <div className="flex gap-1">
+    <div className="flex flex-wrap items-center justify-between gap-2 py-2">
+      <span className="text-[12px] font-medium text-[#4E473D] flex-1 min-w-[140px]">{label}</span>
+      <div className="flex flex-wrap gap-1">
         <button
           type="button"
           data-active={isDoesntMatter ? '' : undefined}
@@ -58,11 +58,11 @@ function RangeRow({ label, minVal, maxVal, onMin, onMax, suffix = '' }: {
   onMin: (v: number | '') => void; onMax: (v: number | '') => void;
   suffix?: string;
 }) {
-  const inputClass = "w-28 h-[32px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-3 py-1.5 text-[12px] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none";
+  const inputClass = "w-20 sm:w-28 h-[32px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-3 py-1.5 text-[12px] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none";
   return (
-    <div className="flex items-center justify-between gap-2 py-2">
-      <span className="text-[12px] font-medium text-[#4E473D] flex-1">{label}</span>
-      <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2 py-2">
+      <span className="text-[12px] font-medium text-[#4E473D] flex-1 min-w-[130px]">{label}</span>
+      <div className="flex flex-wrap items-center gap-2">
         <input type="text" inputMode="numeric" value={minVal === '' ? '' : minVal} onChange={(e) => {
           const val = e.target.value.replace(/[^0-9]/g, '');
           onMin(val ? Number(val) : '');
@@ -119,9 +119,9 @@ function HeightRangeRow({ label, minCm, maxCm, onMin, onMax }: {
   };
 
   return (
-    <div className="flex items-center justify-between gap-2 py-2">
-      <span className="text-[12px] font-medium text-[#4E473D] flex-1">{label}</span>
-      <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center justify-between gap-2 py-2">
+      <span className="text-[12px] font-medium text-[#4E473D] flex-1 min-w-[120px]">{label}</span>
+      <div className="flex flex-wrap items-center gap-1.5">
         <div className="flex items-center gap-1">
           <input type="text" inputMode="numeric" value={min.ft === '' ? '' : min.ft} onChange={e => handleChange('min', 'ft', e.target.value.replace(/[^0-9]/g, ''))} placeholder="ft" className={inputClass} />
           <span className="text-[11px] text-[#888174]">'</span>
@@ -490,9 +490,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
 
         <ImportanceRow label={<>Marital Status Importance <span className="text-red-500">*</span></>} value={data.pref_marital_importance} onChange={(v) => handleImportanceChange('pref_marital_importance', v, ['pref_marital_status', 'pref_children_allowed', 'pref_children_importance'])} />
         {data.pref_marital_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Marital Status <span className="text-red-500">*</span></span>
-            <div className="w-[220px]">
+            <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_marital_status || ''}
                 onChange={(val) => {
@@ -516,7 +516,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
           <>
             <ImportanceRow label={<>Children Importance <span className="text-red-500">*</span></>} value={data.pref_children_importance} onChange={(v) => handleImportanceChange('pref_children_importance', v, ['pref_children_allowed'])} />
             {data.pref_children_importance !== DOESNT_MATTER_VALUE && (
-              <div className="flex items-center justify-between gap-2 py-2">
+              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
                 <span className="text-[12px] font-medium text-[#4E473D] flex-1">Children Allowed <span className="text-red-500">*</span></span>
                 <div className="flex gap-1.5">
                   {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
@@ -546,9 +546,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
 
         <ImportanceRow label={<>Complexion Importance</>} value={data.pref_complexion_importance} onChange={(v) => handleImportanceChange('pref_complexion_importance', v, ['pref_complexion'])} />
         {data.pref_complexion_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Preferred Complexion</span>
-            <div className="w-[220px]">
+            <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_complexion || ''}
                 onChange={(val) => set('pref_complexion', val)}
@@ -562,7 +562,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
         
         <ImportanceRow label={<>Disability Importance <span className="text-red-500">*</span></>} value={data.pref_disability_importance} onChange={(v) => handleImportanceChange('pref_disability_importance', v, ['pref_disability_allowed'])} />
         {data.pref_disability_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Disability Allowed <span className="text-red-500">*</span></span>
             <div className="flex gap-1.5">
               {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
@@ -577,7 +577,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
           <>
             <ImportanceRow label={<>Beard Preference Importance</>} value={data.pref_beard_importance} onChange={(v) => handleImportanceChange('pref_beard_importance', v, ['pref_beard'])} />
             {data.pref_beard_importance !== DOESNT_MATTER_VALUE && (
-              <div className="flex items-center justify-between gap-2 py-2">
+              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
                 <span className="text-[12px] font-medium text-[#4E473D] flex-1">Beard Required?</span>
                 <div className="flex gap-1.5">
                   {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
@@ -594,7 +594,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
           <>
             <ImportanceRow label={<>Hijab Preference Importance</>} value={data.pref_hijab_importance} onChange={(v) => handleImportanceChange('pref_hijab_importance', v, ['pref_hijab'])} />
             {data.pref_hijab_importance !== DOESNT_MATTER_VALUE && (
-              <div className="flex items-center justify-between gap-2 py-2">
+              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
                 <span className="text-[12px] font-medium text-[#4E473D] flex-1">Hijab Required?</span>
                 <div className="flex gap-1.5">
                   {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
@@ -612,9 +612,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
       <SectionCard title="Education">
         <ImportanceRow label="Education Level Importance" value={data.pref_education_importance} onChange={(v) => handleImportanceChange('pref_education_importance', v, ['pref_education_level_id'])} />
         {data.pref_education_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Minimum Education</span>
-            <div className="w-[220px]">
+            <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_education_level_id ? String(data.pref_education_level_id) : ''}
                 onChange={(val) => set('pref_education_level_id', val && val !== 'none' ? Number(val) : '')}
@@ -627,9 +627,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
         )}
         <ImportanceRow label="Field of Study Importance" value={data.pref_field_importance} onChange={(v) => handleImportanceChange('pref_field_importance', v, ['pref_field_of_study'])} />
         {data.pref_field_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Preferred Field</span>
-            <div className="w-[220px]">
+            <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_field_of_study || ''}
                 onChange={(val) => set('pref_field_of_study', val)}
@@ -646,9 +646,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
       <SectionCard title="Profession & Income">
         <ImportanceRow label="Occupation Importance" value={data.pref_occupation_importance} onChange={(v) => handleImportanceChange('pref_occupation_importance', v, ['pref_occupation_id'])} />
         {data.pref_occupation_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Preferred Occupation</span>
-            <div className="w-[220px]">
+            <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_occupation_id ? String(data.pref_occupation_id) : ''}
                 onChange={(val) => set('pref_occupation_id', val && val !== 'none' ? Number(val) : '')}
@@ -662,9 +662,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
         
         <ImportanceRow label="Employment Type Importance" value={data.pref_employment_type_importance} onChange={(v) => handleImportanceChange('pref_employment_type_importance', v, ['pref_employment_type'])} />
         {data.pref_employment_type_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Employment Type</span>
-            <div className="w-[220px]">
+            <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_employment_type || ''}
                 onChange={(val) => set('pref_employment_type', val === 'none' ? '' : val)}
@@ -685,9 +685,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
 
       {/* Religion & Culture */}
       <SectionCard title="Religion & Culture">
-        <div className="flex items-center justify-between gap-2 py-2">
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
           <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religion</span>
-          <div className="w-[220px]">
+          <div className="w-full sm:w-[190px] xl:w-[220px]">
             <SearchableSelect
               value={data.pref_religion_id ? String(data.pref_religion_id) : ''}
               onChange={(val) => onChange({ ...data, pref_religion_id: val && val !== 'none' ? Number(val) : '', pref_sect_id: '' })}
@@ -702,9 +702,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
           <>
             <ImportanceRow label="Sect Importance" value={data.pref_sect_importance} onChange={(v) => handleImportanceChange('pref_sect_importance', v, ['pref_sect_id'])} />
             {data.pref_sect_importance !== DOESNT_MATTER_VALUE && (
-              <div className="flex items-center justify-between gap-2 py-2">
+              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
                 <span className="text-[12px] font-medium text-[#4E473D] flex-1">Sect</span>
-                <div className="w-[220px]">
+                <div className="w-full sm:w-[190px] xl:w-[220px]">
                   <SearchableSelect
                     value={data.pref_sect_id ? String(data.pref_sect_id) : ''}
                     onChange={(val) => set('pref_sect_id', val && val !== 'none' ? Number(val) : '')}
@@ -719,9 +719,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
         )}
         <ImportanceRow label={<>Caste Importance <span className="text-red-500">*</span></>} value={data.pref_caste_importance} onChange={(v) => handleImportanceChange('pref_caste_importance', v, ['pref_caste_id'])} />
         {data.pref_caste_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Caste <span className="text-red-500">*</span></span>
-            <div className="w-[220px]">
+            <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_caste_id ? String(data.pref_caste_id) : ''}
                 onChange={(val) => set('pref_caste_id', val && val !== 'none' ? Number(val) : '')}
@@ -734,9 +734,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
         )}
         <ImportanceRow label={<>Practice Importance <span className="text-red-500">*</span></>} value={data.pref_religious_practice_importance} onChange={(v) => handleImportanceChange('pref_religious_practice_importance', v, ['pref_religious_practice'])} />
         {data.pref_religious_practice_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religious Practice <span className="text-red-500">*</span></span>
-            <div className="w-[220px]">
+            <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_religious_practice || ''}
                 onChange={(val) => set('pref_religious_practice', val as ReligiousPracticeLevel)}
@@ -964,7 +964,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
         />
         {data.pref_relocation_importance !== DOESNT_MATTER_VALUE && Boolean(data.pref_relocation_importance) && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2 py-2">
+            <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
               <span className="text-[12px] font-medium text-[#4E473D] flex-1">Must be willing to relocate?</span>
               <div className="flex gap-1.5">
                 {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
@@ -1174,7 +1174,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
       <SectionCard title="Family Preferences">
         <ImportanceRow label={<>Family Setup Importance <span className="text-red-500">*</span></>} value={data.pref_family_setup_importance} onChange={(v) => handleImportanceChange('pref_family_setup_importance', v, ['pref_family_setup'])} />
         {data.pref_family_setup_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Family Setup <span className="text-red-500">*</span></span>
             <div className="flex gap-1.5">
               {[['JOINT', 'Joint'], ['SEPARATE', 'Separate']].map(([v, l]) => (
@@ -1187,9 +1187,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
         
         <ImportanceRow label="Living With Importance" value={data.pref_living_with_importance} onChange={(v) => handleImportanceChange('pref_living_with_importance', v, ['pref_living_with'])} />
         {data.pref_living_with_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Living With</span>
-            <div className="w-[220px]">
+            <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_living_with || ''}
                 onChange={(val) => set('pref_living_with', val === 'none' ? '' : val as LivingWith)}
@@ -1203,9 +1203,9 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
         
         <ImportanceRow label="Parents Status Importance" value={data.pref_parents_status_importance} onChange={(v) => handleImportanceChange('pref_parents_status_importance', v, ['pref_parents_status'])} />
         {data.pref_parents_status_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Parents Status</span>
-            <div className="w-[220px]">
+            <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_parents_status || ''}
                 onChange={(val) => set('pref_parents_status', val)}
@@ -1222,7 +1222,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
       <SectionCard title="Lifestyle">
         <ImportanceRow label={<>Smoking Importance <span className="text-red-500">*</span></>} value={data.pref_smoking_importance} onChange={(v) => handleImportanceChange('pref_smoking_importance', v, ['pref_smoking'])} />
         {data.pref_smoking_importance !== DOESNT_MATTER_VALUE && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
             <span className="text-[12px] font-medium text-[#4E473D] flex-1">Smoking Preference <span className="text-red-500">*</span></span>
             <div className="flex gap-1.5">
               {[['NO', 'Non-smoker'], ['YES', 'Smoker'], ['OCCASIONALLY', 'Occasional']].map(([v, l]) => (
