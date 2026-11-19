@@ -72,6 +72,12 @@ export class PreferenceService {
       setId = newSet.id;
     }
 
+    if (!setId) {
+      throw new Error('Failed to resolve or create preference set ID');
+    }
+
+    const currentSetId = setId;
+
     // 3. Upsert all provided preference sub-tables in parallel
     const sectionTables: Array<[keyof AllPreferences, string]> = [
       ['basic', 'basic_preferences'],
@@ -88,9 +94,8 @@ export class PreferenceService {
     const tasks = sectionTables
       .filter(([key]) => Boolean(data[key]))
       .map(([key, table]) =>
-        supabase
-          .from(table)
-          .upsert({ ...data[key], preference_set_id: setId }, { onConflict: 'preference_set_id' })
+        (supabase.from(table as any) as any)
+          .upsert({ ...(data[key] as any), preference_set_id: currentSetId }, { onConflict: 'preference_set_id' })
       );
 
     const results = await Promise.all(tasks);
@@ -100,6 +105,44 @@ export class PreferenceService {
       if (result.error) {
         console.error('Preference upsert error:', result.error);
         throw new Error(`Failed to save a preference section: ${result.error.message}`);
+      }
+    }
+
+    // 4. Save preferred locations (delete old, insert new)
+    if (data.preferredLocations !== undefined) {
+      await supabase.from('preferred_locations').delete().eq('preference_set_id', setId);
+      if (data.preferredLocations && data.preferredLocations.length > 0) {
+        const rows = data.preferredLocations.map(loc => ({
+          preference_set_id: setId,
+          country_id: Number(loc.country_id),
+          province_id: loc.province_id ? Number(loc.province_id) : null,
+          city_id: loc.city_id ? Number(loc.city_id) : null,
+          is_excluded: Boolean(loc.is_excluded),
+        }));
+        const { error: plError } = await supabase.from('preferred_locations').insert(rows);
+        if (plError) {
+          console.error('Error saving preferred_locations:', plError);
+          throw new Error(`Failed to save preferred locations: ${plError.message}`);
+        }
+      }
+    }
+
+    // 5. Save preferred relocations (delete old, insert new)
+    if (data.preferredRelocations !== undefined) {
+      await supabase.from('preferred_relocations').delete().eq('preference_set_id', setId);
+      if (data.preferredRelocations && data.preferredRelocations.length > 0) {
+        const rows = data.preferredRelocations.map(loc => ({
+          preference_set_id: setId,
+          country_id: Number(loc.country_id),
+          province_id: loc.province_id ? Number(loc.province_id) : null,
+          city_id: loc.city_id ? Number(loc.city_id) : null,
+          is_excluded: Boolean(loc.is_excluded),
+        }));
+        const { error: prError } = await supabase.from('preferred_relocations').insert(rows);
+        if (prError) {
+          console.error('Error saving preferred_relocations:', prError);
+          throw new Error(`Failed to save preferred relocations: ${prError.message}`);
+        }
       }
     }
   }
@@ -120,6 +163,8 @@ export class PreferenceService {
 
     if (!viewError && viewRows && viewRows.length > 0) {
       const row = viewRows[0] as any;
+      const prefLocs = row.preferred_locations || row.location?.preferred_locations || [];
+      const prefRelocs = row.preferred_relocations || row.relocation?.preferred_relocations || [];
       return {
         basic: row.basic || null,
         physical: row.physical || null,
@@ -127,9 +172,11 @@ export class PreferenceService {
         profession: row.profession || null,
         religion: row.religion || null,
         location: row.location || null,
+        preferredLocations: prefLocs,
         family: row.family || null,
         lifestyle: row.lifestyle || null,
         relocation: row.relocation || null,
+        preferredRelocations: prefRelocs,
       };
     }
 
@@ -149,7 +196,7 @@ export class PreferenceService {
     const setId = prefSet.id;
 
     const [
-      basicReq, physicalReq, eduReq, profReq, relReq, locReq, famReq, lifeReq, relocReq
+      basicReq, physicalReq, eduReq, profReq, relReq, locReq, famReq, lifeReq, relocReq, prefLocReq, prefRelocReq
     ] = await Promise.all([
       supabase.from('basic_preferences').select('*').eq('preference_set_id', setId).limit(1),
       supabase.from('physical_preferences').select('*').eq('preference_set_id', setId).limit(1),
@@ -160,6 +207,8 @@ export class PreferenceService {
       supabase.from('family_preferences').select('*').eq('preference_set_id', setId).limit(1),
       supabase.from('lifestyle_preferences').select('*').eq('preference_set_id', setId).limit(1),
       supabase.from('relocation_preferences').select('*').eq('preference_set_id', setId).limit(1),
+      supabase.from('preferred_locations').select('*').eq('preference_set_id', setId),
+      supabase.from('preferred_relocations').select('*').eq('preference_set_id', setId),
     ]);
 
     return {
@@ -169,9 +218,11 @@ export class PreferenceService {
       profession: profReq.data?.[0] || null,
       religion: relReq.data?.[0] || null,
       location: locReq.data?.[0] || null,
+      preferredLocations: prefLocReq.data || [],
       family: famReq.data?.[0] || null,
       lifestyle: lifeReq.data?.[0] || null,
       relocation: relocReq.data?.[0] || null,
+      preferredRelocations: prefRelocReq.data || [],
     };
   }
 }

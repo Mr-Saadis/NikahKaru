@@ -417,10 +417,15 @@ begin
     group by 1, 2, 3
   ),
   demand as (
-    select v.preferred_city_id as city_id, p.gender::text as g, count(*) as n
-    from v_current_matching_preferences v
-    join profiles p on p.id = v.profile_id
-    where p.status::text = 'ACTIVE' and v.city_importance::text = 'MANDATORY' and v.preferred_city_id is not null
+    select pl.city_id, p.gender::text as g, count(distinct p.id) as n
+    from preferred_locations pl
+    join preference_sets ps on ps.id = pl.preference_set_id and ps.is_current = true
+    join location_preferences lp on lp.preference_set_id = ps.id
+    join profiles p on p.id = ps.profile_id
+    where p.status::text = 'ACTIVE' 
+      and lp.city_importance::text = 'MANDATORY' 
+      and pl.city_id is not null
+      and (pl.is_excluded is null or pl.is_excluded = false)
     group by 1, 2
   ),
   supply as (

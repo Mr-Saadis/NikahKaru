@@ -522,15 +522,25 @@ create table public.religion_preferences (
 
 create table public.location_preferences (
     preference_set_id uuid primary key references public.preference_sets(id) on delete cascade,
-    country_id bigint references public.countries(id) on delete restrict,
     country_importance public.preference_importance,
-    province_id bigint references public.provinces(id) on delete restrict,
     province_importance public.preference_importance,
-    city_id bigint references public.cities(id) on delete restrict,
     city_importance public.preference_importance,
     location_details text,
     created_at timestamptz not null default now()
 );
+
+create table public.preferred_locations (
+    id uuid primary key default gen_random_uuid(),
+    preference_set_id uuid not null references public.preference_sets(id) on delete cascade,
+    country_id bigint not null references public.countries(id) on delete restrict,
+    province_id bigint references public.provinces(id) on delete restrict,
+    city_id bigint references public.cities(id) on delete restrict,
+    created_at timestamptz not null default now()
+);
+
+create index idx_preferred_locations_set on public.preferred_locations(preference_set_id);
+create index idx_preferred_locations_city on public.preferred_locations(city_id);
+create index idx_preferred_locations_country on public.preferred_locations(country_id);
 
 create table public.family_preferences (
     preference_set_id uuid primary key references public.preference_sets(id) on delete cascade,
@@ -561,14 +571,24 @@ create table public.relocation_preferences (
     preference_set_id uuid primary key references public.preference_sets(id) on delete cascade,
     willing_to_relocate_required public.yes_no,
     relocation_importance public.preference_importance,
-    country_id bigint references public.countries(id) on delete restrict,
     country_importance public.preference_importance,
-    province_id bigint references public.provinces(id) on delete restrict,
     province_importance public.preference_importance,
-    city_id bigint references public.cities(id) on delete restrict,
     city_importance public.preference_importance,
     created_at timestamptz not null default now()
 );
+
+create table public.preferred_relocations (
+    id uuid primary key default gen_random_uuid(),
+    preference_set_id uuid not null references public.preference_sets(id) on delete cascade,
+    country_id bigint not null references public.countries(id) on delete restrict,
+    province_id bigint references public.provinces(id) on delete restrict,
+    city_id bigint references public.cities(id) on delete restrict,
+    created_at timestamptz not null default now()
+);
+
+create index idx_preferred_relocations_set on public.preferred_relocations(preference_set_id);
+create index idx_preferred_relocations_city on public.preferred_relocations(city_id);
+create index idx_preferred_relocations_country on public.preferred_relocations(country_id);
 
 -- ============================================================
 -- 8. OFFICIAL MANAGER MATCH RUNS
@@ -1571,13 +1591,46 @@ SELECT
     rp.religious_practice_importance AS religion_practice_importance,
 
     -- Location Preferences
-    lp.country_id AS preferred_country_id,
+    (
+        SELECT pl.country_id
+        FROM public.preferred_locations pl
+        WHERE pl.preference_set_id = ps.id
+          AND (pl.is_excluded IS NULL OR pl.is_excluded = false)
+        ORDER BY pl.id ASC
+        LIMIT 1
+    ) AS preferred_country_id,
     lp.country_importance,
-    lp.province_id AS preferred_province_id,
+    (
+        SELECT pl.province_id
+        FROM public.preferred_locations pl
+        WHERE pl.preference_set_id = ps.id
+          AND pl.province_id IS NOT NULL
+          AND (pl.is_excluded IS NULL OR pl.is_excluded = false)
+        ORDER BY pl.id ASC
+        LIMIT 1
+    ) AS preferred_province_id,
     lp.province_importance,
-    lp.city_id AS preferred_city_id,
+    (
+        SELECT pl.city_id
+        FROM public.preferred_locations pl
+        WHERE pl.preference_set_id = ps.id
+          AND pl.city_id IS NOT NULL
+          AND (pl.is_excluded IS NULL OR pl.is_excluded = false)
+        ORDER BY pl.id ASC
+        LIMIT 1
+    ) AS preferred_city_id,
     lp.city_importance,
     lp.location_details,
+    COALESCE(
+        (SELECT json_agg(json_build_object(
+            'id', pl.id,
+            'country_id', pl.country_id,
+            'province_id', pl.province_id,
+            'city_id', pl.city_id,
+            'is_excluded', COALESCE(pl.is_excluded, false)
+        )) FROM public.preferred_locations pl WHERE pl.preference_set_id = ps.id),
+        '[]'::json
+    ) AS preferred_locations,
 
     -- Family Preferences
     fp.family_setup AS preferred_family_setup,
@@ -1606,15 +1659,45 @@ SELECT
     -- Relocation Preferences
     rlp.willing_to_relocate_required,
     rlp.relocation_importance,
-
-    rlp.country_id AS relocation_country_id,
+    (
+        SELECT prl.country_id
+        FROM public.preferred_relocations prl
+        WHERE prl.preference_set_id = ps.id
+          AND (prl.is_excluded IS NULL OR prl.is_excluded = false)
+        ORDER BY prl.id ASC
+        LIMIT 1
+    ) AS relocation_country_id,
     rlp.country_importance AS relocation_country_importance,
-
-    rlp.province_id AS relocation_province_id,
+    (
+        SELECT prl.province_id
+        FROM public.preferred_relocations prl
+        WHERE prl.preference_set_id = ps.id
+          AND prl.province_id IS NOT NULL
+          AND (prl.is_excluded IS NULL OR prl.is_excluded = false)
+        ORDER BY prl.id ASC
+        LIMIT 1
+    ) AS relocation_province_id,
     rlp.province_importance AS relocation_province_importance,
-
-    rlp.city_id AS relocation_city_id,
-    rlp.city_importance AS relocation_city_importance
+    (
+        SELECT prl.city_id
+        FROM public.preferred_relocations prl
+        WHERE prl.preference_set_id = ps.id
+          AND prl.city_id IS NOT NULL
+          AND (prl.is_excluded IS NULL OR prl.is_excluded = false)
+        ORDER BY prl.id ASC
+        LIMIT 1
+    ) AS relocation_city_id,
+    rlp.city_importance AS relocation_city_importance,
+    COALESCE(
+        (SELECT json_agg(json_build_object(
+            'id', prl.id,
+            'country_id', prl.country_id,
+            'province_id', prl.province_id,
+            'city_id', prl.city_id,
+            'is_excluded', COALESCE(prl.is_excluded, false)
+        )) FROM public.preferred_relocations prl WHERE prl.preference_set_id = ps.id),
+        '[]'::json
+    ) AS preferred_relocations
 
 FROM public.preference_sets ps
 
@@ -1645,6 +1728,121 @@ LEFT JOIN public.lifestyle_preferences lsp
 LEFT JOIN public.relocation_preferences rlp
     ON rlp.preference_set_id = ps.id
 
+WHERE ps.is_current = TRUE;
+
+-- ----------------------------------------------------------------------------
+-- View: vw_profile_active_preferences (enriched JSON structure with lookups)
+-- ----------------------------------------------------------------------------
+DROP VIEW IF EXISTS public.vw_profile_active_preferences CASCADE;
+
+CREATE OR REPLACE VIEW public.vw_profile_active_preferences AS
+SELECT
+    ps.profile_id,
+    ps.id AS preference_set_id,
+    ps.version,
+    ps.is_current,
+    ps.created_by AS preference_created_by,
+    ps.created_at AS preference_created_at,
+
+    -- basic
+    CASE WHEN bp.preference_set_id IS NOT NULL THEN row_to_json(bp.*) ELSE NULL END AS basic,
+
+    -- physical
+    CASE WHEN pp.preference_set_id IS NOT NULL THEN row_to_json(pp.*) ELSE NULL END AS physical,
+
+    -- education
+    CASE WHEN ep.preference_set_id IS NOT NULL THEN row_to_json(ep.*) ELSE NULL END AS education,
+
+    -- profession
+    CASE WHEN prop.preference_set_id IS NOT NULL THEN row_to_json(prop.*) ELSE NULL END AS profession,
+
+    -- religion
+    CASE WHEN rp.preference_set_id IS NOT NULL THEN row_to_json(rp.*) ELSE NULL END AS religion,
+
+    -- location (importance + preferred_locations array with is_excluded)
+    CASE WHEN lp.preference_set_id IS NOT NULL THEN
+        json_build_object(
+            'preference_set_id', lp.preference_set_id,
+            'country_importance', lp.country_importance,
+            'province_importance', lp.province_importance,
+            'city_importance', lp.city_importance,
+            'location_details', lp.location_details,
+            'created_at', lp.created_at,
+            'preferred_locations', COALESCE(
+                (SELECT json_agg(json_build_object(
+                    'id', pl.id,
+                    'country_id', pl.country_id,
+                    'province_id', pl.province_id,
+                    'city_id', pl.city_id,
+                    'is_excluded', COALESCE(pl.is_excluded, false)
+                )) FROM public.preferred_locations pl WHERE pl.preference_set_id = ps.id),
+                '[]'::json
+            )
+        )
+    ELSE NULL END AS location,
+
+    -- family
+    CASE WHEN fp.preference_set_id IS NOT NULL THEN row_to_json(fp.*) ELSE NULL END AS family,
+
+    -- lifestyle
+    CASE WHEN lsp.preference_set_id IS NOT NULL THEN row_to_json(lsp.*) ELSE NULL END AS lifestyle,
+
+    -- relocation (importance + flag + preferred_relocations array with is_excluded)
+    CASE WHEN rlp.preference_set_id IS NOT NULL THEN
+        json_build_object(
+            'preference_set_id', rlp.preference_set_id,
+            'willing_to_relocate_required', rlp.willing_to_relocate_required,
+            'relocation_importance', rlp.relocation_importance,
+            'country_importance', rlp.country_importance,
+            'province_importance', rlp.province_importance,
+            'city_importance', rlp.city_importance,
+            'created_at', rlp.created_at,
+            'preferred_relocations', COALESCE(
+                (SELECT json_agg(json_build_object(
+                    'id', prl.id,
+                    'country_id', prl.country_id,
+                    'province_id', prl.province_id,
+                    'city_id', prl.city_id,
+                    'is_excluded', COALESCE(prl.is_excluded, false)
+                )) FROM public.preferred_relocations prl WHERE prl.preference_set_id = ps.id),
+                '[]'::json
+            )
+        )
+    ELSE NULL END AS relocation,
+
+    -- Top-level arrays for direct queries
+    COALESCE(
+        (SELECT json_agg(json_build_object(
+            'id', pl.id,
+            'country_id', pl.country_id,
+            'province_id', pl.province_id,
+            'city_id', pl.city_id,
+            'is_excluded', COALESCE(pl.is_excluded, false)
+        )) FROM public.preferred_locations pl WHERE pl.preference_set_id = ps.id),
+        '[]'::json
+    ) AS preferred_locations,
+
+    COALESCE(
+        (SELECT json_agg(json_build_object(
+            'id', prl.id,
+            'country_id', prl.country_id,
+            'province_id', prl.province_id,
+            'city_id', prl.city_id,
+            'is_excluded', COALESCE(prl.is_excluded, false)
+        )) FROM public.preferred_relocations prl WHERE prl.preference_set_id = ps.id),
+        '[]'::json
+    ) AS preferred_relocations
+
+FROM public.preference_sets ps
+LEFT JOIN public.basic_preferences bp ON bp.preference_set_id = ps.id
+LEFT JOIN public.physical_preferences pp ON pp.preference_set_id = ps.id
+LEFT JOIN public.education_preferences ep ON ep.preference_set_id = ps.id
+LEFT JOIN public.profession_preferences prop ON prop.preference_set_id = ps.id
+LEFT JOIN public.religion_preferences rp ON rp.preference_set_id = ps.id
+LEFT JOIN public.location_preferences lp ON lp.preference_set_id = ps.id
+LEFT JOIN public.family_preferences fp ON fp.preference_set_id = ps.id
+LEFT JOIN public.lifestyle_preferences lsp ON lsp.preference_set_id = ps.id
+LEFT JOIN public.relocation_preferences rlp ON rlp.preference_set_id = ps.id
 WHERE ps.is_current = TRUE;
 
 

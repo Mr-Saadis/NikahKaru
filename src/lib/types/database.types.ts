@@ -526,13 +526,32 @@ export interface ReligionPreferences {
   created_at: string;
 }
 
+export interface PreferredLocation {
+  id?: string;
+  preference_set_id?: string;
+  country_id: number;
+  province_id: number | null;
+  city_id: number | null;
+  is_excluded?: boolean;
+  _tempId?: string;
+  created_at?: string;
+}
+
+export interface PreferredRelocation {
+  id?: string;
+  preference_set_id?: string;
+  country_id: number;
+  province_id: number | null;
+  city_id: number | null;
+  is_excluded?: boolean;
+  _tempId?: string;
+  created_at?: string;
+}
+
 export interface LocationPreferences {
   preference_set_id: string;
-  country_id: number | null;
   country_importance: PreferenceImportance | null;
-  province_id: number | null;
   province_importance: PreferenceImportance | null;
-  city_id: number | null;
   city_importance: PreferenceImportance | null;
   location_details: string | null;
   created_at: string;
@@ -567,11 +586,8 @@ export interface RelocationPreferences {
   preference_set_id: string;
   willing_to_relocate_required: YesNo | null;
   relocation_importance: PreferenceImportance | null;
-  country_id: number | null;
   country_importance: PreferenceImportance | null;
-  province_id: number | null;
   province_importance: PreferenceImportance | null;
-  city_id: number | null;
   city_importance: PreferenceImportance | null;
   created_at: string;
 }
@@ -584,9 +600,11 @@ export interface AllPreferences {
   profession: ProfessionPreferences | null;
   religion: ReligionPreferences | null;
   location: LocationPreferences | null;
+  preferredLocations?: PreferredLocation[];
   family: FamilyPreferences | null;
   lifestyle: LifestylePreferences | null;
   relocation: RelocationPreferences | null;
+  preferredRelocations?: PreferredRelocation[];
 }
 
 // ============================================================

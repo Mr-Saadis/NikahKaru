@@ -133,37 +133,66 @@ export function passesHardFilters(
   }
 
   // ── 4. Location Preferences ───────────────────────────────────
-  if (prefs.location) {
-    // Country (EXACT)
-    if (prefs.location.country_importance === 'MANDATORY' && prefs.location.country_id) {
-      const countryMatches = candidate.profile_locations?.current_country_id === prefs.location.country_id ||
-        (Array.isArray(candidate.profile_locations) && candidate.profile_locations.some(
-          (loc: any) => loc.current_country_id === prefs.location?.country_id
-        ));
-      if (!countryMatches) {
-        return { passed: false, reason: 'Country mismatch (Mandatory)' };
+  if (prefs.location && prefs.preferredLocations && prefs.preferredLocations.length > 0) {
+    const candLocations = Array.isArray(candidate.profile_locations)
+      ? candidate.profile_locations
+      : (candidate.profile_locations ? [candidate.profile_locations] : []);
+
+    const excludedLocations = prefs.preferredLocations.filter(l => Boolean(l.is_excluded));
+    const includedLocations = prefs.preferredLocations.filter(l => !l.is_excluded);
+
+    // 1. Check EXCLUDED locations (if any location importance is MANDATORY)
+    const isAnyLocMandatory =
+      prefs.location.country_importance === 'MANDATORY' ||
+      prefs.location.province_importance === 'MANDATORY' ||
+      prefs.location.city_importance === 'MANDATORY';
+
+    if (isAnyLocMandatory && excludedLocations.length > 0) {
+      const isExcludedMatch = candLocations.some((loc: any) => {
+        return excludedLocations.some(ex => {
+          if (ex.city_id && loc.current_city_id === ex.city_id) return true;
+          if (!ex.city_id && ex.province_id && loc.current_province_id === ex.province_id) return true;
+          if (!ex.city_id && !ex.province_id && ex.country_id && loc.current_country_id === ex.country_id) return true;
+          return false;
+        });
+      });
+
+      if (isExcludedMatch) {
+        return { passed: false, reason: 'Candidate location is in excluded list (Mandatory)' };
       }
     }
 
-    // Province (EXACT)
-    if (prefs.location.province_importance === 'MANDATORY' && prefs.location.province_id) {
-      const provMatches = candidate.profile_locations?.current_province_id === prefs.location.province_id ||
-        (Array.isArray(candidate.profile_locations) && candidate.profile_locations.some(
-          (loc: any) => loc.current_province_id === prefs.location?.province_id
-        ));
-      if (!provMatches) {
-        return { passed: false, reason: 'Province mismatch (Mandatory)' };
+    // 2. Check INCLUDED locations
+    if (includedLocations.length > 0) {
+      // Country (EXACT IN SET)
+      if (prefs.location.country_importance === 'MANDATORY') {
+        const prefCountryIds = new Set(includedLocations.map(l => l.country_id));
+        const countryMatches = candLocations.some((loc: any) => loc.current_country_id && prefCountryIds.has(loc.current_country_id));
+        if (!countryMatches) {
+          return { passed: false, reason: 'Country mismatch (Mandatory)' };
+        }
       }
-    }
 
-    // City (EXACT)
-    if (prefs.location.city_importance === 'MANDATORY' && prefs.location.city_id) {
-      const cityMatches = candidate.profile_locations?.current_city_id === prefs.location.city_id ||
-        (Array.isArray(candidate.profile_locations) && candidate.profile_locations.some(
-          (loc: any) => loc.current_city_id === prefs.location?.city_id
-        ));
-      if (!cityMatches) {
-        return { passed: false, reason: 'City mismatch (Mandatory)' };
+      // Province (EXACT IN SET)
+      if (prefs.location.province_importance === 'MANDATORY') {
+        const prefProvinceIds = new Set(includedLocations.map(l => l.province_id).filter(Boolean));
+        if (prefProvinceIds.size > 0) {
+          const provMatches = candLocations.some((loc: any) => loc.current_province_id && prefProvinceIds.has(loc.current_province_id));
+          if (!provMatches) {
+            return { passed: false, reason: 'Province mismatch (Mandatory)' };
+          }
+        }
+      }
+
+      // City (EXACT IN SET)
+      if (prefs.location.city_importance === 'MANDATORY') {
+        const prefCityIds = new Set(includedLocations.map(l => l.city_id).filter(Boolean));
+        if (prefCityIds.size > 0) {
+          const cityMatches = candLocations.some((loc: any) => loc.current_city_id && prefCityIds.has(loc.current_city_id));
+          if (!cityMatches) {
+            return { passed: false, reason: 'City mismatch (Mandatory)' };
+          }
+        }
       }
     }
   }

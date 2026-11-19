@@ -463,7 +463,7 @@ function createNewA4Page(
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Subtle top Bismillah centered cleanly
-  drawCenteredRtl(ctx, 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', PAGE_W_MM / 2, 11.5, fontUr(9.5, 500), COLORS.goldMuted);
+  drawCenteredRtl(ctx, 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', PAGE_W_MM / 2, 11.5, fontUr(11, 500), COLORS.goldMuted);
 
   // Brand lockup on top-left using public/nikah_icon.png
   let textStartX = MARGIN_X;
@@ -475,23 +475,23 @@ function createNewA4Page(
     textStartX = MARGIN_X + drawW + 2.8;
   }
 
-  const brandFont = fontEn(15.5, 700);
+  const brandFont = fontEn(16.5, 700);
   drawLtr(ctx, 'nikah ', textStartX, 20.5, brandFont, COLORS.primary);
   const nikahW = measureTextMm(ctx, 'nikah ', brandFont);
   drawLtr(ctx, 'karu', textStartX + nikahW, 20.5, brandFont, COLORS.sage);
 
-  drawLtr(ctx, headerConfig.subtitleEn, textStartX, 25.2, fontEn(8, 500), COLORS.muted);
+  drawLtr(ctx, headerConfig.subtitleEn, textStartX, 25.5, fontEn(9.2, 500), COLORS.muted);
 
   // Right side: Urdu subtitle + Date
-  drawRtl(ctx, headerConfig.subtitleUr, PAGE_W_MM - MARGIN_X, 19.8, fontUr(10, 600), COLORS.primary);
+  drawRtl(ctx, headerConfig.subtitleUr, PAGE_W_MM - MARGIN_X, 19.8, fontUr(11.5, 600), COLORS.primary);
   drawBilingualRightAlignedPair(
     ctx,
     headerConfig.dateEn,
     headerConfig.dateUr,
     PAGE_W_MM - MARGIN_X,
-    25.2,
-    fontEn(8, 500),
-    fontUr(8.5, 500),
+    25.5,
+    fontEn(9.2, 500),
+    fontUr(10, 500),
     COLORS.muted
   );
 
@@ -511,7 +511,7 @@ function stampPageFootersAndExport(pages: CanvasPage[], filename: string): void 
       'nikahkaru.com  •  Confidential Matrimonial Record',
       MARGIN_X,
       FOOTER_TEXT_Y,
-      fontEn(8, 500),
+      fontEn(9, 500),
       COLORS.muted
     );
     drawBilingualRightAlignedPair(
@@ -520,8 +520,8 @@ function stampPageFootersAndExport(pages: CanvasPage[], filename: string): void 
       `صفحہ ${p} از ${total}`,
       PAGE_W_MM - MARGIN_X,
       FOOTER_TEXT_Y,
-      fontEn(8, 500),
-      fontUr(8.5, 500),
+      fontEn(9, 500),
+      fontUr(10, 500),
       COLORS.muted
     );
   });
@@ -555,10 +555,10 @@ interface CellLayout {
   urValLines: string[];
 }
 
-const LABEL_EN_FONT = fontEn(7.5, 600);
-const LABEL_UR_FONT = fontUr(8.8, 600);
-const VAL_EN_FONT = fontEn(10, 600);
-const VAL_UR_FONT = fontUr(10.8, 600);
+const LABEL_EN_FONT = fontEn(9.2, 600);
+const LABEL_UR_FONT = fontUr(10.5, 600);
+const VAL_EN_FONT = fontEn(12, 600);
+const VAL_UR_FONT = fontUr(12.8, 600);
 
 function measureCell(ctx: CanvasRenderingContext2D, cell: CellItem): CellLayout {
   const enLabel = cell.label.en.toUpperCase();
@@ -581,15 +581,15 @@ function measureCell(ctx: CanvasRenderingContext2D, cell: CellItem): CellLayout 
     Boolean(urVal) &&
     (enValLines.length > 1 || urValLines.length > 1 || enSingleW + urSingleW + 4.5 > COL_W);
 
-  const labelBlockH = stackLabels ? 7.8 : 4.2;
-  let valueBlockH = 4.5;
+  const labelBlockH = stackLabels ? 9.2 : 5.0;
+  let valueBlockH = 5.5;
   if (stackValues) {
-    valueBlockH = enValLines.length * 4.5 + 1.0 + urValLines.length * 5.0;
+    valueBlockH = enValLines.length * 5.5 + 1.2 + urValLines.length * 6.0;
   } else {
-    valueBlockH = 4.8;
+    valueBlockH = 5.8;
   }
 
-  const heightMm = 2.0 + labelBlockH + 1.2 + valueBlockH + 2.2;
+  const heightMm = 2.2 + labelBlockH + 1.4 + valueBlockH + 2.5;
 
   return {
     heightMm,
@@ -607,26 +607,26 @@ function drawCell(
   xMm: number,
   topYMm: number
 ): void {
-  let y = topYMm + 4.5;
+  let y = topYMm + 5.0;
 
   // Labels
   drawLtr(ctx, cell.label.en.toUpperCase(), xMm, y, LABEL_EN_FONT, COLORS.muted);
   if (cell.label.ur) {
     if (layout.stackLabels) {
-      y += 3.8;
+      y += 4.5;
     }
     drawRtl(ctx, cell.label.ur, xMm + COL_W, y, LABEL_UR_FONT, COLORS.muted);
   }
 
   // Values
-  y += 4.6;
+  y += 5.5;
   if (layout.stackValues) {
     layout.enValLines.forEach((line, idx) => {
-      drawLtr(ctx, line, xMm, y + idx * 4.5, VAL_EN_FONT, COLORS.ink);
+      drawLtr(ctx, line, xMm, y + idx * 5.5, VAL_EN_FONT, COLORS.ink);
     });
-    const urStartY = y + (layout.enValLines.length - 1) * 4.5 + 5.0;
+    const urStartY = y + (layout.enValLines.length - 1) * 5.5 + 6.0;
     layout.urValLines.forEach((line, idx) => {
-      drawRtl(ctx, line, xMm + COL_W, urStartY + idx * 5.0, VAL_UR_FONT, COLORS.primary);
+      drawRtl(ctx, line, xMm + COL_W, urStartY + idx * 6.0, VAL_UR_FONT, COLORS.primary);
     });
   } else {
     drawLtr(ctx, cell.value.en, xMm, y, VAL_EN_FONT, COLORS.ink);
@@ -645,12 +645,12 @@ function drawSectionHeader(
   const enTitle = isContinuation ? `${title.en} (Cont.)` : title.en;
   const urTitle = isContinuation && title.ur ? `${title.ur} (جاری)` : title.ur;
 
-  drawLtr(ctx, enTitle, MARGIN_X, yMm + 4.5, fontDisplay(13, 700), COLORS.primary);
+  drawLtr(ctx, enTitle, MARGIN_X, yMm + 5.2, fontDisplay(15.5, 700), COLORS.primary);
   if (urTitle) {
-    drawRtl(ctx, urTitle, PAGE_W_MM - MARGIN_X, yMm + 4.5, fontUr(11.5, 700), COLORS.primary);
+    drawRtl(ctx, urTitle, PAGE_W_MM - MARGIN_X, yMm + 5.2, fontUr(13.5, 700), COLORS.primary);
   }
-  drawLineMm(ctx, MARGIN_X, yMm + 6.5, PAGE_W_MM - MARGIN_X, yMm + 6.5, COLORS.primary, 0.35);
-  return yMm + 7.2;
+  drawLineMm(ctx, MARGIN_X, yMm + 7.8, PAGE_W_MM - MARGIN_X, yMm + 7.8, COLORS.primary, 0.35);
+  return yMm + 8.8;
 }
 
 interface SectionRenderInput {
@@ -686,13 +686,13 @@ function drawCandidateBanner(
   }
 
   const label = `${String(banner.index).padStart(2, '0')}.  ${banner.name}`;
-  drawLtr(ctx, label, textX, yMm + 5.8, fontDisplay(15.5, 700), COLORS.primary);
+  drawLtr(ctx, label, textX, yMm + 6.2, fontDisplay(17.5, 700), COLORS.primary);
   drawLtr(
     ctx,
     `Proposal #${banner.index}`,
     textX,
-    yMm + 10.2,
-    fontEn(8, 500),
+    yMm + 11.2,
+    fontEn(9.2, 500),
     COLORS.muted
   );
 
@@ -702,9 +702,9 @@ function drawCandidateBanner(
     banner.scoreEn,
     banner.scoreUr,
     PAGE_W_MM - MARGIN_X,
-    yMm + 5.8,
-    fontEn(9.2, 700),
-    fontUr(9.8, 700),
+    yMm + 6.2,
+    fontEn(10.8, 700),
+    fontUr(11.5, 700),
     COLORS.primary
   );
 
@@ -808,22 +808,22 @@ function drawHeroSummaryColumns(
 
   items.forEach((item, idx) => {
     const x = startX + idx * (itemW + gap);
-    drawLtr(ctx, item.labelEn.toUpperCase(), x, startY + 3.2, fontEn(7.2, 600), COLORS.muted);
-    drawRtl(ctx, item.labelUr, x + itemW, startY + 3.2, fontUr(8.2, 600), COLORS.muted);
+    drawLtr(ctx, item.labelEn.toUpperCase(), x, startY + 3.4, fontEn(8.5, 600), COLORS.muted);
+    drawRtl(ctx, item.labelUr, x + itemW, startY + 3.4, fontUr(9.8, 600), COLORS.muted);
 
-    const enLines = wrapTextMm(ctx, item.valEn, itemW, fontEn(9.5, 600), false);
-    let y = startY + 7.6;
+    const enLines = wrapTextMm(ctx, item.valEn, itemW, fontEn(11, 600), false);
+    let y = startY + 8.5;
     enLines.slice(0, 2).forEach((line, lIdx) => {
-      drawLtr(ctx, line, x, y + lIdx * 4.0, fontEn(9.5, 600), COLORS.ink);
+      drawLtr(ctx, line, x, y + lIdx * 4.8, fontEn(11, 600), COLORS.ink);
     });
-    y += Math.min(enLines.length, 2) * 4.0;
+    y += Math.min(enLines.length, 2) * 4.8;
 
     if (item.valUr) {
-      const urLines = wrapTextMm(ctx, item.valUr, itemW, fontUr(9.5, 600), true);
+      const urLines = wrapTextMm(ctx, item.valUr, itemW, fontUr(11.2, 600), true);
       urLines.slice(0, 2).forEach((line, lIdx) => {
-        drawRtl(ctx, line, x + itemW, y + 0.5 + lIdx * 4.3, fontUr(9.5, 600), COLORS.primary);
+        drawRtl(ctx, line, x + itemW, y + 0.5 + lIdx * 5.0, fontUr(11.2, 600), COLORS.primary);
       });
-      y += 0.5 + Math.min(urLines.length, 2) * 4.3;
+      y += 0.5 + Math.min(urLines.length, 2) * 5.0;
     }
 
     if (y > maxBottomY) maxBottomY = y;
@@ -938,20 +938,20 @@ export async function generateReleasedProfilesPDF(data: {
         ctx,
         `PREPARED FOR  •  ${releases.length} APPROVED PROPOSAL${releases.length === 1 ? '' : 'S'}`,
         MARGIN_X,
-        startY + 3.2,
-        fontEn(7.5, 600),
+        startY + 3.4,
+        fontEn(8.8, 600),
         COLORS.goldMuted
       );
       drawRtl(
         ctx,
         'منتخب رشتوں کی فہرست برائے کلائنٹ',
         PAGE_W_MM - MARGIN_X,
-        startY + 3.2,
-        fontUr(9, 600),
+        startY + 3.4,
+        fontUr(10.5, 600),
         COLORS.goldMuted
       );
 
-      drawLtr(ctx, clientName, MARGIN_X, startY + 10.5, fontDisplay(20, 700), COLORS.primary);
+      drawLtr(ctx, clientName, MARGIN_X, startY + 11.2, fontDisplay(23, 700), COLORS.primary);
 
       const stripEndY = drawHeroSummaryColumns(ctx, MARGIN_X, startY + 13.5, CONTENT_W, [
         { labelEn: 'Contact', labelUr: 'فون نمبر', valEn: clientPhone },
@@ -1087,10 +1087,10 @@ export async function generateSingleProfilePDF(data: {
           : 'CLIENT DOSSIER';
       const eyebrowUr = genderBilingual.ur ? `ذاتی ازدواجی پروفائل (${genderBilingual.ur})` : 'ذاتی ازدواجی پروفائل';
 
-      drawLtr(ctx, eyebrowEn, textStartX, startY + 3.2, fontEn(7.5, 600), COLORS.goldMuted);
-      drawRtl(ctx, eyebrowUr, PAGE_W_MM - MARGIN_X, startY + 3.2, fontUr(9, 600), COLORS.goldMuted);
+      drawLtr(ctx, eyebrowEn, textStartX, startY + 3.4, fontEn(8.8, 600), COLORS.goldMuted);
+      drawRtl(ctx, eyebrowUr, PAGE_W_MM - MARGIN_X, startY + 3.4, fontUr(10.5, 600), COLORS.goldMuted);
 
-      drawLtr(ctx, clientName, textStartX, startY + 10.5, fontDisplay(20.5, 700), COLORS.primary);
+      drawLtr(ctx, clientName, textStartX, startY + 11.2, fontDisplay(23.5, 700), COLORS.primary);
 
       const stripEndY = drawHeroSummaryColumns(ctx, textStartX, startY + 13.5, textAreaW, [
         { labelEn: 'Contact', labelUr: 'فون نمبر', valEn: clientPhone },

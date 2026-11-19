@@ -1015,7 +1015,7 @@ export async function fetchProfileActivePreferences(profileId: string): Promise<
 
   const setId = latestSet.id;
   const [
-    basicReq, physicalReq, eduReq, profReq, relReq, locReq, famReq, lifeReq, relocReq,
+    basicReq, physicalReq, eduReq, profReq, relReq, locReq, famReq, lifeReq, relocReq, prefLocReq, prefRelocReq
   ] = await Promise.all([
     supabase.from('basic_preferences').select('*').eq('preference_set_id', setId).limit(1),
     supabase.from('physical_preferences').select('*').eq('preference_set_id', setId).limit(1),
@@ -1026,6 +1026,8 @@ export async function fetchProfileActivePreferences(profileId: string): Promise<
     supabase.from('family_preferences').select('*').eq('preference_set_id', setId).limit(1),
     supabase.from('lifestyle_preferences').select('*').eq('preference_set_id', setId).limit(1),
     supabase.from('relocation_preferences').select('*').eq('preference_set_id', setId).limit(1),
+    supabase.from('preferred_locations').select('*').eq('preference_set_id', setId),
+    supabase.from('preferred_relocations').select('*').eq('preference_set_id', setId),
   ]);
 
   return {
@@ -1040,9 +1042,11 @@ export async function fetchProfileActivePreferences(profileId: string): Promise<
     profession: profReq.data?.[0] || null,
     religion: relReq.data?.[0] || null,
     location: locReq.data?.[0] || null,
+    preferred_locations: prefLocReq.data || [],
     family: famReq.data?.[0] || null,
     lifestyle: lifeReq.data?.[0] || null,
     relocation: relocReq.data?.[0] || null,
+    preferred_relocations: prefRelocReq.data || [],
   };
 }
 

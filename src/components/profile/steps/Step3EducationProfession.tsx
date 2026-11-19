@@ -193,7 +193,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Occupation <span className="text-red-500">*</span></label>
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Occupation</label>
                 <SearchableSelect
                   value={emp.occupation_id ? String(emp.occupation_id) : ''}
                   onChange={(val) => updateEmp(idx, { occupation_id: val ? Number(val) : undefined })}
@@ -203,7 +203,7 @@ export default function Step3EducationProfession({ data, onChange }: Step3Props)
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Employment Type <span className="text-red-500">*</span></label>
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174]">Employment Type</label>
                 <SearchableSelect
                   value={emp.employment_type || ''}
                   onChange={(val) => updateEmp(idx, { employment_type: val as EmploymentType || undefined })}
