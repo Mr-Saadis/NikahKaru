@@ -235,8 +235,8 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
               type="button"
               onClick={() => set('gender', data.gender === g ? '' : g)}
               className={`flex-1 h-[52px] rounded-[20px] text-[14px] font-semibold border transition-all flex items-center justify-center gap-2 ${data.gender === g
-                  ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md'
-                  : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
+                ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md'
+                : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
                 }`}
             >
               {g === 'MALE' ? (

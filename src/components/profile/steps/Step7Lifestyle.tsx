@@ -43,11 +43,10 @@ function ToggleGroup<T extends string>({
             key={opt.value}
             type="button"
             onClick={() => onChange(value === opt.value ? '' : opt.value)}
-            className={`px-5 py-3 rounded-[20px] text-[13px] font-semibold border transition-all flex-1 text-center ${
-              value === opt.value
+            className={`px-5 py-3 rounded-[20px] text-[13px] font-semibold border transition-all flex-1 text-center ${value === opt.value
                 ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md'
                 : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
-            }`}
+              }`}
           >
             {opt.label}
           </button>

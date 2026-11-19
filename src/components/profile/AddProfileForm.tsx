@@ -60,17 +60,40 @@ const defaultStep6 = (): Step6Data => ({ parents: [], siblings: [], family_profe
 const defaultStep7 = (): Step7Data => ({ beard: '', hijab: '', religious_practice: '', smoking: '', other_lifestyle_information: '', willing_to_relocate: '', preferred_country_id: '', preferred_province_id: '', preferred_city_id: '', relocation_details: '' });
 const defaultStep8 = (): Step8Data => ({ pref_min_age: '', pref_max_age: '', pref_age_importance: '', pref_marital_status: '', pref_marital_importance: '', pref_children_allowed: '', pref_children_importance: '', pref_min_height: '', pref_max_height: '', pref_height_importance: '', pref_min_weight: '', pref_max_weight: '', pref_weight_importance: '', pref_complexion: '', pref_complexion_importance: '', pref_disability_allowed: '', pref_disability_importance: '', pref_beard: '', pref_beard_importance: '', pref_hijab: '', pref_hijab_importance: '', pref_education_level_id: '', pref_education_importance: '', pref_field_of_study: '', pref_field_importance: '', pref_occupation_id: '', pref_occupation_importance: '', pref_employment_type: '', pref_employment_type_importance: '', pref_min_income: '', pref_max_income: '', pref_income_importance: '', pref_religion_id: 1, pref_religion_importance: '', pref_sect_id: '', pref_sect_importance: '', pref_caste_id: '', pref_caste_importance: '', pref_religious_practice: '', pref_religious_practice_importance: '', pref_location_country_importance: '', pref_location_province_importance: '', pref_location_city_importance: '', pref_locations: [], pref_family_setup: '', pref_family_setup_importance: '', pref_living_with: '', pref_living_with_importance: '', pref_parents_status: '', pref_parents_status_importance: '', pref_smoking: '', pref_smoking_importance: '', pref_additional_lifestyle: '', pref_willing_to_relocate_required: '', pref_relocation_importance: '', pref_relocations: [] });
 
+function mergeNonEmptyLocal<T extends Record<string, any>>(
+  dbState: T,
+  localState?: Record<string, any> | null
+): T {
+  if (!localState) return dbState;
+  const next = { ...dbState };
+  for (const key of Object.keys(localState) as Array<keyof T>) {
+    const val = localState[key as string];
+    if (val === undefined || val === null || val === '') continue;
+    if (Array.isArray(val) && val.length === 0) continue;
+    next[key] = val;
+  }
+  return next;
+}
+
+const UNLOADED_SENTINEL = '__UNLOADED__';
+
 export default function AddProfileForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, role } = useAuth();
 
-  const initialProfileId =
+  const urlProfileId =
     searchParams.get('draftId') ||
     searchParams.get('edit') ||
     searchParams.get('profileId');
-  const [profileId, setProfileId] = useState<string | null>(initialProfileId);
-  const isEditingRef = useRef<boolean>(Boolean(searchParams.get('edit')));
+  const urlEditParam = searchParams.get('edit');
+  const urlStepParam = searchParams.get('step');
+
+  const [profileId, setProfileId] = useState<string | null>(urlProfileId);
+  const profileIdRef = useRef<string | null>(urlProfileId);
+  const loadedProfileIdRef = useRef<string | null>(UNLOADED_SENTINEL);
+  const skipReloadForIdRef = useRef<string | null>(null);
+  const isEditingRef = useRef<boolean>(Boolean(urlEditParam));
 
 
 
@@ -80,9 +103,8 @@ export default function AddProfileForm() {
     return `nikahkaru_draft_${userScope}${pid || 'new'}`;
   };
 
-  const initialStepParam = searchParams.get('step');
-  const initialStepNum = initialStepParam
-    ? Math.min(Math.max(1, parseInt(initialStepParam, 10)), 9)
+  const initialStepNum = urlStepParam
+    ? Math.min(Math.max(1, parseInt(urlStepParam, 10)), 9)
     : 1;
   const [currentStep, setCurrentStep] = useState(initialStepNum);
 
@@ -113,10 +135,44 @@ export default function AddProfileForm() {
   // Ref to expose getStepStats to auto-save callback (defined later in component)
   const getStepStatsRef = useRef<((stepId: number) => { completed: number; total: number; mandatoryComplete: boolean }) | null>(null);
 
+  // Sync URL query params (draftId / edit / profileId / step) when navigating while mounted
+  useEffect(() => {
+    if (urlProfileId === profileIdRef.current) return;
+
+    setIsInitialLoadDone(false);
+    loadedProfileIdRef.current = UNLOADED_SENTINEL;
+    setStep1(defaultStep1());
+    setStep2(defaultStep2());
+    setStep3(defaultStep3());
+    setStep4(defaultStep4());
+    setStep5(defaultStep5());
+    setStep6(defaultStep6());
+    setStep7(defaultStep7());
+    setStep8(defaultStep8());
+    setCompletedSteps(new Set());
+    setError(null);
+    setIsConfirmedAccuracy(false);
+
+    isEditingRef.current = Boolean(urlEditParam);
+    setCurrentStep(urlStepParam ? Math.min(Math.max(1, parseInt(urlStepParam, 10)), 9) : 1);
+    profileIdRef.current = urlProfileId;
+    setProfileId(urlProfileId);
+  }, [urlProfileId, urlEditParam, urlStepParam]);
+
   // Initial load recovery — DB + localStorage merge (localStorage = unsaved changes, takes priority)
   useEffect(() => {
     let isMounted = true;
+    profileIdRef.current = profileId;
+
+    if (profileId && skipReloadForIdRef.current === profileId) {
+      skipReloadForIdRef.current = null;
+      loadedProfileIdRef.current = profileId;
+      setIsInitialLoadDone(true);
+      return;
+    }
+
     setIsInitialLoadDone(false);
+    loadedProfileIdRef.current = UNLOADED_SENTINEL;
 
     // Read localStorage data upfront for merge after DB load
     const localKey = getLocalStorageKey(profileId);
@@ -130,10 +186,14 @@ export default function AddProfileForm() {
       const loadDraft = async () => {
         try {
           console.log('loadDraft: Fetching profile for ID', profileId);
-          const profile = await ProfileService.getProfileById(profileId);
+          const [profile, prefs] = await Promise.all([
+            ProfileService.getProfileById(profileId),
+            PreferenceService.getCurrentPreferences(profileId).catch((err) => {
+              console.warn('Failed to load preferences for draft:', err);
+              return null;
+            }),
+          ]);
           console.log('loadDraft: Profile fetched:', profile);
-
-          const prefs = await PreferenceService.getCurrentPreferences(profileId);
 
           if (!isMounted) return;
 
@@ -355,18 +415,18 @@ export default function AddProfileForm() {
             }));
           }
           if (localData) {
-            if (localData.step1) setStep1(prev => ({ ...prev, ...localData.step1 }));
-            if (localData.step2) setStep2(prev => ({ ...prev, ...localData.step2 }));
-            if (localData.step3) setStep3(prev => ({ ...prev, ...localData.step3 }));
-            if (localData.step4) setStep4(prev => ({ ...prev, ...localData.step4 }));
-            if (localData.step5) setStep5(prev => ({ ...prev, ...localData.step5 }));
-            if (localData.step6) setStep6(prev => ({ ...prev, ...localData.step6 }));
-            if (localData.step7) setStep7(prev => ({ ...prev, ...localData.step7 }));
-            if (localData.step8) setStep8(prev => ({ ...prev, ...localData.step8 }));
+            if (localData.step1) setStep1(prev => mergeNonEmptyLocal(prev, localData!.step1));
+            if (localData.step2) setStep2(prev => mergeNonEmptyLocal(prev, localData!.step2));
+            if (localData.step3) setStep3(prev => mergeNonEmptyLocal(prev, localData!.step3));
+            if (localData.step4) setStep4(prev => mergeNonEmptyLocal(prev, localData!.step4));
+            if (localData.step5) setStep5(prev => mergeNonEmptyLocal(prev, localData!.step5));
+            if (localData.step6) setStep6(prev => mergeNonEmptyLocal(prev, localData!.step6));
+            if (localData.step7) setStep7(prev => mergeNonEmptyLocal(prev, localData!.step7));
+            if (localData.step8) setStep8(prev => mergeNonEmptyLocal(prev, localData!.step8));
           }
 
           // Auto-resume to the next step if not explicitly forced via step query param
-          if (!initialStepParam) {
+          if (!urlStepParam) {
             let resumeStep = 1;
             if (profile.personal_information) resumeStep = 2;
             if (profile.physical_information) resumeStep = 3;
@@ -380,20 +440,26 @@ export default function AddProfileForm() {
             }
             setCurrentStep(resumeStep);
           }
-        } catch (e) {
+        } catch (e: any) {
           console.error('Failed to load draft from DB', e);
+          if (isMounted) {
+            setError(e?.message || 'Failed to load saved draft.');
+          }
           if (localData) {
-            if (localData.step1) setStep1(localData.step1);
-            if (localData.step2) setStep2(localData.step2);
-            if (localData.step3) setStep3(localData.step3);
-            if (localData.step4) setStep4(localData.step4);
-            if (localData.step5) setStep5(localData.step5);
-            if (localData.step6) setStep6(localData.step6);
-            if (localData.step7) setStep7(localData.step7);
-            if (localData.step8) setStep8(localData.step8);
+            if (localData.step1) setStep1(prev => mergeNonEmptyLocal(prev, localData!.step1));
+            if (localData.step2) setStep2(prev => mergeNonEmptyLocal(prev, localData!.step2));
+            if (localData.step3) setStep3(prev => mergeNonEmptyLocal(prev, localData!.step3));
+            if (localData.step4) setStep4(prev => mergeNonEmptyLocal(prev, localData!.step4));
+            if (localData.step5) setStep5(prev => mergeNonEmptyLocal(prev, localData!.step5));
+            if (localData.step6) setStep6(prev => mergeNonEmptyLocal(prev, localData!.step6));
+            if (localData.step7) setStep7(prev => mergeNonEmptyLocal(prev, localData!.step7));
+            if (localData.step8) setStep8(prev => mergeNonEmptyLocal(prev, localData!.step8));
           }
         } finally {
-          if (isMounted) setIsInitialLoadDone(true);
+          if (isMounted) {
+            loadedProfileIdRef.current = profileId;
+            setIsInitialLoadDone(true);
+          }
         }
       };
 
@@ -402,36 +468,27 @@ export default function AddProfileForm() {
       // No profileId — new profile, load from localStorage
       if (localData) {
         try {
-          if (localData.step1) setStep1(localData.step1);
-          if (localData.step2) setStep2(localData.step2);
-          if (localData.step3) setStep3(localData.step3);
-          if (localData.step4) setStep4(localData.step4);
-          if (localData.step5) setStep5(localData.step5);
-          if (localData.step6) setStep6(localData.step6);
-          if (localData.step7) setStep7(localData.step7);
-          if (localData.step8) setStep8(localData.step8);
-          if (localData) {
-            if (localData.step1) setStep1(prev => ({ ...prev, ...localData.step1 }));
-            if (localData.step2) setStep2(prev => ({ ...prev, ...localData.step2 }));
-            if (localData.step3) setStep3(prev => ({ ...prev, ...localData.step3 }));
-            if (localData.step4) setStep4(prev => ({ ...prev, ...localData.step4 }));
-            if (localData.step5) setStep5(prev => ({ ...prev, ...localData.step5 }));
-            if (localData.step6) setStep6(prev => ({ ...prev, ...localData.step6 }));
-            if (localData.step7) setStep7(prev => ({ ...prev, ...localData.step7 }));
-            if (localData.step8) setStep8(prev => ({ ...prev, ...localData.step8 }));
-          }
+          if (localData.step1) setStep1(prev => mergeNonEmptyLocal(prev, localData!.step1));
+          if (localData.step2) setStep2(prev => mergeNonEmptyLocal(prev, localData!.step2));
+          if (localData.step3) setStep3(prev => mergeNonEmptyLocal(prev, localData!.step3));
+          if (localData.step4) setStep4(prev => mergeNonEmptyLocal(prev, localData!.step4));
+          if (localData.step5) setStep5(prev => mergeNonEmptyLocal(prev, localData!.step5));
+          if (localData.step6) setStep6(prev => mergeNonEmptyLocal(prev, localData!.step6));
+          if (localData.step7) setStep7(prev => mergeNonEmptyLocal(prev, localData!.step7));
+          if (localData.step8) setStep8(prev => mergeNonEmptyLocal(prev, localData!.step8));
         } catch (e) {
           console.error('Failed to recover from local storage', e);
         }
       }
+      loadedProfileIdRef.current = null;
       setIsInitialLoadDone(true);
     }
     return () => { isMounted = false; };
   }, [profileId]);
 
-  // Instant LocalStorage save on any change (guarded: only after initial load to prevent overwriting unsaved data)
+  // Instant LocalStorage save on any change (guarded: only after initial load for current profileId completes)
   useEffect(() => {
-    if (!isInitialLoadDone) return;
+    if (!isInitialLoadDone || loadedProfileIdRef.current !== profileId) return;
     // Exclude profile_picture_file from local storage to save space
     const dataToSave = { ...formData, currentStep };
     if (dataToSave.step1.profile_picture_file) {
@@ -770,6 +827,9 @@ export default function AddProfileForm() {
           localStorage.removeItem(oldKey);
         }
 
+        profileIdRef.current = pid;
+        loadedProfileIdRef.current = pid;
+        skipReloadForIdRef.current = pid;
         setProfileId(pid);
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);
@@ -837,6 +897,9 @@ export default function AddProfileForm() {
             localStorage.removeItem(oldKey);
           }
 
+          profileIdRef.current = newPid;
+          loadedProfileIdRef.current = newPid;
+          skipReloadForIdRef.current = newPid;
           setProfileId(newPid);
 
           // Update URL for reload safety (without triggering full navigation)
@@ -1624,7 +1687,14 @@ export default function AddProfileForm() {
                   {error}
                 </div>
               )}
-              {renderStep()}
+              {profileId && !isInitialLoadDone ? (
+                <div className="flex items-center justify-center py-20 text-[#7D766C] gap-2.5 text-[13px] font-medium">
+                  <Loader2 size={18} className="animate-spin text-[#064e3b]" />
+                  Loading saved draft...
+                </div>
+              ) : (
+                renderStep()
+              )}
             </div>
 
             {/* Step 9 Accuracy Commitment Checkbox */}

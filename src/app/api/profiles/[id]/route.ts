@@ -28,7 +28,7 @@ export async function GET(
     ] = await Promise.all([
       supabase.from('vw_profile_core').select('*').eq('profile_id', id).single(),
       supabase.from('vw_profile_nested_arrays').select('*').eq('profile_id', id).single(),
-      supabase.from('vw_profile_active_preferences').select('*').eq('profile_id', id).maybeSingle(),
+      supabase.from('vw_profile_active_preferences').select('*').eq('profile_id', id).order('version', { ascending: false }).limit(1),
       supabase.from('personal_information').select('*').eq('profile_id', id).maybeSingle(),
       supabase.from('relocation_information').select('*').eq('profile_id', id).maybeSingle()
     ]);
@@ -52,7 +52,7 @@ export async function GET(
     }
 
     const isManagerOrAdmin = roleName === 'MANAGER' || roleName === 'HIGH_LEVEL_ADMIN';
-    if (!isManagerOrAdmin && coreData.current_agent_id !== user.id) {
+    if (!isManagerOrAdmin && coreData.current_agent_id !== user.id && coreData.created_by !== user.id) {
       return NextResponse.json({ error: 'Unauthorized: Profile not assigned to you' }, { status: 403 });
     }
 

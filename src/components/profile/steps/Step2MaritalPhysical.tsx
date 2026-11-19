@@ -175,11 +175,10 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
                 key={c.value}
                 type="button"
                 onClick={() => set('complexion', isSelected ? '' : c.value)}
-                className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-[20px] text-[12.5px] sm:text-[13px] font-semibold border transition-all text-left min-w-0 ${
-                  isSelected
+                className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-[20px] text-[12.5px] sm:text-[13px] font-semibold border transition-all text-left min-w-0 ${isSelected
                     ? 'bg-[#2F3E51] text-white border-[#2F3E51] shadow-md ring-2 ring-[#064e3b]/30'
                     : 'bg-[#FAF8F5] border-[#8A968C] text-[#4E473D] hover:border-[#064e3b]/50 hover:bg-white shadow-none'
-                }`}
+                  }`}
               >
                 <span
                   className="w-5 h-5 rounded-full border shadow-inner shrink-0 transition-transform group-hover:scale-110"
@@ -208,14 +207,12 @@ export default function Step2MaritalPhysical({ data, onChange }: Step2Props) {
           <button
             type="button"
             onClick={() => set('has_disability', !data.has_disability)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              data.has_disability ? 'bg-[#064e3b]' : 'bg-[#E9E4DC]'
-            }`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${data.has_disability ? 'bg-[#064e3b]' : 'bg-[#E9E4DC]'
+              }`}
           >
             <span
-              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                data.has_disability ? 'translate-x-5' : 'translate-x-0.5'
-              }`}
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.has_disability ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
             />
           </button>
         </div>
