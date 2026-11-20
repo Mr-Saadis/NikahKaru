@@ -281,15 +281,27 @@ export class ProfileService {
    * STEP 3C: Income Information
    */
   static async saveIncomeInfo(profileId: string, data: Partial<IncomeInformation>): Promise<IncomeInformation> {
-    const supabase = createClient();
-    const { data: result, error } = await supabase
-      .from('income_information')
-      .upsert({ ...data, profile_id: profileId }, { onConflict: 'profile_id' })
-      .select()
-      .single();
+    return withProfileLock(`income_information:${profileId}`, async () => {
+      const supabase = createClient();
+      const { data: result, error } = await supabase
+        .from('income_information')
+        .upsert({ ...data, profile_id: profileId }, { onConflict: 'profile_id' })
+        .select()
+        .single();
 
-    if (error) throw error;
-    return result as IncomeInformation;
+      if (error) throw error;
+      return result as IncomeInformation;
+    });
+  }
+
+  static async deleteIncomeInfo(profileId: string): Promise<void> {
+    return withProfileLock(`income_information:${profileId}`, async () => {
+      const { deleteIncomeInfoAction } = await import('@/lib/actions/profiles');
+      const result = await deleteIncomeInfoAction(profileId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to clear income information');
+      }
+    });
   }
 
   /**

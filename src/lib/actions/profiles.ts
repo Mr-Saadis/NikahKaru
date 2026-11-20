@@ -503,3 +503,34 @@ export async function replacePreferenceChildRecordsAction(
   }
 }
 
+export async function deleteIncomeInfoAction(
+  profileId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!profileId) {
+      return { success: false, error: 'Profile ID is required.' };
+    }
+
+    const auth = await authorizeProfileWrite(profileId);
+    if (!auth.ok) {
+      return { success: false, error: auth.error };
+    }
+
+    return await withServerLock(`income_information:${profileId}`, async () => {
+      const { error } = await auth.adminClient
+        .from('income_information')
+        .delete()
+        .eq('profile_id', profileId);
+
+      if (error) {
+        return { success: false, error: `Failed to clear income_information: ${error.message}` };
+      }
+
+      return { success: true };
+    });
+  } catch (err: any) {
+    console.error(`Error clearing income_information for profile ${profileId}:`, err);
+    return { success: false, error: err?.message || 'Failed to clear income information' };
+  }
+}
+

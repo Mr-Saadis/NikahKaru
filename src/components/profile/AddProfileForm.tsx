@@ -664,6 +664,7 @@ export default function AddProfileForm() {
       const tasks = [];
 
       if (dirtyKeys.includes('step1') && cnicStatusRef.current !== 'duplicate') {
+        const isNeverMarried = !data.step1.marital_status || data.step1.marital_status === 'NEVER_MARRIED';
         tasks.push(ProfileService.savePersonalInfo(pid, {
           full_name: data.step1.full_name,
           cnic: data.step1.cnic || null,
@@ -673,22 +674,34 @@ export default function AddProfileForm() {
           nationality_country_id: data.step1.nationality_country_id ? Number(data.step1.nationality_country_id) : null,
           multiple_nationality: Boolean(data.step1.multiple_nationality),
           mother_tongue_id: data.step1.mother_tongue_id ? Number(data.step1.mother_tongue_id) : null,
-          number_of_children: data.step1.number_of_children ? Number(data.step1.number_of_children) : 0,
+          number_of_children: isNeverMarried ? 0 : (data.step1.number_of_children ? Number(data.step1.number_of_children) : 0),
         }));
-        if (data.step1.marital_status && data.step1.marital_status !== 'NEVER_MARRIED') {
-          tasks.push(ProfileService.saveChildren(pid, data.step1.children.map(({ _tempId, ...rest }) => ({
-            ...rest,
-            age: rest.age ? Number(rest.age) : null,
-            living_with_profile: rest.living_with_profile === 'YES'
-          }))));
-          tasks.push(ProfileService.savePreviousMarriages(pid, data.step1.previous_marriages.map(({ _tempId, ...rest }) => ({
-            ...rest,
-            marriage_year: rest.marriage_year ? Number(rest.marriage_year) : null,
-            end_year: rest.end_year ? Number(rest.end_year) : null,
-            children_count: rest.children_count ? Number(rest.children_count) : 0,
-            children_live_with_profile: rest.children_live_with_profile === 'YES'
-          }))));
-        }
+        tasks.push(
+          ProfileService.saveChildren(
+            pid,
+            isNeverMarried
+              ? []
+              : data.step1.children.map(({ _tempId, ...rest }) => ({
+                  ...rest,
+                  age: rest.age ? Number(rest.age) : null,
+                  living_with_profile: rest.living_with_profile === 'YES',
+                }))
+          )
+        );
+        tasks.push(
+          ProfileService.savePreviousMarriages(
+            pid,
+            isNeverMarried
+              ? []
+              : data.step1.previous_marriages.map(({ _tempId, ...rest }) => ({
+                  ...rest,
+                  marriage_year: rest.marriage_year ? Number(rest.marriage_year) : null,
+                  end_year: rest.end_year ? Number(rest.end_year) : null,
+                  children_count: rest.children_count ? Number(rest.children_count) : 0,
+                  children_live_with_profile: rest.children_live_with_profile === 'YES',
+                }))
+          )
+        );
       }
 
       if (dirtyKeys.includes('step2')) {
@@ -708,13 +721,17 @@ export default function AddProfileForm() {
         tasks.push(ProfileService.saveEducationRecords(pid, validEdus));
         const validEmps = data.step3.employment_records.filter(e => e.occupation_id || e.employment_type || e.job_title?.trim() || e.organization_name?.trim() || e.details?.trim()).map(({ _tempId, ...rest }) => rest);
         tasks.push(ProfileService.saveEmploymentRecords(pid, validEmps));
-        if (data.step3.monthly_income_min || data.step3.monthly_income_max) {
+        const hasMinIncome = data.step3.monthly_income_min !== '' && data.step3.monthly_income_min != null;
+        const hasMaxIncome = data.step3.monthly_income_max !== '' && data.step3.monthly_income_max != null;
+        if (hasMinIncome || hasMaxIncome) {
           tasks.push(ProfileService.saveIncomeInfo(pid, {
-            monthly_income_min: data.step3.monthly_income_min ? Number(data.step3.monthly_income_min) : null,
-            monthly_income_max: data.step3.monthly_income_max ? Number(data.step3.monthly_income_max) : null,
+            monthly_income_min: hasMinIncome ? Number(data.step3.monthly_income_min) : null,
+            monthly_income_max: hasMaxIncome ? Number(data.step3.monthly_income_max) : null,
             currency_code: 'PKR',
             income_period: 'MONTHLY',
           }));
+        } else {
+          tasks.push(ProfileService.deleteIncomeInfo(pid));
         }
       }
 
@@ -1410,6 +1427,7 @@ export default function AddProfileForm() {
       // Profile picture upload is now handled immediately in handleImageUpload
 
       // 2. Save each section in parallel where possible
+      const isNeverMarried = !step1.marital_status || step1.marital_status === 'NEVER_MARRIED';
       await ProfileService.savePersonalInfo(pid, {
         full_name: step1.full_name,
         cnic: step1.cnic || null,
@@ -1419,30 +1437,32 @@ export default function AddProfileForm() {
         nationality_country_id: step1.nationality_country_id ? Number(step1.nationality_country_id) : null,
         multiple_nationality: Boolean(step1.multiple_nationality),
         mother_tongue_id: step1.mother_tongue_id ? Number(step1.mother_tongue_id) : null,
-        number_of_children: step1.number_of_children ? Number(step1.number_of_children) : 0,
+        number_of_children: isNeverMarried ? 0 : (step1.number_of_children ? Number(step1.number_of_children) : 0),
       });
 
-      if (step1.children?.length) {
-        await ProfileService.saveChildren(pid, step1.children.map(({ _tempId, ...rest }: any) => ({
-          ...rest,
-          age: rest.age ? Number(rest.age) : null,
-          living_with_profile: rest.living_with_profile === 'YES'
-        })));
-      } else if (step1.marital_status === 'NEVER_MARRIED') {
-        await ProfileService.saveChildren(pid, []);
-      }
+      await ProfileService.saveChildren(
+        pid,
+        isNeverMarried
+          ? []
+          : (step1.children || []).map(({ _tempId, ...rest }: any) => ({
+              ...rest,
+              age: rest.age ? Number(rest.age) : null,
+              living_with_profile: rest.living_with_profile === 'YES',
+            }))
+      );
 
-      if (step1.previous_marriages?.length) {
-        await ProfileService.savePreviousMarriages(pid, step1.previous_marriages.map(({ _tempId, ...rest }: any) => ({
-          ...rest,
-          marriage_year: rest.marriage_year ? Number(rest.marriage_year) : null,
-          end_year: rest.end_year ? Number(rest.end_year) : null,
-          children_count: rest.children_count ? Number(rest.children_count) : 0,
-          children_live_with_profile: rest.children_live_with_profile === 'YES'
-        })));
-      } else if (step1.marital_status === 'NEVER_MARRIED') {
-        await ProfileService.savePreviousMarriages(pid, []);
-      }
+      await ProfileService.savePreviousMarriages(
+        pid,
+        isNeverMarried
+          ? []
+          : (step1.previous_marriages || []).map(({ _tempId, ...rest }: any) => ({
+              ...rest,
+              marriage_year: rest.marriage_year ? Number(rest.marriage_year) : null,
+              end_year: rest.end_year ? Number(rest.end_year) : null,
+              children_count: rest.children_count ? Number(rest.children_count) : 0,
+              children_live_with_profile: rest.children_live_with_profile === 'YES',
+            }))
+      );
 
       const isCurrentPak = Number(step5.current_country_id) === 131;
       const isPermPak = Number(step5.permanent_country_id) === 131;
@@ -1525,13 +1545,17 @@ export default function AddProfileForm() {
         throw new Error(`Save failed for ${saveFailures.length} section(s): ${details}`);
       }
 
-      if (step3.monthly_income_min || step3.monthly_income_max) {
+      const hasMinIncome = step3.monthly_income_min !== '' && step3.monthly_income_min != null;
+      const hasMaxIncome = step3.monthly_income_max !== '' && step3.monthly_income_max != null;
+      if (hasMinIncome || hasMaxIncome) {
         await ProfileService.saveIncomeInfo(pid, {
-          monthly_income_min: step3.monthly_income_min ? Number(step3.monthly_income_min) : null,
-          monthly_income_max: step3.monthly_income_max ? Number(step3.monthly_income_max) : null,
+          monthly_income_min: hasMinIncome ? Number(step3.monthly_income_min) : null,
+          monthly_income_max: hasMaxIncome ? Number(step3.monthly_income_max) : null,
           currency_code: 'PKR',
           income_period: 'MONTHLY',
         });
+      } else {
+        await ProfileService.deleteIncomeInfo(pid);
       }
 
       // 3. Save Preferences
