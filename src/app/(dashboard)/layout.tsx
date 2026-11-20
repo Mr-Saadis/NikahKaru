@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Monitor } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
 import ReferenceDataProvider from '@/components/providers/ReferenceDataProvider';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 export default function DashboardLayout({
   children,
@@ -12,12 +14,29 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { isAuthenticated, isInitialized } = useAuth();
   const isOverview = pathname === '/overview' || pathname === '/';
+
+  useEffect(() => {
+    if (isInitialized && !isAuthenticated) {
+      window.location.replace('/login');
+    }
+  }, [isInitialized, isAuthenticated]);
   
   // Extract the active page id for the sidebar (e.g. /overview -> overview, /admin/users -> admin-users)
   const activePage = pathname.split('/')[1] === 'admin' 
     ? `admin-${pathname.split('/')[2]}` 
     : pathname.split('/')[1] || 'overview';
+
+  if (isInitialized && !isAuthenticated) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#FAF8F5]">
+        <div className="text-[#7D766C] text-xs font-semibold uppercase tracking-wider">
+          Redirecting to login...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ReferenceDataProvider>

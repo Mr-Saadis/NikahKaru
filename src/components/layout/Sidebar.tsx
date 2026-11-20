@@ -270,19 +270,23 @@ export default function Sidebar({ activePage }: SidebarProps) {
     setMobileOpen(false);
   }, [pathname]);
 
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    useAuthStore.getState().clearSession();
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
     try {
-      const { useNotificationStore } = await import('@/lib/stores/notification-store');
-      const { useDashboardCacheStore } = await import('@/lib/stores/dashboard-cache-store');
-      useNotificationStore.getState().reset();
-      useDashboardCacheStore.getState().clearAll();
+      const supabase = createClient();
+      await Promise.allSettled([
+        supabase.auth.signOut(),
+        import('@/lib/stores/notification-store').then((m) => m.useNotificationStore.getState().reset()),
+        import('@/lib/stores/dashboard-cache-store').then((m) => m.useDashboardCacheStore.getState().clearAll()),
+      ]);
+      useAuthStore.getState().clearSession();
     } catch {
       // Ignore cleanup error on logout
     }
-    window.location.href = '/login';
+    window.location.replace('/login');
   };
 
   const visible = navItems.filter(i => role && i.roles.includes(role));
@@ -291,6 +295,14 @@ export default function Sidebar({ activePage }: SidebarProps) {
     : 'U';
   return (
     <TooltipProvider delay={150}>
+      {isLoggingOut && (
+        <div className="fixed inset-0 z-[9999] bg-[#FAF8F5] flex flex-col items-center justify-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[#064e3b] border-t-transparent animate-spin" />
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#7D766C]">
+            Signing out...
+          </p>
+        </div>
+      )}
       {/* ─── DESKTOP SIDEBAR (visible on md+) ─── */}
       <div className="hidden md:block h-full shrink-0">
         <div

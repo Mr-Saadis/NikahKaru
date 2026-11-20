@@ -7,9 +7,9 @@ import StaffOverview from '@/components/dashboard/StaffOverview';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 export default function OverviewPage() {
-  const { role, isLoading, isInitialized } = useAuth();
+  const { role, isAuthenticated, isLoading, isInitialized } = useAuth();
 
-  if (isLoading || !isInitialized) {
+  if (isLoading || !isInitialized || !isAuthenticated || !role) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[400px]">
         <div className="text-[#7D766C] text-xs font-semibold uppercase tracking-wider">
@@ -24,7 +24,7 @@ export default function OverviewPage() {
       <div className="px-0 py-2 sm:px-5 sm:py-5 md:px-6 md:py-6 w-full min-w-0 overflow-x-hidden">
         {role === 'HIGH_LEVEL_ADMIN' && <AdminOverview />}
         {role === 'MANAGER' && <ManagerOverview />}
-        {(role === 'AGENT' || !role) && <StaffOverview />}
+        {role === 'AGENT' && <StaffOverview />}
       </div>
     </div>
   );

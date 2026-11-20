@@ -7,6 +7,8 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isLoginRoute = pathname.startsWith('/login');
+  const isUpdatePasswordRoute = pathname.startsWith('/update-password');
+  const isAuthCallbackRoute = pathname.startsWith('/auth/callback');
   const isApiRoute = pathname.startsWith('/api');
 
   // Helper to preserve updated session cookies during redirects
@@ -36,8 +38,8 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // 4. Protect all private routes (if NOT logged in, and NOT on login/api route -> redirect to login)
-  if (!user && !isLoginRoute && !isApiRoute) {
+  // 4. Protect all private routes (if NOT logged in, and NOT on public auth/api route -> redirect to login)
+  if (!user && !isLoginRoute && !isUpdatePasswordRoute && !isAuthCallbackRoute && !isApiRoute) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirectTo', pathname);
     return createRedirect(loginUrl.toString());
