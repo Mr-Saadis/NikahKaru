@@ -35,86 +35,22 @@ export default function DemographicsChart({ demographics }: DemographicsChartPro
     y: number;
   } | null>(null);
 
-  // Fallback data if live DB has limited entries so UI always feels complete and informative
   const activeItems = useMemo(() => {
     if (!demographics) return [];
 
     switch (activeFilter) {
-      case 'OCCUPATION': {
-        const list = demographics.occupations || [];
-        return list.length > 0
-          ? list
-          : [
-              { id: '1', name: 'Software Engineer & IT', total: 18, male: 14, female: 4 },
-              { id: '2', name: 'Doctor & Healthcare (MBBS/FCPS)', total: 14, male: 4, female: 10 },
-              { id: '3', name: 'Business Owner & Trading', total: 12, male: 11, female: 1 },
-              { id: '4', name: 'Civil Servant & Govt Officer', total: 8, male: 6, female: 2 },
-              { id: '5', name: 'Finance & Chartered Accountant', total: 7, male: 5, female: 2 },
-              { id: '6', name: 'Education & University Lecturer', total: 6, male: 2, female: 4 },
-            ];
-      }
-      case 'EDUCATION': {
-        const list = demographics.educations || [];
-        return list.length > 0
-          ? list
-          : [
-              { id: '1', name: "Bachelor's (16-year BS, BE, BBA)", total: 32, male: 18, female: 14 },
-              { id: '2', name: "Master's (MS, M.Phil, MBA)", total: 16, male: 7, female: 9 },
-              { id: '3', name: 'MBBS / BDS / Medical Specialist', total: 11, male: 3, female: 8 },
-              { id: '4', name: 'Doctorate / PhD', total: 4, male: 3, female: 1 },
-              { id: '5', name: 'Intermediate / HSSC', total: 5, male: 3, female: 2 },
-            ];
-      }
-      case 'LOCATION': {
-        if (locationView === 'PROVINCE') {
-          const list = demographics.locationsProvince || [];
-          return list.length > 0
-            ? list
-            : [
-                { id: '1', name: 'Punjab (Lahore, Rawalpindi, Faisalabad)', total: 42, male: 22, female: 20 },
-                { id: '2', name: 'Sindh (Karachi, Hyderabad)', total: 18, male: 10, female: 8 },
-                { id: '3', name: 'Islamabad Capital Territory', total: 12, male: 7, female: 5 },
-                { id: '4', name: 'Khyber Pakhtunkhwa (Peshawar)', total: 8, male: 5, female: 3 },
-                { id: '5', name: 'Azad Kashmir & Overseas Diaspora', total: 5, male: 3, female: 2 },
-              ];
-        } else {
-          const list = demographics.locationsCountry || [];
-          return list.length > 0
-            ? list
-            : [
-                { id: '1', name: 'Pakistan', total: 52, male: 28, female: 24 },
-                { id: '2', name: 'United Kingdom', total: 9, male: 5, female: 4 },
-                { id: '3', name: 'United Arab Emirates', total: 8, male: 6, female: 2 },
-                { id: '4', name: 'United States', total: 6, male: 3, female: 3 },
-                { id: '5', name: 'Canada', total: 4, male: 2, female: 2 },
-                { id: '6', name: 'Saudi Arabia', total: 3, male: 2, female: 1 },
-              ];
-        }
-      }
-      case 'SECT': {
-        const list = demographics.sects || [];
-        return list.length > 0
-          ? list
-          : [
-              { id: '1', name: 'Sunni (Hanafi / General)', total: 38, male: 20, female: 18 },
-              { id: '2', name: 'Ahl-e-Hadith / Salafi', total: 12, male: 6, female: 6 },
-              { id: '3', name: 'Deobandi', total: 9, male: 5, female: 4 },
-              { id: '4', name: 'Barelvi', total: 8, male: 4, female: 4 },
-              { id: '5', name: 'Shia (Ithna Ashari)', total: 7, male: 4, female: 3 },
-            ];
-      }
-      case 'INCOME': {
-        const list = demographics.incomes || [];
-        return list.length > 0
-          ? list
-          : [
-              { id: '1', name: '500k+ PKR / Month', total: 11, male: 9, female: 2 },
-              { id: '2', name: '250k - 500k PKR', total: 16, male: 11, female: 5 },
-              { id: '3', name: '100k - 250k PKR', total: 24, male: 14, female: 10 },
-              { id: '4', name: '50k - 100k PKR', total: 15, male: 5, female: 10 },
-              { id: '5', name: 'Under 50k / Dependent', total: 8, male: 2, female: 6 },
-            ];
-      }
+      case 'OCCUPATION':
+        return demographics.occupations || [];
+      case 'EDUCATION':
+        return demographics.educations || [];
+      case 'LOCATION':
+        return locationView === 'PROVINCE'
+          ? demographics.locationsProvince || []
+          : demographics.locationsCountry || [];
+      case 'SECT':
+        return demographics.sects || [];
+      case 'INCOME':
+        return demographics.incomes || [];
       default:
         return [];
     }
@@ -343,6 +279,16 @@ export default function DemographicsChart({ demographics }: DemographicsChartPro
         )}
 
         {/* The Bars List */}
+        {activeItems.length === 0 ? (
+          <div className="py-12 text-center rounded-[18px] bg-[#FAF8F5] border border-dashed border-[#E5DFD3]">
+            <p className="text-[13px] font-semibold text-[#5C5449]">
+              No real profile data recorded for this category yet.
+            </p>
+            <p className="text-[11.5px] text-[#8D867C] mt-1">
+              Counts appear here automatically once active profiles include this detail.
+            </p>
+          </div>
+        ) : (
         <div className="space-y-3 pt-1 max-h-[460px] overflow-y-auto pr-1">
           {activeItems.map((item, index) => {
             const barWidthPct = maxTotal > 0 ? (item.total / maxTotal) * 100 : 0;
@@ -417,6 +363,7 @@ export default function DemographicsChart({ demographics }: DemographicsChartPro
             );
           })}
         </div>
+        )}
         </div>
       </div>
 
