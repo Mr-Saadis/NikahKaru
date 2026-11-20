@@ -1,7 +1,7 @@
 'use client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Plus, Trash2, Camera, User, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Camera, User, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useRef, useState, useEffect } from 'react';
 import { compressImage } from '@/lib/imageUtils';
 
@@ -32,6 +32,8 @@ interface Step1Props {
   onChange: (data: Step1Data) => void;
   onImageUpload?: (compressedFile: File, previewDataUrl: string) => void;
   isUploadingImage?: boolean;
+  cnicStatus?: 'idle' | 'checking' | 'available' | 'duplicate' | 'error';
+  duplicateCnicInfo?: { full_name: string; status: string | null } | null;
 }
 
 const MARITAL_OPTIONS: { value: MaritalStatus; label: string }[] = [
@@ -44,7 +46,14 @@ const MARITAL_OPTIONS: { value: MaritalStatus; label: string }[] = [
 
 export type { Step1Data };
 
-export default function Step1BasicInfo({ data, onChange, onImageUpload, isUploadingImage }: Step1Props) {
+export default function Step1BasicInfo({
+  data,
+  onChange,
+  onImageUpload,
+  isUploadingImage,
+  cnicStatus = 'idle',
+  duplicateCnicInfo = null,
+}: Step1Props) {
   const { countries, motherTongues } = useReferenceData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -197,20 +206,54 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            CNIC Number
+            CNIC Number <span className="text-red-500">*</span>
           </label>
-          <input
-            type="text"
-            value={data.cnic || ''}
-            maxLength={15}
-            onChange={handleCNICChange}
-            placeholder="00000-0000000-0"
-            className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={data.cnic || ''}
+              maxLength={15}
+              onChange={handleCNICChange}
+              placeholder="00000-0000000-0"
+              className={`w-full h-[52px] rounded-[20px] pl-5 pr-11 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:outline-none transition-all shadow-none border ${
+                cnicStatus === 'duplicate'
+                  ? 'bg-red-50/40 border-red-500 focus:bg-white focus:border-red-600 focus:ring-1 focus:ring-red-500/20'
+                  : 'bg-[#FAF8F5] border-[#8A968C] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 hover:border-[#064e3b]/50'
+              }`}
+            />
+            {cnicStatus === 'checking' && (
+              <Loader2 className="w-4 h-4 text-[#7D766C] animate-spin absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            )}
+            {cnicStatus === 'available' && (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            )}
+            {cnicStatus === 'duplicate' && (
+              <AlertCircle className="w-4 h-4 text-red-600 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            )}
+          </div>
+          {cnicStatus === 'duplicate' && duplicateCnicInfo && (
+            <p className="text-[11.5px] font-semibold text-red-600 leading-snug">
+              A profile already exists on this CNIC ({duplicateCnicInfo.full_name}
+              {duplicateCnicInfo.status ? ` — ${duplicateCnicInfo.status}` : ''}).
+            </p>
+          )}
+          {cnicStatus === 'available' && (
+            <p className="text-[11px] font-medium text-emerald-700">
+              CNIC verified — available.
+            </p>
+          )}
+          {(() => {
+            const len = (data.cnic || '').replace(/\D/g, '').length;
+            return len > 0 && len < 13 ? (
+              <p className="text-[11px] text-[#8A8276]">
+                Enter complete 13-digit CNIC (00000-0000000-0)
+              </p>
+            ) : null;
+          })()}
         </div>
         <div className="space-y-2">
           <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-            Phone Number
+            Phone Number <span className="text-red-500">*</span>
           </label>
           <input
             type="tel"
@@ -220,6 +263,14 @@ export default function Step1BasicInfo({ data, onChange, onImageUpload, isUpload
             placeholder="+92 300 0000000"
             className="w-full h-[52px] bg-[#FAF8F5] border border-[#8A968C] rounded-[20px] px-5 py-3.5 text-[14px] text-[#2F3E51] placeholder:text-[#94A3B8] focus:bg-white focus:border-[#064e3b] focus:ring-1 focus:ring-[#064e3b]/20 focus:outline-none transition-all hover:border-[#064e3b]/50 shadow-none"
           />
+          {(() => {
+            const len = (data.phone || '').replace(/\D/g, '').length;
+            return len > 0 && len < 10 ? (
+              <p className="text-[11px] text-[#8A8276]">
+                Enter a valid phone number (at least 10 digits)
+              </p>
+            ) : null;
+          })()}
         </div>
       </div>
 

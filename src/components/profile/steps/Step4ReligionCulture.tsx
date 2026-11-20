@@ -75,7 +75,7 @@ export default function Step4ReligionCulture({ data, onChange }: Step4Props) {
             value={data.caste_id ? String(data.caste_id) : ''}
             onChange={(val) => set('caste_id', val ? Number(val) : '')}
             options={castes.map(c => ({ label: c.name_en, value: String(c.id) }))}
-            placeholder="Select caste (optional)"
+            placeholder="Select caste"
             className=""
           />
         </div>

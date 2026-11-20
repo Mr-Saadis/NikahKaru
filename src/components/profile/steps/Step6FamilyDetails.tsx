@@ -99,7 +99,7 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
       {/* Parents */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h4 className="text-[13px] font-bold text-[#232326]">Parents <span className="text-red-500">*</span></h4>
+          <h4 className="text-[13px] font-bold text-[#232326]">Parents</h4>
           <div className="flex gap-2">
             {!hasFather && (
               <button type="button" onClick={() => addParent('FATHER')}
@@ -143,12 +143,12 @@ export default function Step6FamilyDetails({ data, onChange }: Step6Props) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
-              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Full Name {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
+              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Full Name</label>
                 <input type="text" maxLength={100} value={parent.full_name} onChange={(e) => {
                   if (/^[A-Za-z\s]*$/.test(e.target.value)) updateParent(idx, { full_name: e.target.value });
                 }} placeholder="Name" className={inputClass} /></div>
 
-              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession {parent.status !== 'DECEASED' && <span className="text-red-500">*</span>}</label>
+              <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Profession</label>
                 <input type="text" maxLength={100} value={parent.profession} onChange={(e) => updateParent(idx, { profession: e.target.value })} placeholder="e.g. Retired" className={inputClass} /></div>
 
               <div><label className="block text-[10px] uppercase font-bold tracking-wider text-[#888174] mb-1.5">Country</label>

@@ -226,7 +226,7 @@ export default function Step5LocationResidency({ data, onChange }: Step5Props) {
         {data.living_with === 'OTHER' && (
           <div className="space-y-2 col-span-2">
             <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156]">
-              Please Specify <span className="text-red-500">*</span>
+              Please Specify
             </label>
             <input
               type="text"

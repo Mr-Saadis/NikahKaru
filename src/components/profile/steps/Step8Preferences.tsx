@@ -488,10 +488,10 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
             onMin={(v) => set('pref_min_age', v)} onMax={(v) => set('pref_max_age', v)} suffix="yrs" />
         )}
 
-        <ImportanceRow label={<>Marital Status Importance <span className="text-red-500">*</span></>} value={data.pref_marital_importance} onChange={(v) => handleImportanceChange('pref_marital_importance', v, ['pref_marital_status', 'pref_children_allowed', 'pref_children_importance'])} />
+        <ImportanceRow label="Marital Status Importance" value={data.pref_marital_importance} onChange={(v) => handleImportanceChange('pref_marital_importance', v, ['pref_marital_status', 'pref_children_allowed', 'pref_children_importance'])} />
         {data.pref_marital_importance !== DOESNT_MATTER_VALUE && (
           <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Marital Status <span className="text-red-500">*</span></span>
+            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Marital Status</span>
             <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_marital_status || ''}
@@ -514,10 +514,10 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
 
         {data.pref_marital_importance !== DOESNT_MATTER_VALUE && ['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(data.pref_marital_status as string) && (
           <>
-            <ImportanceRow label={<>Children Importance <span className="text-red-500">*</span></>} value={data.pref_children_importance} onChange={(v) => handleImportanceChange('pref_children_importance', v, ['pref_children_allowed'])} />
+            <ImportanceRow label="Children Importance" value={data.pref_children_importance} onChange={(v) => handleImportanceChange('pref_children_importance', v, ['pref_children_allowed'])} />
             {data.pref_children_importance !== DOESNT_MATTER_VALUE && (
               <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
-                <span className="text-[12px] font-medium text-[#4E473D] flex-1">Children Allowed <span className="text-red-500">*</span></span>
+                <span className="text-[12px] font-medium text-[#4E473D] flex-1">Children Allowed</span>
                 <div className="flex gap-1.5">
                   {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
                     <button key={v} type="button" onClick={() => set('pref_children_allowed', data.pref_children_allowed === v ? '' : v as YesNo)}
@@ -560,10 +560,10 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
           </div>
         )}
         
-        <ImportanceRow label={<>Disability Importance <span className="text-red-500">*</span></>} value={data.pref_disability_importance} onChange={(v) => handleImportanceChange('pref_disability_importance', v, ['pref_disability_allowed'])} />
+        <ImportanceRow label="Disability Importance" value={data.pref_disability_importance} onChange={(v) => handleImportanceChange('pref_disability_importance', v, ['pref_disability_allowed'])} />
         {data.pref_disability_importance !== DOESNT_MATTER_VALUE && (
           <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Disability Allowed <span className="text-red-500">*</span></span>
+            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Disability Allowed</span>
             <div className="flex gap-1.5">
               {[['YES', 'Yes'], ['NO', 'No']].map(([v, l]) => (
                 <button key={v} type="button" onClick={() => set('pref_disability_allowed', data.pref_disability_allowed === v ? '' : v as YesNo)}
@@ -717,10 +717,10 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
             )}
           </>
         )}
-        <ImportanceRow label={<>Caste Importance <span className="text-red-500">*</span></>} value={data.pref_caste_importance} onChange={(v) => handleImportanceChange('pref_caste_importance', v, ['pref_caste_id'])} />
+        <ImportanceRow label="Caste Importance" value={data.pref_caste_importance} onChange={(v) => handleImportanceChange('pref_caste_importance', v, ['pref_caste_id'])} />
         {data.pref_caste_importance !== DOESNT_MATTER_VALUE && (
           <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Caste <span className="text-red-500">*</span></span>
+            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Caste</span>
             <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_caste_id ? String(data.pref_caste_id) : ''}
@@ -732,10 +732,10 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
             </div>
           </div>
         )}
-        <ImportanceRow label={<>Practice Importance <span className="text-red-500">*</span></>} value={data.pref_religious_practice_importance} onChange={(v) => handleImportanceChange('pref_religious_practice_importance', v, ['pref_religious_practice'])} />
+        <ImportanceRow label="Practice Importance" value={data.pref_religious_practice_importance} onChange={(v) => handleImportanceChange('pref_religious_practice_importance', v, ['pref_religious_practice'])} />
         {data.pref_religious_practice_importance !== DOESNT_MATTER_VALUE && (
           <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religious Practice <span className="text-red-500">*</span></span>
+            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Religious Practice</span>
             <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_religious_practice || ''}
@@ -1172,10 +1172,10 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
 
       {/* Family */}
       <SectionCard title="Family Preferences">
-        <ImportanceRow label={<>Family Setup Importance <span className="text-red-500">*</span></>} value={data.pref_family_setup_importance} onChange={(v) => handleImportanceChange('pref_family_setup_importance', v, ['pref_family_setup'])} />
+        <ImportanceRow label="Family Setup Importance" value={data.pref_family_setup_importance} onChange={(v) => handleImportanceChange('pref_family_setup_importance', v, ['pref_family_setup'])} />
         {data.pref_family_setup_importance !== DOESNT_MATTER_VALUE && (
           <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Family Setup <span className="text-red-500">*</span></span>
+            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Family Setup</span>
             <div className="flex gap-1.5">
               {[['JOINT', 'Joint'], ['SEPARATE', 'Separate']].map(([v, l]) => (
                 <button key={v} type="button" onClick={() => set('pref_family_setup', data.pref_family_setup === v ? '' : v as FamilySetup)}
@@ -1220,10 +1220,10 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
 
       {/* Lifestyle pref */}
       <SectionCard title="Lifestyle">
-        <ImportanceRow label={<>Smoking Importance <span className="text-red-500">*</span></>} value={data.pref_smoking_importance} onChange={(v) => handleImportanceChange('pref_smoking_importance', v, ['pref_smoking'])} />
+        <ImportanceRow label="Smoking Importance" value={data.pref_smoking_importance} onChange={(v) => handleImportanceChange('pref_smoking_importance', v, ['pref_smoking'])} />
         {data.pref_smoking_importance !== DOESNT_MATTER_VALUE && (
           <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 py-2">
-            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Smoking Preference <span className="text-red-500">*</span></span>
+            <span className="text-[12px] font-medium text-[#4E473D] flex-1">Smoking Preference</span>
             <div className="flex gap-1.5">
               {[['NO', 'Non-smoker'], ['YES', 'Smoker'], ['OCCASIONALLY', 'Occasional']].map(([v, l]) => (
                 <button key={v} type="button" onClick={() => set('pref_smoking', data.pref_smoking === v ? '' : v as SmokingStatus)}

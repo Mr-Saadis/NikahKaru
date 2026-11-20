@@ -77,6 +77,12 @@ function mergeNonEmptyLocal<T extends Record<string, any>>(
 
 const UNLOADED_SENTINEL = '__UNLOADED__';
 
+const isValidCnic = (cnic?: string): boolean => (cnic || '').replace(/\D/g, '').length === 13;
+const isValidPhone = (phone?: string): boolean => (phone || '').replace(/\D/g, '').length >= 10;
+
+type CnicCheckStatus = 'idle' | 'checking' | 'available' | 'duplicate' | 'error';
+type DuplicateCnicInfo = { full_name: string; status: string | null } | null;
+
 export default function AddProfileForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -117,6 +123,10 @@ export default function AddProfileForm() {
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [missingFieldsList, setMissingFieldsList] = useState<{ stepId: number; stepName: string; missingFields: string[] }[]>([]);
   const [isConfirmedAccuracy, setIsConfirmedAccuracy] = useState(false);
+  const [cnicStatus, setCnicStatus] = useState<CnicCheckStatus>('idle');
+  const [duplicateCnicInfo, setDuplicateCnicInfo] = useState<DuplicateCnicInfo>(null);
+  const cnicStatusRef = useRef<CnicCheckStatus>('idle');
+  cnicStatusRef.current = cnicStatus;
 
   // Step data states
   const [step1, setStep1] = useState<Step1Data>(defaultStep1);
@@ -131,6 +141,58 @@ export default function AddProfileForm() {
   const formData = useMemo(() => ({
     step1, step2, step3, step4, step5, step6, step7, step8
   }), [step1, step2, step3, step4, step5, step6, step7, step8]);
+
+  // Real-time duplicate CNIC verification (debounced)
+  useEffect(() => {
+    if (!isInitialLoadDone) return;
+
+    const digits = (step1.cnic || '').replace(/\D/g, '');
+    if (digits.length < 13) {
+      setCnicStatus('idle');
+      setDuplicateCnicInfo(null);
+      setError((prev) => (prev?.includes('CNIC') ? null : prev));
+      return;
+    }
+
+    const controller = new AbortController();
+    setCnicStatus('checking');
+
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ cnic: step1.cnic });
+        if (profileId) params.set('excludeProfileId', profileId);
+
+        const res = await fetch(`/api/profiles/check-cnic?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          setCnicStatus('error');
+          setDuplicateCnicInfo(null);
+          return;
+        }
+        const json = await res.json();
+        if (controller.signal.aborted) return;
+
+        if (json.exists) {
+          setCnicStatus('duplicate');
+          setDuplicateCnicInfo(json.existingProfile || { full_name: 'Existing Profile', status: null });
+        } else {
+          setCnicStatus('available');
+          setDuplicateCnicInfo(null);
+          setError((prev) => (prev?.includes('CNIC') ? null : prev));
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+        setCnicStatus('error');
+        setDuplicateCnicInfo(null);
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [step1.cnic, profileId, isInitialLoadDone]);
 
   // Ref to expose getStepStats to auto-save callback (defined later in component)
   const getStepStatsRef = useRef<((stepId: number) => { completed: number; total: number; mandatoryComplete: boolean }) | null>(null);
@@ -510,7 +572,7 @@ export default function AddProfileForm() {
       const pid = profileId;
       const tasks = [];
 
-      if (dirtyKeys.includes('step1')) {
+      if (dirtyKeys.includes('step1') && cnicStatusRef.current !== 'duplicate') {
         tasks.push(ProfileService.savePersonalInfo(pid, {
           full_name: data.step1.full_name,
           cnic: data.step1.cnic || null,
@@ -864,6 +926,18 @@ export default function AddProfileForm() {
   const goToStep = async (step: number) => {
     if (isUploadingImage || isSaving) return; // Prevent navigation while uploading or saving
 
+    if (currentStep === 1 && step > 1) {
+      if (cnicStatus === 'checking') return;
+      if (cnicStatus === 'duplicate') {
+        setError(
+          duplicateCnicInfo
+            ? `A profile already exists on this CNIC (${duplicateCnicInfo.full_name}). Please enter a unique CNIC.`
+            : 'A profile already exists on this CNIC. Please enter a unique CNIC.'
+        );
+        return;
+      }
+    }
+
     // If we are at Step 1 and trying to move forward, and we don't have a profileId yet
     if (currentStep === 1 && !profileId && step > 1) {
       if (!user) return;
@@ -1072,15 +1146,19 @@ export default function AddProfileForm() {
   const getStepStats = (stepId: number): { completed: number, total: number, mandatoryComplete: boolean } => {
     switch (stepId) {
       case 1: {
-        const total = 6;
+        const total = 8;
         let completed = 0;
+        const cnicOk = isValidCnic(step1.cnic) && cnicStatus !== 'duplicate';
+        const phoneOk = isValidPhone(step1.phone);
         if (step1.gender) completed++;
-        if (step1.full_name) completed++;
+        if (step1.full_name?.trim()) completed++;
+        if (cnicOk) completed++;
+        if (phoneOk) completed++;
         if (step1.date_of_birth) completed++;
         if (step1.marital_status) completed++;
         if (step1.nationality_country_id) completed++;
         if (step1.mother_tongue_id) completed++;
-        const mandatoryComplete = !!(step1.gender && step1.full_name && step1.date_of_birth && step1.marital_status);
+        const mandatoryComplete = !!(step1.gender && step1.full_name?.trim() && cnicOk && phoneOk && step1.date_of_birth && step1.marital_status);
         return { completed, total, mandatoryComplete };
       }
       case 2: {
@@ -1145,14 +1223,7 @@ export default function AddProfileForm() {
         if (step6.family_values) completed++;
         if (step6.family_introduction) completed++;
 
-        const hasFather = step6.parents.some(p => p.parent_type === 'FATHER');
-        const hasMother = step6.parents.some(p => p.parent_type === 'MOTHER');
-        const parentsValid = hasFather && hasMother && step6.parents.every(p => {
-          if (p.status === 'DECEASED') return true;
-          return !!(p.full_name && p.profession);
-        });
-
-        const mandatoryComplete = !!parentsValid;
+        const mandatoryComplete = true;
         return { completed, total, mandatoryComplete };
       }
       case 7: {
@@ -1245,6 +1316,12 @@ export default function AddProfileForm() {
     // Step 1
     const s1: string[] = [];
     if (!step1.full_name?.trim()) s1.push('Full Name');
+    if (!isValidCnic(step1.cnic)) {
+      s1.push('CNIC Number (13 digits)');
+    } else if (cnicStatus === 'duplicate') {
+      s1.push('Unique CNIC Number (already registered)');
+    }
+    if (!isValidPhone(step1.phone)) s1.push('Phone Number');
     if (!step1.gender) s1.push('Gender');
     if (!step1.date_of_birth) s1.push('Age');
     if (!step1.marital_status) s1.push('Marital Status');
@@ -1279,15 +1356,7 @@ export default function AddProfileForm() {
     }
     if (s5.length > 0) missing.push({ stepId: 5, stepName: 'Location & Residency', missingFields: s5 });
 
-    // Step 6
-    const s6: string[] = [];
-    const hasFather = step6.parents.some(p => p.parent_type === 'FATHER');
-    const hasMother = step6.parents.some(p => p.parent_type === 'MOTHER');
-    if (!hasFather) s6.push('Father Info');
-    if (!hasMother) s6.push('Mother Info');
-    const incompleteParents = step6.parents.some(p => p.status !== 'DECEASED' && (!p.full_name?.trim() || !p.profession?.trim()));
-    if (incompleteParents) s6.push('Living Parents Details (Name, Profession)');
-    if (s6.length > 0) missing.push({ stepId: 6, stepName: 'Family Details', missingFields: s6 });
+    // Step 6: Parents (Father & Mother) are optional
 
     // Step 7
     const s7: string[] = [];
@@ -1309,6 +1378,14 @@ export default function AddProfileForm() {
   // ── Trigger save: if mandatory fields are missing, prompt confirmation modal ──
   const handleSaveClick = () => {
     if (!isConfirmedAccuracy) return;
+    if (cnicStatus === 'duplicate') {
+      setError(
+        duplicateCnicInfo
+          ? `A profile already exists on this CNIC (${duplicateCnicInfo.full_name}). Please update the CNIC before saving.`
+          : 'A profile already exists on this CNIC. Please update the CNIC before saving.'
+      );
+      return;
+    }
     const missing = getMissingMandatoryDetails();
     if (missing.length > 0) {
       setMissingFieldsList(missing);
@@ -1321,11 +1398,36 @@ export default function AddProfileForm() {
   // ── Execute save to DB ─────────────────────────────────────
   const performSave = async (forceDraft: boolean = false) => {
     if (!user) return;
+    if (cnicStatus === 'duplicate') {
+      setError(
+        duplicateCnicInfo
+          ? `A profile already exists on this CNIC (${duplicateCnicInfo.full_name}).`
+          : 'A profile already exists on this CNIC.'
+      );
+      return;
+    }
     setShowDraftModal(false);
     setIsSaving(true);
     setError(null);
 
     try {
+      // Final server-side duplicate CNIC guard right before DB write
+      if (isValidCnic(step1.cnic)) {
+        const params = new URLSearchParams({ cnic: step1.cnic });
+        if (profileId) params.set('excludeProfileId', profileId);
+        const checkRes = await fetch(`/api/profiles/check-cnic?${params.toString()}`);
+        if (checkRes.ok) {
+          const checkJson = await checkRes.json();
+          if (checkJson.exists) {
+            const info = checkJson.existingProfile || { full_name: 'Existing Profile', status: null };
+            setCnicStatus('duplicate');
+            setDuplicateCnicInfo(info);
+            setError(`A profile already exists on this CNIC (${info.full_name}).`);
+            setIsSaving(false);
+            return;
+          }
+        }
+      }
       // 1. Use existing draft profile or create new one
       let pid = profileId;
       if (!pid) {
@@ -1655,7 +1757,16 @@ export default function AddProfileForm() {
   // ── Render current step ────────────────────────────────────
   const renderStep = () => {
     switch (currentStep) {
-      case 1: return <Step1BasicInfo data={step1} onChange={setStep1} onImageUpload={handleImageUpload} isUploadingImage={isUploadingImage} />;
+      case 1: return (
+        <Step1BasicInfo
+          data={step1}
+          onChange={setStep1}
+          onImageUpload={handleImageUpload}
+          isUploadingImage={isUploadingImage}
+          cnicStatus={cnicStatus}
+          duplicateCnicInfo={duplicateCnicInfo}
+        />
+      );
       case 2: return <Step2MaritalPhysical data={step2} onChange={setStep2} />;
       case 3: return <Step3EducationProfession data={step3} onChange={setStep3} />;
       case 4: return <Step4ReligionCulture data={step4} onChange={setStep4} />;
@@ -1735,7 +1846,7 @@ export default function AddProfileForm() {
                 <button
                   type="button"
                   onClick={next}
-                  disabled={isUploadingImage || isSaving}
+                  disabled={isUploadingImage || isSaving || (currentStep === 1 && (cnicStatus === 'duplicate' || cnicStatus === 'checking'))}
                   className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-5 xl:px-8 py-3 xl:py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {isSaving && currentStep === 1 && !profileId ? (
@@ -1750,7 +1861,7 @@ export default function AddProfileForm() {
                 <button
                   type="button"
                   onClick={handleSaveClick}
-                  disabled={isSaving || isUploadingImage || !step1.full_name || !step1.gender || !isConfirmedAccuracy}
+                  disabled={isSaving || isUploadingImage || cnicStatus === 'duplicate' || cnicStatus === 'checking' || !step1.full_name || !step1.gender || !isConfirmedAccuracy}
                   title={!isConfirmedAccuracy ? "Please check the confirmation box above to enable saving" : undefined}
                   className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-5 xl:px-8 py-3 xl:py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
                 >
