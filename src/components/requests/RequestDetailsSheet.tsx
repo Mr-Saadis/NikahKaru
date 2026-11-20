@@ -30,11 +30,14 @@ import { formatPauseDate, isPauseReminderDue } from '@/lib/utils/pauseFormatting
 import { submitMatchRequest } from '@/lib/actions/agent-requests';
 import { generateSingleProfilePDF, generateReleasedProfilesPDF } from '@/lib/utils/pdfExport';
 import { notificationService } from '@/lib/services/notification-service';
+import { ProfileService } from '@/lib/services/profile-service';
 import { createBrowserClient } from '@supabase/ssr';
 
-// Session-level memory cache for profile active preferences (Rule 2.1)
+// Session-level memory cache for profile active preferences and full profile nested details (Rule 2.1)
 const preferencesCache = new Map<string, any>();
 const inFlightPreferencesFetches = new Set<string>();
+const fullProfileDetailsCache = new Map<string, any>();
+const inFlightFullProfileFetches = new Set<string>();
 
 interface RequestDetailsSheetProps {
   item: RequestItem | null;
@@ -396,6 +399,86 @@ export default function RequestDetailsSheet({
   const [isLoadingPrefs, setIsLoadingPrefs] = useState(() => {
     return profileId ? !preferencesCache.get(profileId) : false;
   });
+  const [fullProfileDetails, setFullProfileDetails] = useState<any | null>(() => {
+    return profileId ? (fullProfileDetailsCache.get(profileId) || null) : null;
+  });
+
+  useEffect(() => {
+    if (!profileId || !isOpen) {
+      setFullProfileDetails(null);
+      return;
+    }
+
+    const cachedFull = fullProfileDetailsCache.get(profileId);
+    if (cachedFull) {
+      setFullProfileDetails(cachedFull);
+      return;
+    }
+
+    setFullProfileDetails(null);
+    if (inFlightFullProfileFetches.has(profileId)) return;
+    inFlightFullProfileFetches.add(profileId);
+
+    ProfileService.getProfileById(profileId)
+      .then((data) => {
+        if (data) {
+          fullProfileDetailsCache.set(profileId, data);
+        }
+        setFullProfileDetails(data || null);
+      })
+      .catch((err) => {
+        console.warn('Failed to load full profile details:', err);
+      })
+      .finally(() => {
+        inFlightFullProfileFetches.delete(profileId);
+      });
+  }, [profileId, isOpen]);
+
+  const enrichedItem = useMemo<RequestItem | null>(() => {
+    if (!item) return null;
+    if (!fullProfileDetails) return item;
+    const baseData = (item.profileData || {}) as any;
+    return {
+      ...item,
+      profileData: {
+        ...fullProfileDetails,
+        ...baseData,
+        personal_information: fullProfileDetails.personal_information || baseData.personal_information,
+        physical_information: fullProfileDetails.physical_information || baseData.physical_information,
+        religion_information: fullProfileDetails.religion_information || baseData.religion_information,
+        profile_locations: fullProfileDetails.profile_locations || baseData.profile_locations,
+        residency_information: fullProfileDetails.residency_information || baseData.residency_information,
+        income_information: fullProfileDetails.income_information || baseData.income_information,
+        family_information: fullProfileDetails.family_information || baseData.family_information,
+        lifestyle_information: fullProfileDetails.lifestyle_information || baseData.lifestyle_information,
+        relocation_information: fullProfileDetails.relocation_information || baseData.relocation_information,
+        education_records:
+          Array.isArray(baseData.education_records) && baseData.education_records.length > 0
+            ? baseData.education_records
+            : fullProfileDetails.education_records || [],
+        employment_records:
+          Array.isArray(baseData.employment_records) && baseData.employment_records.length > 0
+            ? baseData.employment_records
+            : fullProfileDetails.employment_records || [],
+        parents:
+          Array.isArray(baseData.parents) && baseData.parents.length > 0
+            ? baseData.parents
+            : fullProfileDetails.parents || [],
+        siblings:
+          Array.isArray(baseData.siblings) && baseData.siblings.length > 0
+            ? baseData.siblings
+            : fullProfileDetails.siblings || [],
+        children:
+          Array.isArray(baseData.children) && baseData.children.length > 0
+            ? baseData.children
+            : fullProfileDetails.children || [],
+        previous_marriages:
+          Array.isArray(baseData.previous_marriages) && baseData.previous_marriages.length > 0
+            ? baseData.previous_marriages
+            : fullProfileDetails.previous_marriages || [],
+      },
+    };
+  }, [item, fullProfileDetails]);
 
   useEffect(() => {
     if (!profileId || !isOpen) {
@@ -643,12 +726,12 @@ export default function RequestDetailsSheet({
   );
 
   const handleDownloadProfilePdf = useCallback(async () => {
-    if (!item) return;
+    if (!enrichedItem) return;
     try {
       setIsDownloadingProfilePdf(true);
       onToast('Generating profile PDF...');
       await generateSingleProfilePDF({
-        item,
+        item: enrichedItem,
         preferences,
       });
       onToast('Profile PDF downloaded successfully');
@@ -658,7 +741,7 @@ export default function RequestDetailsSheet({
     } finally {
       setIsDownloadingProfilePdf(false);
     }
-  }, [item, preferences, onToast]);
+  }, [enrichedItem, preferences, onToast]);
 
   const handleDownloadMatchesPdf = useCallback(async () => {
     if (!item) return;
@@ -1493,12 +1576,12 @@ export default function RequestDetailsSheet({
 
           <div className="grid grid-cols-1 md:grid-cols-[272px_1fr] gap-[18px] mt-[18px] items-start animate-[sheet-rise_.6s_cubic-bezier(.22,1,.36,1)_both]" style={{ animationDelay: '.12s' }}>
             <ProfileNav
-              item={item}
+              item={enrichedItem || item}
               activeIndex={activeSectionIndex}
               onNavClick={handleNavClick}
             />
             <ProfileSection 
-              item={item}
+              item={enrichedItem || item}
               preferences={preferences}
               isLoadingPrefs={isLoadingPrefs}
             />

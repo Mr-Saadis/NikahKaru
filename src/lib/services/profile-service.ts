@@ -559,6 +559,16 @@ export class ProfileService {
     if (error) throw error;
   }
 
+  static async updateProfileGender(profileId: string, gender: ProfileGender): Promise<void> {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ gender, updated_at: new Date().toISOString() })
+      .eq('id', profileId);
+
+    if (error) throw error;
+  }
+
   static async touchProfile(profileId: string): Promise<void> {
     const supabase = createClient();
     await supabase

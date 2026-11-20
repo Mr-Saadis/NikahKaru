@@ -118,6 +118,58 @@ export async function POST(
       );
     }
 
+    // 4. Sync released pairs into public.matches + public.match_status_history (non-blocking)
+    try {
+      const sourceProfId = targetReq.source_profile_id;
+      if (sourceProfId && releasesData.length > 0) {
+        const { data: srcProf } = await adminClient
+          .from('profiles')
+          .select('id, gender')
+          .eq('id', sourceProfId)
+          .maybeSingle();
+
+        if (srcProf?.gender) {
+          const nowIso = new Date().toISOString();
+          for (const rel of releasesData) {
+            const candId = rel?.candidate_profile_id;
+            if (!candId || candId === sourceProfId) continue;
+            const maleId = srcProf.gender === 'MALE' ? sourceProfId : candId;
+            const femaleId = srcProf.gender === 'MALE' ? candId : sourceProfId;
+            const finalScore = rel?.final_score != null ? Number(rel.final_score) : null;
+
+            const { data: matchRow } = await adminClient
+              .from('matches')
+              .upsert(
+                {
+                  male_profile_id: maleId,
+                  female_profile_id: femaleId,
+                  status: 'IN_PROGRESS',
+                  final_score: finalScore,
+                  created_by: user.id,
+                  in_progress_at: nowIso,
+                  updated_at: nowIso,
+                },
+                { onConflict: 'male_profile_id,female_profile_id' }
+              )
+              .select('id')
+              .maybeSingle();
+
+            if (matchRow?.id) {
+              await adminClient.from('match_status_history').insert({
+                match_id: matchRow.id,
+                old_status: null,
+                new_status: 'IN_PROGRESS',
+                changed_by: user.id,
+                reason: 'Candidate profile released to agent',
+              });
+            }
+          }
+        }
+      }
+    } catch (matchSyncErr) {
+      console.warn('Non-fatal warning syncing public.matches on release:', matchSyncErr);
+    }
+
     return NextResponse.json({ success: true, data: rpcData });
 
   } catch (err: any) {

@@ -391,7 +391,7 @@ export default function ProfilesListPage() {
           let stage: WorkflowStage = 'requested';
           if (data.status === 'IN_REVIEW') stage = 'responded';
           else if (data.status === 'DOWNLOADED') stage = 'downloaded';
-          else if (data.status === 'COMPLETED') stage = 'done';
+          else if (data.status === 'COMPLETED' || (data.status as string) === 'COMPLETED_OUTSIDE_SYSTEM') stage = 'done';
           else if (data.status === 'CANCELLED') stage = 'logged';
           else stage = 'requested';
 
@@ -633,15 +633,6 @@ export default function ProfilesListPage() {
       toast.error(err.message || 'Failed to update stage');
     } finally {
       setIsMarkingDownloaded(false);
-    }
-  };
-
-  // ── Action Buttons for Downloaded Stage: Complete & Incomplete ──
-  const handleWorkflowAction = (action: 'complete' | 'incomplete') => {
-    if (action === 'complete') {
-      toast.info('Workflow: "Complete" selected. (Full outcome workflow rules will be connected next)');
-    } else {
-      toast.info('Workflow: "Incomplete" selected. (Full workflow rules will be connected next)');
     }
   };
 
@@ -1190,9 +1181,9 @@ export default function ProfilesListPage() {
                             { title: 'Age & Marital Status', keys: ['AGE', 'MARITAL_STATUS', 'CHILDREN'] },
                             { title: 'Physical', keys: ['HEIGHT', 'WEIGHT', 'DISABILITY', 'COMPLEXION'] },
                             { title: 'Religion & Culture', keys: ['RELIGION', 'SECT', 'CASTE', 'RELIGIOUS_PRACTICE'] },
-                            { title: 'Income & Career', keys: ['INCOME', 'EDUCATION'] },
-                            { title: 'Location', keys: ['COUNTRY'] },
-                            { title: 'Lifestyle', keys: ['FAMILY_SETUP', 'SMOKING', 'BEARD', 'HIJAB'] },
+                            { title: 'Income & Career', keys: ['INCOME', 'EDUCATION', 'FIELD_OF_STUDY', 'OCCUPATION', 'EMPLOYMENT_TYPE'] },
+                            { title: 'Location', keys: ['COUNTRY', 'PROVINCE', 'CITY', 'RELOCATION'] },
+                            { title: 'Lifestyle', keys: ['FAMILY_SETUP', 'LIVING_WITH', 'SMOKING', 'BEARD', 'HIJAB'] },
                           ];
 
                           const groupedKeys = new Set(categoryGroups.flatMap(g => g.keys));
@@ -1376,31 +1367,26 @@ export default function ProfilesListPage() {
                           Match Dossier<br />Downloaded
                         </h3>
                         <p className="text-[12px] text-white/90 font-medium leading-relaxed max-w-[90%] mb-4">
-                          Review candidate dossiers with the client and update proposal status.
+                          Dossier downloaded for client review. You can re-download the PDF anytime or view this request on the Request Operations board.
                         </p>
-                        <div className="flex items-center gap-2.5">
-                          <button
-                            onClick={() => handleWorkflowAction('complete')}
-                            className="inline-flex items-center gap-2 bg-white text-[#1F3B34] hover:bg-[#F2EDE1] font-bold text-[12.5px] px-5 py-2.5 rounded-full shadow-md transition-all cursor-pointer"
-                          >
-                            <CheckCircle className="w-4 h-4 text-[#16a34a]" />
-                            Complete
-                          </button>
-                          <button
-                            onClick={() => handleWorkflowAction('incomplete')}
-                            className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold text-[12.5px] px-5 py-2.5 rounded-full border border-white/25 backdrop-blur-sm transition-all cursor-pointer"
-                          >
-                            <XCircle className="w-4 h-4 text-[#FCA5A5]" />
-                            Incomplete
-                          </button>
-                        </div>
-                        <div className="mt-3">
+                        <div className="flex flex-wrap items-center gap-2.5">
                           <button
                             onClick={handleDownloadReleasedDossier}
                             disabled={isDownloadingPdf}
-                            className="text-[11px] text-white/70 hover:text-white underline inline-flex items-center gap-1 cursor-pointer"
+                            className="inline-flex items-center gap-2 bg-white text-[#1F3B34] hover:bg-[#F2EDE1] font-bold text-[12.5px] px-5 py-2.5 rounded-full shadow-md transition-all disabled:opacity-70 cursor-pointer"
                           >
-                            <Download className="w-3 h-3" /> Re-download Dossier PDF
+                            {isDownloadingPdf ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-[#1F3B34]" />
+                            ) : (
+                              <Download className="w-4 h-4 text-[#1F3B34]" />
+                            )}
+                            {isDownloadingPdf ? 'Generating PDF...' : 'Download Dossier PDF'}
+                          </button>
+                          <button
+                            onClick={() => router.push('/requests?column=downloaded')}
+                            className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold text-[12px] px-4 py-2.5 rounded-full border border-white/25 backdrop-blur-sm transition-all cursor-pointer"
+                          >
+                            Open Request Board
                           </button>
                         </div>
                       </>

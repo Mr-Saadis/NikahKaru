@@ -10,7 +10,7 @@ export interface DirectoryEntry {
   phone: string;
   assignedStaff: string;
   requestDate: string; // ISO date string
-  boardStage: 'new' | 'first' | 'second' | 'responded' | 'done' | 'pause' | 'feedback' | 'archive';
+  boardStage: 'new' | 'first' | 'second' | 'responded' | 'downloaded' | 'done' | 'completed_outside' | 'pause' | 'feedback' | 'archive';
   boardStageColor: string;
   cardBg: string;
 

@@ -290,11 +290,27 @@ export function passesHardFilters(
       const candEduLevels = Array.isArray(candidate.education_records)
         ? candidate.education_records.map((e: any) => e.education_level_id)
         : [];
-      // Check if candidate has at least the minimum required education level
-      // Since education_level_id is ordered (higher id = higher level), we check >= 
       const meetsMinimum = candEduLevels.some((id: number) => id >= prefs.education!.minimum_education_level_id!);
       if (!meetsMinimum) {
         return { passed: false, reason: 'Education level below mandatory minimum' };
+      }
+    }
+
+    // Field of Study (EXACT / SUBSTRING)
+    if (prefs.education.field_importance === 'MANDATORY' && prefs.education.preferred_field_of_study) {
+      const prefField = String(prefs.education.preferred_field_of_study).trim().toLowerCase();
+      if (prefField && prefField !== 'none' && prefField !== 'other') {
+        const candFields = Array.isArray(candidate.education_records)
+          ? candidate.education_records
+              .map((e: any) => String(e.field_of_study || '').trim().toLowerCase())
+              .filter(Boolean)
+          : [];
+        const fieldMatches = candFields.some(
+          (f: string) => f === prefField || f.includes(prefField) || prefField.includes(f)
+        );
+        if (!fieldMatches) {
+          return { passed: false, reason: `Field of study must match ${prefs.education.preferred_field_of_study} (Mandatory)` };
+        }
       }
     }
   }
@@ -304,6 +320,27 @@ export function passesHardFilters(
     if (prefs.relocation.relocation_importance === 'MANDATORY' && prefs.relocation.willing_to_relocate_required === 'YES') {
       if (candidate.relocation_information?.willing_to_relocate !== 'YES') {
         return { passed: false, reason: 'Must be willing to relocate (Mandatory)' };
+      }
+    }
+
+    if (
+      prefs.relocation.relocation_importance === 'MANDATORY' &&
+      prefs.preferredRelocations &&
+      prefs.preferredRelocations.length > 0
+    ) {
+      const candReloc = candidate.relocation_information || {};
+      const excludedRelocs = prefs.preferredRelocations.filter((r) => Boolean(r.is_excluded));
+
+      if (excludedRelocs.length > 0 && (candReloc.preferred_country_id || candReloc.preferred_province_id || candReloc.preferred_city_id)) {
+        const isExcludedReloc = excludedRelocs.some((ex) => {
+          if (ex.city_id && candReloc.preferred_city_id === ex.city_id) return true;
+          if (!ex.city_id && ex.province_id && candReloc.preferred_province_id === ex.province_id) return true;
+          if (!ex.city_id && !ex.province_id && ex.country_id && candReloc.preferred_country_id === ex.country_id) return true;
+          return false;
+        });
+        if (isExcludedReloc) {
+          return { passed: false, reason: 'Candidate relocation destination is in excluded list (Mandatory)' };
+        }
       }
     }
   }

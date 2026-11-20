@@ -277,72 +277,28 @@ export async function fetchManagerBoardInitialColumns(
   filters: FilterState,
   limit: number = 15
 ): Promise<Record<string, RequestItem[]>> {
-  const supabase = await createClient();
-
-  let query = supabase.from('vw_manager_requests_board').select('*').neq('status', 'DRAFT');
-
-  if (filters.search) {
-    const cleanSearch = sanitizePostgrestParam(filters.search);
-    if (cleanSearch) {
-      const q = `%${cleanSearch}%`;
-      query = query.or(`full_name.ilike."${q}",cnic.ilike."${q}",primary_phone.ilike."${q}"`);
-    }
-  }
-  if (filters.dateFrom) {
-    query = query.gte('request_date', filters.dateFrom);
-  }
-  if (filters.dateTo) {
-    query = query.lte('request_date', filters.dateTo);
-  }
-  if (filters.staff) {
-    const cleanStaff = sanitizePostgrestParam(filters.staff);
-    if (cleanStaff) {
-      query = query.or(`current_agent_name.eq."${cleanStaff}",created_by_name.eq."${cleanStaff}"`);
-    }
-  }
-
-  // Single view query instead of 10 concurrent heavy view evaluations (prevents 57014 statement timeout)
-  const { data, error } = await query
-    .order('request_date', { ascending: false })
-    .limit(limit * MANAGER_COLUMN_KEYS.length);
-
   const columnMap: Record<string, RequestItem[]> = {};
   MANAGER_COLUMN_KEYS.forEach((colKey) => {
     columnMap[colKey] = [];
   });
 
-  if (error) {
-    console.error('Supabase manager board initial query error:', error);
-    return columnMap;
+  // Fetch top `limit` cards per column in parallel so high volume in one column (e.g. 'new')
+  // never starves other columns on initial load.
+  const entries = await Promise.all(
+    MANAGER_COLUMN_KEYS.map(async (colKey) => {
+      try {
+        const items = await fetchColumnRequests(colKey, filters, 0, limit);
+        return [colKey, items] as const;
+      } catch (err) {
+        console.error(`Error fetching initial manager column ${colKey}:`, err);
+        return [colKey, [] as RequestItem[]] as const;
+      }
+    })
+  );
+
+  for (const [colKey, items] of entries) {
+    columnMap[colKey] = items;
   }
-
-  const rows = data || [];
-  const pausedProfileIds = rows
-    .filter((item: any) => item.status === 'PAUSED')
-    .map((item: any) => item.profile_id || item.source_profile_id)
-    .filter(Boolean);
-  const pauseMap = pausedProfileIds.length > 0 ? await getPauseInfoMap(pausedProfileIds) : new Map();
-
-  rows.forEach((item: any) => {
-    const colKey = item.status === 'PAUSED' ? 'pause' : (item.request_status || 'new');
-    const pid = item.profile_id || item.source_profile_id;
-    const pauseInfo = item.status === 'PAUSED' && pid ? (pauseMap.get(pid) || null) : null;
-    if (!columnMap[colKey]) columnMap[colKey] = [];
-    if (columnMap[colKey].length < limit) {
-      columnMap[colKey].push({
-        id: item.board_id,
-        name: item.full_name || 'Unknown',
-        cnic: item.cnic || '00000-0000000-0',
-        phone: item.primary_phone || item.phone || 'N/A',
-        staff: item.stage_actor_name || item.current_agent_name || item.created_by_name || 'System',
-        date: item.request_date,
-        status: colKey,
-        later: item.later || false,
-        isRead: item.is_read || false,
-        profileData: { ...item, request_status: colKey, pause_info: pauseInfo },
-      });
-    }
-  });
 
   return columnMap;
 }
@@ -600,20 +556,28 @@ export async function fetchSentProfilesForRequest(
 
   const candidateIds = history.map((h: any) => h.candidate_profile_id);
 
-  // 2. Fetch profiles from database (both core and nested arrays)
-  const [profilesRes, nestedRes] = await Promise.all([
+  // 2. Fetch profiles from database (both core, nested arrays, relocation, and multiple_nationality)
+  const [profilesRes, nestedRes, reloRes, piRes] = await Promise.all([
     supabase.from('vw_profile_core').select('*').in('profile_id', candidateIds),
-    supabase.from('vw_profile_nested_arrays').select('*').in('profile_id', candidateIds)
+    supabase.from('vw_profile_nested_arrays').select('*').in('profile_id', candidateIds),
+    supabase.from('relocation_information').select('*').in('profile_id', candidateIds),
+    supabase.from('personal_information').select('profile_id, multiple_nationality').in('profile_id', candidateIds),
   ]);
 
   const nestedMap = new Map((nestedRes.data || []).map((n: any) => [n.profile_id, n]));
+  const reloMap = new Map((reloRes.data || []).map((r: any) => [r.profile_id, r]));
+  const piMap = new Map((piRes.data || []).map((p: any) => [p.profile_id, p]));
   let fullProfiles = (profilesRes.data || []).map((core: any) => {
     const nested = nestedMap.get(core.profile_id);
+    const relo = reloMap.get(core.profile_id) || null;
+    const piExtra = piMap.get(core.profile_id);
     const highestEdu = nested?.education_records?.[0];
     const currentEmp = nested?.employment_records?.[0];
     return {
       ...core,
       ...nested,
+      multiple_nationality: Boolean(piExtra?.multiple_nationality ?? core.multiple_nationality),
+      relocation_information: relo,
       qualification: highestEdu?.qualification || highestEdu?.education_level_name_en || null,
       education_level_name_en: highestEdu?.education_level_name_en || null,
       field_of_study: highestEdu?.field_of_study || null,
@@ -644,31 +608,57 @@ export async function fetchSentProfilesForRequest(
       'personal_information.cnic': ['cnic'],
       'personal_information.phone': ['phone', 'primary_phone'],
       'personal_information.full_name': ['full_name'],
+      'profile.gender': ['gender'],
+      'profiles.gender': ['gender'],
       'personal_information.date_of_birth': ['date_of_birth'],
       'personal_information.marital_status': ['marital_status'],
       'personal_information.number_of_children': ['number_of_children'],
+      'personal_information.nationality_country_id': ['nationality_country_id', 'nationality_country_name_en', 'nationality_country_name_ur'],
+      'personal_information.multiple_nationality': ['multiple_nationality'],
+      'children': ['children'],
+      'previous_marriages': ['previous_marriages'],
       'physical_information.height_cm': ['height_cm'],
       'physical_information.weight_kg': ['weight_kg'],
       'physical_information.complexion': ['complexion'],
       'physical_information.has_disability': ['has_disability', 'disability_details'],
-      'education_records': ['qualification', 'field_of_study'],
-      'employment_records': ['job_title'],
+      'education_records': ['education_records', 'qualification', 'education_level_name_en', 'education_level_name_ur', 'field_of_study'],
+      'employment_records': ['employment_records', 'job_title', 'occupation_name_en', 'occupation_name_ur'],
       'income_information.monthly_income_min': ['monthly_income_min', 'monthly_income_max', 'currency_code'],
-      'religion_information.religion_id': ['religion_name_en', 'religion_name_ur'],
-      'religion_information.sect_id': ['sect_name_en', 'sect_name_ur'],
-      'religion_information.caste_id': ['caste_name_en', 'caste_name_ur', 'other_caste_text'],
-      'personal_information.mother_tongue_id': ['mother_tongue_name_en', 'mother_tongue_name_ur'],
-      'profile_locations.current_city_id': ['current_city_name_en', 'current_city_name_ur', 'current_location_text', 'current_country_name_en', 'current_province_name_en'],
-      'profile_locations.permanent_city_id': ['permanent_city_name_en', 'permanent_city_name_ur', 'permanent_location_text'],
+      'religion_information.religion_id': ['religion_id', 'religion_name_en', 'religion_name_ur'],
+      'religion_information.sect_id': ['sect_id', 'sect_name_en', 'sect_name_ur'],
+      'religion_information.caste_id': ['caste_id', 'caste_name_en', 'caste_name_ur', 'other_caste_text'],
+      'religion_information.other_caste_text': ['other_caste_text'],
+      'personal_information.mother_tongue_id': ['mother_tongue_id', 'mother_tongue_name_en', 'mother_tongue_name_ur'],
+      'profile_locations.current_country_id': ['current_country_id', 'current_country_name_en', 'current_country_name_ur'],
+      'profile_locations.current_province_id': ['current_province_id', 'current_province_name_en', 'current_province_name_ur'],
+      'profile_locations.current_city_id': ['current_city_id', 'current_city_name_en', 'current_city_name_ur', 'current_location_text', 'current_country_name_en', 'current_province_name_en'],
+      'profile_locations.current_location_text': ['current_location_text'],
+      'profile_locations.permanent_country_id': ['permanent_country_id', 'permanent_country_name_en', 'permanent_country_name_ur'],
+      'profile_locations.permanent_province_id': ['permanent_province_id', 'permanent_province_name_en', 'permanent_province_name_ur'],
+      'profile_locations.permanent_city_id': ['permanent_city_id', 'permanent_city_name_en', 'permanent_city_name_ur', 'permanent_location_text'],
+      'profile_locations.permanent_location_text': ['permanent_location_text'],
       'residency_information.house_status': ['house_status', 'property_type', 'nationality_country_name_en'],
+      'residency_information.property_type': ['property_type'],
+      'parents': ['parents'],
+      'siblings': ['siblings'],
       'family_information.family_profession_business': ['family_profession_business'],
       'family_information.social_background': ['social_background'],
+      'family_information.family_values': ['family_values'],
+      'family_information.family_introduction': ['family_introduction'],
+      'family_information.important_family_circumstances': ['important_family_circumstances'],
+      'family_information.additional_details': ['family_additional_details', 'additional_details'],
       'residency_information.family_setup': ['family_setup'],
       'residency_information.living_with': ['living_with', 'living_with_other_details'],
       'lifestyle_information.religious_practice': ['religious_practice'],
       'lifestyle_information.beard': ['beard'],
       'lifestyle_information.hijab': ['hijab'],
       'lifestyle_information.smoking': ['smoking'],
+      'lifestyle_information.other_lifestyle_information': ['other_lifestyle_information'],
+      'relocation_information.willing_to_relocate': ['relocation_information'],
+      'relocation_information.preferred_country_id': ['relocation_information'],
+      'relocation_information.preferred_province_id': ['relocation_information'],
+      'relocation_information.preferred_city_id': ['relocation_information'],
+      'relocation_information.relocation_details': ['relocation_information'],
     };
 
     fullProfiles = fullProfiles.map((prof: any) => {
@@ -1033,7 +1023,18 @@ export async function fetchProfileActivePreferences(profileId: string): Promise<
     .limit(1);
 
   if (!error && viewRows && viewRows.length > 0) {
-    return viewRows[0];
+    const row = { ...viewRows[0] };
+    if (row.preference_set_id) {
+      const [prefLocReq, prefRelocReq] = await Promise.all([
+        supabase.from('preferred_locations').select('*').eq('preference_set_id', row.preference_set_id),
+        supabase.from('preferred_relocations').select('*').eq('preference_set_id', row.preference_set_id),
+      ]);
+      row.preferred_locations = prefLocReq.data || [];
+      row.preferredLocations = prefLocReq.data || [];
+      row.preferred_relocations = prefRelocReq.data || [];
+      row.preferredRelocations = prefRelocReq.data || [];
+    }
+    return row;
   }
 
   if (error) {
@@ -1067,7 +1068,18 @@ export async function fetchProfileActivePreferences(profileId: string): Promise<
       .limit(1);
 
     if (refreshedRows && refreshedRows.length > 0) {
-      return refreshedRows[0];
+      const row = { ...refreshedRows[0] };
+      if (row.preference_set_id) {
+        const [prefLocReq, prefRelocReq] = await Promise.all([
+          supabase.from('preferred_locations').select('*').eq('preference_set_id', row.preference_set_id),
+          supabase.from('preferred_relocations').select('*').eq('preference_set_id', row.preference_set_id),
+        ]);
+        row.preferred_locations = prefLocReq.data || [];
+        row.preferredLocations = prefLocReq.data || [];
+        row.preferred_relocations = prefRelocReq.data || [];
+        row.preferredRelocations = prefRelocReq.data || [];
+      }
+      return row;
     }
   }
 
@@ -1101,10 +1113,12 @@ export async function fetchProfileActivePreferences(profileId: string): Promise<
     religion: relReq.data?.[0] || null,
     location: locReq.data?.[0] || null,
     preferred_locations: prefLocReq.data || [],
+    preferredLocations: prefLocReq.data || [],
     family: famReq.data?.[0] || null,
     lifestyle: lifeReq.data?.[0] || null,
     relocation: relocReq.data?.[0] || null,
     preferred_relocations: prefRelocReq.data || [],
+    preferredRelocations: prefRelocReq.data || [],
   };
 }
 
@@ -1514,6 +1528,47 @@ export async function finalizeMarriagePairing(params: {
         .from('information_requests')
         .update({ status: 'COMPLETED', updated_at: new Date().toISOString() })
         .in('id', allReqIds);
+    }
+
+    // 6B. Record finalized marriage in public.matches & public.match_status_history (non-blocking)
+    try {
+      const { data: pairProfs } = await adminClient
+        .from('profiles')
+        .select('id, gender')
+        .in('id', [sourceProfileId, candidateProfileId]);
+
+      const maleProf = (pairProfs || []).find((p: any) => p.gender === 'MALE');
+      const femaleProf = (pairProfs || []).find((p: any) => p.gender === 'FEMALE');
+      if (maleProf?.id && femaleProf?.id && maleProf.id !== femaleProf.id) {
+        const nowIso = new Date().toISOString();
+        const { data: matchRow } = await adminClient
+          .from('matches')
+          .upsert(
+            {
+              male_profile_id: maleProf.id,
+              female_profile_id: femaleProf.id,
+              status: 'ACCEPTED',
+              created_by: user.id,
+              closed_at: nowIso,
+              updated_at: nowIso,
+            },
+            { onConflict: 'male_profile_id,female_profile_id' }
+          )
+          .select('id')
+          .maybeSingle();
+
+        if (matchRow?.id) {
+          await adminClient.from('match_status_history').insert({
+            match_id: matchRow.id,
+            old_status: 'IN_PROGRESS',
+            new_status: 'ACCEPTED',
+            changed_by: user.id,
+            reason: 'Marriage finalized',
+          });
+        }
+      }
+    } catch (matchErr) {
+      console.warn('Non-fatal warning recording finalized marriage in public.matches:', matchErr);
     }
 
     // 7. Refresh materialized view (non-blocking)

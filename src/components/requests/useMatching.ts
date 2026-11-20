@@ -206,18 +206,24 @@ export function useMatching() {
 
       if (results && results.length > 0) {
         const ids = results.map(r => r.candidateProfileId);
-        const [coreRes, nestedRes] = await Promise.all([
+        const [coreRes, nestedRes, reloRes, piRes] = await Promise.all([
           supabase.from('vw_profile_core').select('*').in('profile_id', ids),
-          supabase.from('vw_profile_nested_arrays').select('*').in('profile_id', ids)
+          supabase.from('vw_profile_nested_arrays').select('*').in('profile_id', ids),
+          supabase.from('relocation_information').select('*').in('profile_id', ids),
+          supabase.from('personal_information').select('profile_id, multiple_nationality').in('profile_id', ids),
         ]);
         
         const fullProfiles = coreRes.data || [];
         const nestedProfiles = nestedRes.data || [];
         const nestedMap = new Map(nestedProfiles.map((n: any) => [n.profile_id, n]));
+        const reloMap = new Map((reloRes.data || []).map((rel: any) => [rel.profile_id, rel]));
+        const piMap = new Map((piRes.data || []).map((pi: any) => [pi.profile_id, pi]));
           
         results.forEach(r => {
           const core = fullProfiles.find((p: any) => p.profile_id === r.candidateProfileId);
           const nested = nestedMap.get(r.candidateProfileId);
+          const relo = reloMap.get(r.candidateProfileId) || null;
+          const piExtra = piMap.get(r.candidateProfileId);
           const highestEdu = nested?.education_records?.[0];
           const currentEmp = nested?.employment_records?.[0];
 
@@ -225,6 +231,8 @@ export function useMatching() {
             (r as any).fullProfile = {
               ...core,
               ...nested,
+              multiple_nationality: Boolean(piExtra?.multiple_nationality ?? core.multiple_nationality),
+              relocation_information: relo,
               qualification: highestEdu?.qualification || highestEdu?.education_level_name_en || null,
               education_level_name_en: highestEdu?.education_level_name_en || null,
               field_of_study: highestEdu?.field_of_study || null,
@@ -312,7 +320,7 @@ export function useMatching() {
       closePanel: () => void,
       onItemStatusUpdated?: (id: string, status: any) => void,
     ) => {
-      if (!item || item.status === 'new') return;
+      if (!item) return;
       if (isSending[item.id]) return;
       const reqChosen = chosen[item.id];
       if (!reqChosen || reqChosen.size === 0) return;

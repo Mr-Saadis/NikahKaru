@@ -9,15 +9,21 @@ import { getPauseInfoMap } from '@/lib/services/profile-pause-server';
 function computeBoardStage(
   profileId: string,
   requestsByProfile: Map<string, { status: string; count: number }>,
+  profileStatus?: string
 ): DirectoryEntry['boardStage'] {
   const info = requestsByProfile.get(profileId);
-  if (!info) return 'new';
+  if (!info) {
+    if (profileStatus === 'INACTIVE') return 'done';
+    return 'new';
+  }
 
   const { status, count } = info;
   if (status === 'PENDING') return count > 1 ? 'second' : 'first';
   if (status === 'PENDING_OTHER') return 'second';
   if (status === 'IN_REVIEW') return 'responded';
+  if (status === 'DOWNLOADED') return 'downloaded';
   if (status === 'COMPLETED') return 'done';
+  if (status === 'COMPLETED_OUTSIDE_SYSTEM') return 'completed_outside';
   if (status === 'CANCELLED') return 'archive';
   return 'new';
 }
@@ -325,7 +331,7 @@ export async function GET(request: NextRequest) {
           ? 'pause'
           : p.status === 'ARCHIVED'
             ? 'archive'
-            : computeBoardStage(p.profile_id, requestsByProfile);
+            : computeBoardStage(p.profile_id, requestsByProfile, p.status);
 
       return {
         id: p.profile_id,

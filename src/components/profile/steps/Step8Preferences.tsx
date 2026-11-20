@@ -496,8 +496,8 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
               <SearchableSelect
                 value={data.pref_marital_status || ''}
                 onChange={(val) => {
-                  const newStatus = val as MaritalStatus;
-                  const needsChildren = ['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(newStatus);
+                  const newStatus = (val === 'none' ? '' : val) as MaritalStatus | '';
+                  const needsChildren = ['DIVORCED', 'WIDOWED', 'SEPARATED'].includes(newStatus as string);
                   onChange({
                     ...data,
                     pref_marital_status: newStatus,
@@ -551,7 +551,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
             <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_complexion || ''}
-                onChange={(val) => set('pref_complexion', val)}
+                onChange={(val) => set('pref_complexion', val === 'none' ? '' : val)}
                 options={['Very Fair', 'Fair', 'Whitish', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark Brown', 'Dark'].map(c => ({ label: c, value: c }))}
                 placeholder="Select Complexion"
                 className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
@@ -632,7 +632,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
             <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_field_of_study || ''}
-                onChange={(val) => set('pref_field_of_study', val)}
+                onChange={(val) => set('pref_field_of_study', val === 'none' ? '' : val)}
                 options={['Computer Science', 'Engineering', 'Medicine', 'Business/Commerce', 'Arts/Humanities', 'Science', 'Law', 'Other'].map(f => ({ label: f, value: f }))}
                 placeholder="Select Field of Study"
                 className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"
@@ -739,7 +739,7 @@ export default function Step8Preferences({ data, onChange, gender }: Step8Props)
             <div className="w-full sm:w-[190px] xl:w-[220px]">
               <SearchableSelect
                 value={data.pref_religious_practice || ''}
-                onChange={(val) => set('pref_religious_practice', val as ReligiousPracticeLevel)}
+                onChange={(val) => set('pref_religious_practice', (val === 'none' ? '' : val) as ReligiousPracticeLevel)}
                 options={[{ label: 'Any', value: 'none' }, ...['HIGHLY_PRACTICING', 'PRACTICING', 'MODERATE', 'OTHER'].map(v => ({ label: v.replace(/_/g, ' '), value: v }))]}
                 placeholder="Any"
                 className="!h-[32px] !min-h-[32px] !py-1 text-[12px]"

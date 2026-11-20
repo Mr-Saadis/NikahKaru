@@ -34,24 +34,45 @@ const FIELD_LABEL_MAP: Record<string, string> = {
   sect_id: 'Sect',
   caste_id: 'Caste',
   mother_tongue_id: 'Mother Tongue',
+  current_country_id: 'Current Country',
+  current_province_id: 'Current Province',
   current_city_id: 'Current City',
+  current_location_text: 'Current Address',
+  permanent_country_id: 'Permanent Country',
+  permanent_province_id: 'Permanent Province',
   permanent_city_id: 'Permanent City',
+  permanent_location_text: 'Permanent Address',
   city_id: 'City',
   nationality_country_id: 'Nationality',
+  multiple_nationality: 'Dual Nationality',
   country_id: 'Country',
   education_level_id: 'Education Level',
   occupation_id: 'Occupation',
   house_status: 'House Status',
+  property_type: 'Property Type',
   family_setup: 'Family Setup',
   family_profession_business: 'Family Profession',
   social_background: 'Social Background',
+  family_values: 'Family Values',
+  family_introduction: 'Family Introduction',
+  important_family_circumstances: 'Family Circumstances',
+  additional_details: 'Additional Details',
   living_with: 'Living With',
   religious_practice: 'Religious Practice',
   beard: 'Beard',
   hijab: 'Hijab',
   smoking: 'Smoking',
+  other_lifestyle_information: 'Lifestyle Notes',
+  willing_to_relocate: 'Willing to Relocate',
+  preferred_country_id: 'Relocation Country',
+  preferred_province_id: 'Relocation Province',
+  preferred_city_id: 'Relocation City',
+  relocation_details: 'Relocation Details',
   education_records: 'Education',
   employment_records: 'Employment',
+  parents: 'Parents',
+  siblings: 'Siblings',
+  previous_marriages: 'Previous Marriages',
 };
 
 /**
@@ -103,11 +124,15 @@ export function resolveFieldValue(path: string, rawVal: any): string {
       const item = refStore.getMotherTongueById?.(numId) || refStore.motherTongues?.find(m => m.id === numId);
       if (item?.name_en) return item.name_en;
     }
-    if (lastPart === 'current_city_id' || lastPart === 'permanent_city_id' || lastPart === 'city_id') {
+    if (lastPart === 'current_city_id' || lastPart === 'permanent_city_id' || lastPart === 'preferred_city_id' || lastPart === 'city_id') {
       const item = refStore.getCityById?.(numId) || refStore.cities?.find(c => c.id === numId);
       if (item?.name_en) return item.name_en;
     }
-    if (lastPart === 'nationality_country_id' || lastPart === 'country_id') {
+    if (lastPart === 'current_province_id' || lastPart === 'permanent_province_id' || lastPart === 'preferred_province_id' || lastPart === 'province_id') {
+      const item = refStore.getProvinceById?.(numId) || refStore.provinces?.find(p => p.id === numId);
+      if (item?.name_en) return item.name_en;
+    }
+    if (lastPart === 'nationality_country_id' || lastPart === 'current_country_id' || lastPart === 'permanent_country_id' || lastPart === 'preferred_country_id' || lastPart === 'country_id') {
       const item = refStore.getCountryById?.(numId) || refStore.countries?.find(c => c.id === numId);
       if (item?.name_en) return item.name_en;
     }
@@ -162,20 +187,106 @@ export function resolveFieldValue(path: string, rawVal: any): string {
     return trimmed;
   }
 
-  // 5. Array records (Education & Employment)
+  // 5. Array records (Education, Employment, Parents, Siblings, Children, Previous Marriages)
   if (Array.isArray(rawVal)) {
-    if (rawVal.length === 0) return 'None';
+    if (rawVal.length === 0) return 'N/A';
 
     if (lastPart.includes('education')) {
       return rawVal
-        .map((item: any) => [item.qualification, item.institution_name].filter(Boolean).join(' - ') || 'Education Record')
-        .join(', ');
+        .map((item: any) => {
+          const lvl =
+            item.education_level_name_en ||
+            (item.education_level_id
+              ? (refStore.getEducationLevelById?.(Number(item.education_level_id)) ||
+                 refStore.educationLevels?.find(e => e.id === Number(item.education_level_id)))?.name_en
+              : null);
+          const yrs =
+            item.start_year || item.end_year ? `(${item.start_year || '?'}–${item.end_year || 'Present'})` : null;
+          return [lvl, item.qualification, item.field_of_study, item.institution_name, yrs, item.details]
+            .filter(Boolean)
+            .join(' — ');
+        })
+        .filter(Boolean)
+        .join(' | ') || 'N/A';
     }
 
     if (lastPart.includes('employment')) {
       return rawVal
-        .map((item: any) => [item.job_title, item.organization_name].filter(Boolean).join(' at ') || 'Employment Record')
-        .join(', ');
+        .map((item: any) => {
+          const occ =
+            item.occupation_name_en ||
+            (item.occupation_id
+              ? (refStore.getOccupationById?.(Number(item.occupation_id)) ||
+                 refStore.occupations?.find(o => o.id === Number(item.occupation_id)))?.name_en
+              : null);
+          const empType = item.employment_type
+            ? String(item.employment_type).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+            : null;
+          return [item.job_title, occ, item.organization_name, empType, item.details]
+            .filter(Boolean)
+            .join(' — ');
+        })
+        .filter(Boolean)
+        .join(' | ') || 'N/A';
+    }
+
+    if (lastPart === 'parents') {
+      return rawVal
+        .map((item: any) => {
+          const pType = item.parent_type ? String(item.parent_type).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : 'Parent';
+          const status = item.status ? String(item.status).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : null;
+          const country = item.country_id
+            ? (refStore.getCountryById?.(Number(item.country_id)) || refStore.countries?.find(c => c.id === Number(item.country_id)))?.name_en
+            : null;
+          const details = [item.full_name, status, item.age ? `${item.age} yrs` : null, item.profession, item.education, country, item.living_arrangement, item.additional_details]
+            .filter(Boolean)
+            .join(', ');
+          return details ? `${pType}: ${details}` : '';
+        })
+        .filter(Boolean)
+        .join(' | ') || 'N/A';
+    }
+
+    if (lastPart === 'siblings') {
+      return rawVal
+        .map((item: any) => {
+          const gender = item.gender === 'MALE' ? 'Brother' : item.gender === 'FEMALE' ? 'Sister' : 'Sibling';
+          const status = item.marital_status ? String(item.marital_status).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : null;
+          const country = item.country_id
+            ? (refStore.getCountryById?.(Number(item.country_id)) || refStore.countries?.find(c => c.id === Number(item.country_id)))?.name_en
+            : null;
+          return [item.full_name || gender, item.full_name ? gender : null, item.age ? `${item.age} yrs` : null, status, item.profession, item.education, country]
+            .filter(Boolean)
+            .join(', ');
+        })
+        .filter(Boolean)
+        .join(' | ') || 'N/A';
+    }
+
+    if (lastPart === 'children') {
+      return rawVal
+        .map((item: any) => {
+          const gender = item.gender ? String(item.gender).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : null;
+          const living = item.living_with_profile === true ? 'Living Together' : item.living_with_profile === false ? 'Living Separately' : null;
+          return [gender, item.age ? `${item.age} yrs` : null, living, item.additional_details]
+            .filter(Boolean)
+            .join(', ');
+        })
+        .filter(Boolean)
+        .join(' | ') || 'N/A';
+    }
+
+    if (lastPart === 'previous_marriages') {
+      return rawVal
+        .map((item: any) => {
+          const status = item.marriage_status ? String(item.marriage_status).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : null;
+          const yrs = item.marriage_year || item.end_year ? `${item.marriage_year || '?'}–${item.end_year || '?'}` : null;
+          return [status, yrs, item.reason_for_end, item.children_count ? `Children: ${item.children_count}` : null, item.additional_details]
+            .filter(Boolean)
+            .join(', ');
+        })
+        .filter(Boolean)
+        .join(' | ') || 'N/A';
     }
 
     return rawVal

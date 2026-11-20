@@ -509,29 +509,130 @@ export function evaluateSoftScoring(
     if (b) breakdowns.push(b);
   }
 
-  // ── 18. Beard (EXACT) ─────────────────────────────────────
-  if (prefs.lifestyle?.beard_importance && prefs.lifestyle.beard_preference) {
-    const candBeard = candidate.lifestyle_information?.beard;
+  // ── 18. Living With (EXACT) ───────────────────────────────
+  if (prefs.family?.living_with_importance && prefs.family.living_with) {
+    const candLivingWith = candidate.residency_information?.living_with;
     const b = scoreCriterion(
-      'BEARD', candBeard, prefs.lifestyle.beard_preference,
-      prefs.lifestyle.beard_importance, 'EXACT',
+      'LIVING_WITH', candLivingWith, prefs.family.living_with,
+      prefs.family.living_with_importance, 'EXACT',
       () => {
-        if (candBeard === prefs.lifestyle?.beard_preference) return { score: 1.0, explanation: `Beard preference matches: ${candBeard}` };
-        return { score: 0, explanation: `Beard is ${candBeard}, expected ${prefs.lifestyle?.beard_preference}` };
+        if (candLivingWith === prefs.family?.living_with) {
+          return { score: 1.0, explanation: `Living arrangement matches: ${candLivingWith}` };
+        }
+        return { score: 0, explanation: `Living arrangement is ${candLivingWith || 'N/A'}, expected ${prefs.family?.living_with}` };
       }
     );
     if (b) breakdowns.push(b);
   }
 
-  // ── 19. Hijab (EXACT) ─────────────────────────────────────
-  if (prefs.lifestyle?.hijab_importance && prefs.lifestyle.hijab_preference) {
+  // ── 19. Field of Study (EXACT / SUBSTRING) ────────────────
+  if (prefs.education?.field_importance && prefs.education.preferred_field_of_study) {
+    const prefFieldRaw = prefs.education.preferred_field_of_study;
+    const prefField = String(prefFieldRaw).trim().toLowerCase();
+    if (prefField && prefField !== 'none') {
+      const candFields = Array.isArray(candidate.education_records)
+        ? candidate.education_records
+            .map((e: any) => String(e.field_of_study || '').trim())
+            .filter(Boolean)
+        : [];
+      const b = scoreCriterion(
+        'FIELD_OF_STUDY', candFields.join(', ') || null, prefFieldRaw,
+        prefs.education.field_importance, 'EXACT',
+        () => {
+          const matched = candFields.some((f: string) => {
+            const fl = f.toLowerCase();
+            return fl === prefField || fl.includes(prefField) || prefField.includes(fl);
+          });
+          if (matched) return { score: 1.0, explanation: `Field of study matches: ${prefFieldRaw}` };
+          return { score: 0, explanation: `Field of study (${candFields.join(', ') || 'N/A'}) does not match ${prefFieldRaw}` };
+        }
+      );
+      if (b) breakdowns.push(b);
+    }
+  }
+
+  // ── 20. Occupation (EXACT) ────────────────────────────────
+  if (prefs.profession?.occupation_importance && prefs.profession.preferred_occupation_id) {
+    const prefOccId = Number(prefs.profession.preferred_occupation_id);
+    const candOccupations = Array.isArray(candidate.employment_records)
+      ? candidate.employment_records.map((e: any) => Number(e.occupation_id)).filter(Boolean)
+      : [];
+    const b = scoreCriterion(
+      'OCCUPATION', candOccupations[0] ?? null, prefOccId,
+      prefs.profession.occupation_importance, 'EXACT',
+      () => {
+        if (candOccupations.includes(prefOccId)) {
+          return { score: 1.0, explanation: 'Occupation matches preferred occupation' };
+        }
+        return { score: 0, explanation: 'Occupation does not match preferred occupation' };
+      }
+    );
+    if (b) breakdowns.push(b);
+  }
+
+  // ── 21. Employment Type (EXACT) ───────────────────────────
+  if (prefs.profession?.employment_type_importance && prefs.profession.preferred_employment_type) {
+    const prefEmpType = prefs.profession.preferred_employment_type;
+    const candTypes = Array.isArray(candidate.employment_records)
+      ? candidate.employment_records.map((e: any) => e.employment_type).filter(Boolean)
+      : [];
+    const b = scoreCriterion(
+      'EMPLOYMENT_TYPE', candTypes[0] ?? null, prefEmpType,
+      prefs.profession.employment_type_importance, 'EXACT',
+      () => {
+        if (candTypes.includes(prefEmpType)) {
+          return { score: 1.0, explanation: `Employment type matches: ${prefEmpType}` };
+        }
+        return { score: 0, explanation: `Employment type is ${candTypes[0] || 'N/A'}, expected ${prefEmpType}` };
+      }
+    );
+    if (b) breakdowns.push(b);
+  }
+
+  // ── 22. Relocation Willingness (EXACT) ────────────────────
+  if (prefs.relocation?.relocation_importance && prefs.relocation.willing_to_relocate_required) {
+    const reqReloc = prefs.relocation.willing_to_relocate_required;
+    const candReloc = candidate.relocation_information?.willing_to_relocate;
+    const b = scoreCriterion(
+      'RELOCATION', candReloc, reqReloc,
+      prefs.relocation.relocation_importance, 'EXACT',
+      () => {
+        if (reqReloc === 'NO' || candReloc === reqReloc) {
+          return { score: 1.0, explanation: `Relocation willingness matches: ${candReloc || reqReloc}` };
+        }
+        return { score: 0, explanation: `Relocation willingness is ${candReloc || 'N/A'}, expected ${reqReloc}` };
+      }
+    );
+    if (b) breakdowns.push(b);
+  }
+
+  // ── 23. Beard (EXACT — check lifestyle prefs with fallback to physical prefs) ──
+  const beardImportance = prefs.lifestyle?.beard_importance || prefs.physical?.beard_importance || null;
+  const beardPreference = prefs.lifestyle?.beard_preference || prefs.physical?.beard_preference || null;
+  if (beardImportance && beardPreference) {
+    const candBeard = candidate.lifestyle_information?.beard;
+    const b = scoreCriterion(
+      'BEARD', candBeard, beardPreference,
+      beardImportance, 'EXACT',
+      () => {
+        if (candBeard === beardPreference) return { score: 1.0, explanation: `Beard preference matches: ${candBeard}` };
+        return { score: 0, explanation: `Beard is ${candBeard}, expected ${beardPreference}` };
+      }
+    );
+    if (b) breakdowns.push(b);
+  }
+
+  // ── 24. Hijab (EXACT — check lifestyle prefs with fallback to physical prefs) ──
+  const hijabImportance = prefs.lifestyle?.hijab_importance || prefs.physical?.hijab_importance || null;
+  const hijabPreference = prefs.lifestyle?.hijab_preference || prefs.physical?.hijab_preference || null;
+  if (hijabImportance && hijabPreference) {
     const candHijab = candidate.lifestyle_information?.hijab;
     const b = scoreCriterion(
-      'HIJAB', candHijab, prefs.lifestyle.hijab_preference,
-      prefs.lifestyle.hijab_importance, 'EXACT',
+      'HIJAB', candHijab, hijabPreference,
+      hijabImportance, 'EXACT',
       () => {
-        if (candHijab === prefs.lifestyle?.hijab_preference) return { score: 1.0, explanation: `Hijab preference matches: ${candHijab}` };
-        return { score: 0, explanation: `Hijab is ${candHijab}, expected ${prefs.lifestyle?.hijab_preference}` };
+        if (candHijab === hijabPreference) return { score: 1.0, explanation: `Hijab preference matches: ${candHijab}` };
+        return { score: 0, explanation: `Hijab is ${candHijab}, expected ${hijabPreference}` };
       }
     );
     if (b) breakdowns.push(b);
@@ -551,7 +652,9 @@ export function calculateTotalScore(breakdowns: ScoreBreakdownDetail[]): number 
     maxPossibleWeight += b.weight;
   }
 
-  if (maxPossibleWeight === 0) return 0;
+  // If no soft criteria were specified (all active criteria were MANDATORY and already passed
+  // in passesHardFilters, or DOES_NOT_MATTER), compatibility in this direction is 100%.
+  if (maxPossibleWeight === 0) return 100;
 
   // Return as percentage (0-100)
   return Math.round((totalWeightedScore / maxPossibleWeight) * 100);

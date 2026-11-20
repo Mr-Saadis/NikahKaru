@@ -60,12 +60,14 @@ export function ProfileSection({ item, preferences, isLoadingPrefs }: ProfileSec
             {g[0]}
           </h3>
           <div className="grid grid-cols-2 gap-[6px_24px]">
-            {g[1].map((r, j) => (
-              <div key={j} className="p-[6px_0]">
-                <small className="block text-[11px] text-[#8d8c86]">{r[0]}</small>
-                <b className="block text-[14px] font-[600] mt-[2px]">{renderFieldValue(r[1])}</b>
-              </div>
-            ))}
+            {g[1]
+              .filter((r) => r[0] !== 'Profile picture')
+              .map((r, j) => (
+                <div key={j} className="p-[6px_0]">
+                  <small className="block text-[11px] text-[#8d8c86]">{r[0]}</small>
+                  <b className="block text-[14px] font-[600] mt-[2px]">{renderFieldValue(r[1])}</b>
+                </div>
+              ))}
           </div>
         </section>
       ))}

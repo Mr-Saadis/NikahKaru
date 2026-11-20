@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import { filterAndFormatReleaseFields } from './formatReleaseFields';
 import { useReferenceDataStore } from '@/lib/stores/reference-data-store';
 import { PreferenceService } from '@/lib/services/preference-service';
+import { ProfileService } from '@/lib/services/profile-service';
 import { getProfileGroups } from '@/components/requests/utils';
 import type { RequestItem } from '@/components/requests/types';
 import {
@@ -1026,22 +1027,103 @@ export async function generateSingleProfilePDF(data: {
   await Promise.all([ensureReferenceDataLoaded(), ensurePdfFontsLoaded()]);
 
   const { item } = data;
-  const profileData = (item.profileData || {}) as any;
+  let profileData = { ...(item.profileData || {}) } as any;
+
+  const targetProfileId =
+    profileData.profile_id || profileData.source_profile_id || profileData.id || item.id;
+
+  const needsFullProfileFetch =
+    Boolean(targetProfileId) &&
+    (!Array.isArray(profileData.education_records) ||
+      !Array.isArray(profileData.employment_records) ||
+      !Array.isArray(profileData.parents) ||
+      !Array.isArray(profileData.siblings) ||
+      !Array.isArray(profileData.children) ||
+      !Array.isArray(profileData.previous_marriages) ||
+      profileData.relocation_information === undefined);
+
+  const needsPrefsFetch =
+    Boolean(targetProfileId) &&
+    (!data.preferences ||
+      Object.keys(data.preferences).length === 0 ||
+      (!data.preferences.preferredLocations && !data.preferences.preferred_locations));
 
   let resolvedPreferences = data.preferences;
-  if (!resolvedPreferences || Object.keys(resolvedPreferences).length === 0) {
-    const targetProfileId =
-      profileData.profile_id || profileData.source_profile_id || profileData.id || item.id;
-    if (targetProfileId) {
-      try {
-        resolvedPreferences = await PreferenceService.getCurrentPreferences(targetProfileId);
-      } catch {
-        // Non-fatal fallback
-      }
+
+  if (needsFullProfileFetch || needsPrefsFetch) {
+    const [fetchedProfile, fetchedPrefs] = await Promise.all([
+      needsFullProfileFetch
+        ? ProfileService.getProfileById(targetProfileId).catch(() => null)
+        : Promise.resolve(null),
+      needsPrefsFetch
+        ? PreferenceService.getCurrentPreferences(targetProfileId).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
+    if (fetchedProfile) {
+      profileData = {
+        ...fetchedProfile,
+        ...profileData,
+        personal_information: fetchedProfile.personal_information || profileData.personal_information,
+        physical_information: fetchedProfile.physical_information || profileData.physical_information,
+        religion_information: fetchedProfile.religion_information || profileData.religion_information,
+        profile_locations: fetchedProfile.profile_locations || profileData.profile_locations,
+        residency_information: fetchedProfile.residency_information || profileData.residency_information,
+        income_information: fetchedProfile.income_information || profileData.income_information,
+        family_information: fetchedProfile.family_information || profileData.family_information,
+        lifestyle_information: fetchedProfile.lifestyle_information || profileData.lifestyle_information,
+        relocation_information: fetchedProfile.relocation_information || profileData.relocation_information,
+        education_records:
+          Array.isArray(profileData.education_records) && profileData.education_records.length > 0
+            ? profileData.education_records
+            : fetchedProfile.education_records || [],
+        employment_records:
+          Array.isArray(profileData.employment_records) && profileData.employment_records.length > 0
+            ? profileData.employment_records
+            : fetchedProfile.employment_records || [],
+        parents:
+          Array.isArray(profileData.parents) && profileData.parents.length > 0
+            ? profileData.parents
+            : fetchedProfile.parents || [],
+        siblings:
+          Array.isArray(profileData.siblings) && profileData.siblings.length > 0
+            ? profileData.siblings
+            : fetchedProfile.siblings || [],
+        children:
+          Array.isArray(profileData.children) && profileData.children.length > 0
+            ? profileData.children
+            : fetchedProfile.children || [],
+        previous_marriages:
+          Array.isArray(profileData.previous_marriages) && profileData.previous_marriages.length > 0
+            ? profileData.previous_marriages
+            : fetchedProfile.previous_marriages || [],
+      };
+    }
+
+    if (fetchedPrefs) {
+      resolvedPreferences = {
+        ...(resolvedPreferences || {}),
+        ...fetchedPrefs,
+        preferredLocations:
+          fetchedPrefs.preferredLocations ||
+          resolvedPreferences?.preferredLocations ||
+          resolvedPreferences?.preferred_locations ||
+          [],
+        preferredRelocations:
+          fetchedPrefs.preferredRelocations ||
+          resolvedPreferences?.preferredRelocations ||
+          resolvedPreferences?.preferred_relocations ||
+          [],
+      };
     }
   }
 
-  const groups = getProfileGroups(item, resolvedPreferences);
+  const enrichedItem: RequestItem = {
+    ...item,
+    profileData,
+  };
+
+  const groups = getProfileGroups(enrichedItem, resolvedPreferences);
 
   const clientName = item.name || profileData.full_name || 'Client Profile';
   const clientPhone = item.phone || profileData.primary_phone || profileData.phone || 'N/A';

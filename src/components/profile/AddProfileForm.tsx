@@ -155,6 +155,35 @@ function mergeStep8Local(prev: Step8Data, localStep8: Record<string, any>): Step
 
 const UNLOADED_SENTINEL = '__UNLOADED__';
 
+const cleanEnumVal = <T,>(v: T): Exclude<T, ''> | null =>
+  !v || (v as any) === 'none' || (v as any) === 'DOES_NOT_MATTER' ? null : (v as Exclude<T, ''>);
+
+function joinOverseasLocation(
+  cityText?: string,
+  provinceText?: string,
+  locationText?: string
+): string | null {
+  const rawParts = [cityText, provinceText, locationText]
+    .map((p) => (typeof p === 'string' ? p.trim() : ''))
+    .filter(Boolean);
+  if (rawParts.length === 0) return null;
+
+  // Split comma-separated tokens and deduplicate adjacent/leading duplicate tokens case-insensitively
+  const tokens: string[] = [];
+  const seenPrefix = new Set<string>();
+  for (const part of rawParts) {
+    for (const seg of part.split(',')) {
+      const t = seg.trim();
+      if (!t) continue;
+      const lower = t.toLowerCase();
+      if (seenPrefix.has(lower)) continue;
+      seenPrefix.add(lower);
+      tokens.push(t);
+    }
+  }
+  return tokens.length > 0 ? tokens.join(', ') : null;
+}
+
 const isValidCnic = (cnic?: string): boolean => (cnic || '').replace(/\D/g, '').length === 13;
 const isValidPhone = (phone?: string): boolean => (phone || '').replace(/\D/g, '').length >= 10;
 
@@ -178,6 +207,7 @@ export default function AddProfileForm() {
   const loadedProfileIdRef = useRef<string | null>(UNLOADED_SENTINEL);
   const skipReloadForIdRef = useRef<string | null>(null);
   const isEditingRef = useRef<boolean>(Boolean(urlEditParam));
+  const initialProfileStatusRef = useRef<string>('DRAFT');
 
 
 
@@ -294,6 +324,7 @@ export default function AddProfileForm() {
     setIsConfirmedAccuracy(false);
 
     isEditingRef.current = Boolean(urlEditParam);
+    initialProfileStatusRef.current = 'DRAFT';
     setCurrentStep(urlStepParam ? Math.min(Math.max(1, parseInt(urlStepParam, 10)), 9) : 1);
     profileIdRef.current = urlProfileId;
     setProfileId(urlProfileId);
@@ -336,6 +367,7 @@ export default function AddProfileForm() {
           console.log('loadDraft: Profile fetched:', profile);
 
           if (!isMounted) return;
+          initialProfileStatusRef.current = profile.status || 'DRAFT';
 
           // Step 1
           if (profile.personal_information) {
@@ -628,6 +660,7 @@ export default function AddProfileForm() {
           console.error('Failed to recover from local storage', e);
         }
       }
+      initialProfileStatusRef.current = 'DRAFT';
       loadedProfileIdRef.current = null;
       setIsInitialLoadDone(true);
     }
@@ -665,6 +698,10 @@ export default function AddProfileForm() {
 
       if (dirtyKeys.includes('step1') && cnicStatusRef.current !== 'duplicate') {
         const isNeverMarried = !data.step1.marital_status || data.step1.marital_status === 'NEVER_MARRIED';
+        const hasChildren = !isNeverMarried && Number(data.step1.number_of_children) > 0;
+        if (data.step1.gender) {
+          tasks.push(ProfileService.updateProfileGender(pid, data.step1.gender as any));
+        }
         tasks.push(ProfileService.savePersonalInfo(pid, {
           full_name: data.step1.full_name,
           cnic: data.step1.cnic || null,
@@ -679,13 +716,13 @@ export default function AddProfileForm() {
         tasks.push(
           ProfileService.saveChildren(
             pid,
-            isNeverMarried
-              ? []
-              : data.step1.children.map(({ _tempId, ...rest }) => ({
+            hasChildren
+              ? data.step1.children.map(({ _tempId, ...rest }) => ({
                   ...rest,
                   age: rest.age ? Number(rest.age) : null,
                   living_with_profile: rest.living_with_profile === 'YES',
                 }))
+              : []
           )
         );
         tasks.push(
@@ -754,8 +791,8 @@ export default function AddProfileForm() {
           permanent_country_id: data.step5.permanent_country_id ? Number(data.step5.permanent_country_id) : null,
           permanent_province_id: isPermPak && data.step5.permanent_province_id ? Number(data.step5.permanent_province_id) : null,
           permanent_city_id: isPermPak && data.step5.permanent_city_id ? Number(data.step5.permanent_city_id) : null,
-          current_location_text: (!isCurrentPak ? [data.step5.current_city_text, data.step5.current_province_text, data.step5.current_location_text].filter(Boolean).join(', ') : data.step5.current_location_text) || null,
-          permanent_location_text: (!isPermPak ? [data.step5.permanent_city_text, data.step5.permanent_province_text, data.step5.permanent_location_text].filter(Boolean).join(', ') : data.step5.permanent_location_text) || null,
+          current_location_text: (!isCurrentPak ? joinOverseasLocation(data.step5.current_city_text, data.step5.current_province_text, data.step5.current_location_text) : data.step5.current_location_text) || null,
+          permanent_location_text: (!isPermPak ? joinOverseasLocation(data.step5.permanent_city_text, data.step5.permanent_province_text, data.step5.permanent_location_text) : data.step5.permanent_location_text) || null,
         }));
         tasks.push(ProfileService.saveResidencyInfo(pid, {
           house_status: data.step5.house_status || null,
@@ -816,9 +853,9 @@ export default function AddProfileForm() {
             min_age: data.step8.pref_min_age ? Number(data.step8.pref_min_age) : null,
             max_age: data.step8.pref_max_age ? Number(data.step8.pref_max_age) : null,
             age_importance: data.step8.pref_age_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_age_importance || null),
-            preferred_marital_status: data.step8.pref_marital_status || null,
+            preferred_marital_status: cleanEnumVal(data.step8.pref_marital_status),
             marital_status_importance: data.step8.pref_marital_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_marital_importance || null),
-            children_allowed: data.step8.pref_children_allowed || null,
+            children_allowed: cleanEnumVal(data.step8.pref_children_allowed),
             children_importance: data.step8.pref_children_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_children_importance || null),
             preferred_gender: null,
             gender_importance: null,
@@ -829,16 +866,16 @@ export default function AddProfileForm() {
             min_height_cm: data.step8.pref_min_height ? Number(data.step8.pref_min_height) : null,
             max_height_cm: data.step8.pref_max_height ? Number(data.step8.pref_max_height) : null,
             height_importance: data.step8.pref_height_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_height_importance || null),
-            disability_allowed: data.step8.pref_disability_allowed || null,
+            disability_allowed: cleanEnumVal(data.step8.pref_disability_allowed),
             disability_importance: data.step8.pref_disability_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_disability_importance || null),
             min_weight_kg: data.step8.pref_min_weight ? Number(data.step8.pref_min_weight) : null,
             max_weight_kg: data.step8.pref_max_weight ? Number(data.step8.pref_max_weight) : null,
             weight_importance: data.step8.pref_weight_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_weight_importance || null),
-            preferred_complexion: data.step8.pref_complexion || null,
+            preferred_complexion: cleanEnumVal(data.step8.pref_complexion),
             complexion_importance: data.step8.pref_complexion_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_complexion_importance || null),
-            beard_preference: data.step8.pref_beard || null,
+            beard_preference: cleanEnumVal(data.step8.pref_beard),
             beard_importance: data.step8.pref_beard_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_beard_importance || null),
-            hijab_preference: data.step8.pref_hijab || null,
+            hijab_preference: cleanEnumVal(data.step8.pref_hijab),
             hijab_importance: data.step8.pref_hijab_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_hijab_importance || null),
             created_at: new Date().toISOString()
           },
@@ -846,7 +883,7 @@ export default function AddProfileForm() {
             preference_set_id: '',
             minimum_education_level_id: data.step8.pref_education_level_id ? Number(data.step8.pref_education_level_id) : null,
             education_importance: data.step8.pref_education_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_education_importance || null),
-            preferred_field_of_study: data.step8.pref_field_of_study || null,
+            preferred_field_of_study: cleanEnumVal(data.step8.pref_field_of_study),
             field_importance: data.step8.pref_field_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_field_importance || null),
             created_at: new Date().toISOString()
           },
@@ -857,7 +894,7 @@ export default function AddProfileForm() {
             income_importance: data.step8.pref_income_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_income_importance || null),
             preferred_occupation_id: data.step8.pref_occupation_id ? Number(data.step8.pref_occupation_id) : null,
             occupation_importance: data.step8.pref_occupation_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_occupation_importance || null),
-            preferred_employment_type: data.step8.pref_employment_type as any || null,
+            preferred_employment_type: cleanEnumVal(data.step8.pref_employment_type as any),
             employment_type_importance: data.step8.pref_employment_type_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_employment_type_importance || null),
             created_at: new Date().toISOString()
           },
@@ -869,7 +906,7 @@ export default function AddProfileForm() {
             sect_importance: data.step8.pref_sect_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_sect_importance || null),
             caste_id: data.step8.pref_caste_id ? Number(data.step8.pref_caste_id) : null,
             caste_importance: data.step8.pref_caste_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_caste_importance || null),
-            religious_practice: data.step8.pref_religious_practice || null,
+            religious_practice: cleanEnumVal(data.step8.pref_religious_practice),
             religious_practice_importance: data.step8.pref_religious_practice_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_religious_practice_importance || null),
             created_at: new Date().toISOString()
           },
@@ -889,30 +926,30 @@ export default function AddProfileForm() {
           })),
           family: {
             preference_set_id: '',
-            family_setup: data.step8.pref_family_setup || null,
+            family_setup: cleanEnumVal(data.step8.pref_family_setup),
             family_setup_importance: data.step8.pref_family_setup_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_family_setup_importance || null),
-            living_with: data.step8.pref_living_with || null,
+            living_with: cleanEnumVal(data.step8.pref_living_with),
             living_with_importance: data.step8.pref_living_with_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_living_with_importance || null),
-            parents_status_preference: data.step8.pref_parents_status || null,
+            parents_status_preference: cleanEnumVal(data.step8.pref_parents_status),
             parents_status_importance: data.step8.pref_parents_status_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_parents_status_importance || null),
             created_at: new Date().toISOString()
           },
           lifestyle: {
             preference_set_id: '',
-            smoking: data.step8.pref_smoking || null,
+            smoking: cleanEnumVal(data.step8.pref_smoking),
             smoking_importance: data.step8.pref_smoking_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_smoking_importance || null),
-            religious_practice: data.step8.pref_religious_practice || null,
+            religious_practice: cleanEnumVal(data.step8.pref_religious_practice),
             religious_practice_importance: data.step8.pref_religious_practice_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_religious_practice_importance || null),
-            beard_preference: data.step8.pref_beard || null,
+            beard_preference: cleanEnumVal(data.step8.pref_beard),
             beard_importance: data.step8.pref_beard_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_beard_importance || null),
-            hijab_preference: data.step8.pref_hijab || null,
+            hijab_preference: cleanEnumVal(data.step8.pref_hijab),
             hijab_importance: data.step8.pref_hijab_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_hijab_importance || null),
             additional_preferences: data.step8.pref_additional_lifestyle || null,
             created_at: new Date().toISOString()
           },
           relocation: {
             preference_set_id: '',
-            willing_to_relocate_required: data.step8.pref_willing_to_relocate_required || null,
+            willing_to_relocate_required: cleanEnumVal(data.step8.pref_willing_to_relocate_required),
             relocation_importance: data.step8.pref_relocation_importance === 'DOES_NOT_MATTER' ? null : (data.step8.pref_relocation_importance || null),
             country_importance: null,
             province_importance: null,
@@ -937,24 +974,6 @@ export default function AddProfileForm() {
         if (failures.length > 0) {
           const details = failures.map((f: any) => f.reason?.message || JSON.stringify(f.reason)).join('; ');
           throw new Error(`Auto-save: ${failures.length} task(s) failed — ${details}`);
-        }
-      }
-
-      // After successful auto-save, update profile status based on mandatory field completion
-      if (profileId && getStepStatsRef.current) {
-        const allMandatoryDone = SIDEBAR_STEPS.every(s => getStepStatsRef.current!(s.id).mandatoryComplete);
-        try {
-          await ProfileService.updateProfileStatus(profileId, allMandatoryDone ? 'ACTIVE' : 'DRAFT');
-          if (allMandatoryDone) {
-            console.log('Auto-save: profile status → ACTIVE');
-            // Refresh MV so profile is available for matching immediately
-            const supabase = createClient();
-            await supabase.rpc('refresh_mv_matching_profiles').then(({ error: rpcErr }) => {
-              if (rpcErr) console.error('Auto-save: MV refresh failed:', rpcErr.message);
-            });
-          }
-        } catch (statusErr: any) {
-          console.error('Auto-save: status update failed:', statusErr?.message || statusErr);
         }
       }
     }
@@ -1422,12 +1441,15 @@ export default function AddProfileForm() {
       if (!pid) {
         const profile = await ProfileService.createProfile(user.id, step1.gender as string);
         pid = profile.id;
+      } else if (step1.gender) {
+        await ProfileService.updateProfileGender(pid, step1.gender as any);
       }
 
       // Profile picture upload is now handled immediately in handleImageUpload
 
       // 2. Save each section in parallel where possible
       const isNeverMarried = !step1.marital_status || step1.marital_status === 'NEVER_MARRIED';
+      const hasChildren = !isNeverMarried && Number(step1.number_of_children) > 0;
       await ProfileService.savePersonalInfo(pid, {
         full_name: step1.full_name,
         cnic: step1.cnic || null,
@@ -1442,13 +1464,13 @@ export default function AddProfileForm() {
 
       await ProfileService.saveChildren(
         pid,
-        isNeverMarried
-          ? []
-          : (step1.children || []).map(({ _tempId, ...rest }: any) => ({
+        hasChildren
+          ? (step1.children || []).map(({ _tempId, ...rest }: any) => ({
               ...rest,
               age: rest.age ? Number(rest.age) : null,
               living_with_profile: rest.living_with_profile === 'YES',
             }))
+          : []
       );
 
       await ProfileService.savePreviousMarriages(
@@ -1490,8 +1512,8 @@ export default function AddProfileForm() {
           permanent_country_id: step5.permanent_country_id ? Number(step5.permanent_country_id) : null,
           permanent_province_id: isPermPak && step5.permanent_province_id ? Number(step5.permanent_province_id) : null,
           permanent_city_id: isPermPak && step5.permanent_city_id ? Number(step5.permanent_city_id) : null,
-          current_location_text: (!isCurrentPak ? [step5.current_city_text, step5.current_province_text, step5.current_location_text].filter(Boolean).join(', ') : step5.current_location_text) || null,
-          permanent_location_text: (!isPermPak ? [step5.permanent_city_text, step5.permanent_province_text, step5.permanent_location_text].filter(Boolean).join(', ') : step5.permanent_location_text) || null,
+          current_location_text: (!isCurrentPak ? joinOverseasLocation(step5.current_city_text, step5.current_province_text, step5.current_location_text) : step5.current_location_text) || null,
+          permanent_location_text: (!isPermPak ? joinOverseasLocation(step5.permanent_city_text, step5.permanent_province_text, step5.permanent_location_text) : step5.permanent_location_text) || null,
         }),
         ProfileService.saveResidencyInfo(pid, {
           house_status: step5.house_status || null,
@@ -1565,9 +1587,9 @@ export default function AddProfileForm() {
           min_age: step8.pref_min_age ? Number(step8.pref_min_age) : null,
           max_age: step8.pref_max_age ? Number(step8.pref_max_age) : null,
           age_importance: step8.pref_age_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_age_importance || null),
-          preferred_marital_status: step8.pref_marital_status || null,
+          preferred_marital_status: cleanEnumVal(step8.pref_marital_status),
           marital_status_importance: step8.pref_marital_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_marital_importance || null),
-          children_allowed: step8.pref_children_allowed || null,
+          children_allowed: cleanEnumVal(step8.pref_children_allowed),
           children_importance: step8.pref_children_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_children_importance || null),
           preferred_gender: null, // Default
           gender_importance: null, // Default
@@ -1578,16 +1600,16 @@ export default function AddProfileForm() {
           min_height_cm: step8.pref_min_height ? Number(step8.pref_min_height) : null,
           max_height_cm: step8.pref_max_height ? Number(step8.pref_max_height) : null,
           height_importance: step8.pref_height_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_height_importance || null),
-          disability_allowed: step8.pref_disability_allowed || null,
+          disability_allowed: cleanEnumVal(step8.pref_disability_allowed),
           disability_importance: step8.pref_disability_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_disability_importance || null),
           min_weight_kg: step8.pref_min_weight ? Number(step8.pref_min_weight) : null,
           max_weight_kg: step8.pref_max_weight ? Number(step8.pref_max_weight) : null,
           weight_importance: step8.pref_weight_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_weight_importance || null),
-          preferred_complexion: step8.pref_complexion || null,
+          preferred_complexion: cleanEnumVal(step8.pref_complexion),
           complexion_importance: step8.pref_complexion_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_complexion_importance || null),
-          beard_preference: step8.pref_beard || null,
+          beard_preference: cleanEnumVal(step8.pref_beard),
           beard_importance: step8.pref_beard_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_beard_importance || null),
-          hijab_preference: step8.pref_hijab || null,
+          hijab_preference: cleanEnumVal(step8.pref_hijab),
           hijab_importance: step8.pref_hijab_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_hijab_importance || null),
           created_at: new Date().toISOString()
         },
@@ -1595,7 +1617,7 @@ export default function AddProfileForm() {
           preference_set_id: '',
           minimum_education_level_id: step8.pref_education_level_id ? Number(step8.pref_education_level_id) : null,
           education_importance: step8.pref_education_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_education_importance || null),
-          preferred_field_of_study: step8.pref_field_of_study || null,
+          preferred_field_of_study: cleanEnumVal(step8.pref_field_of_study),
           field_importance: step8.pref_field_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_field_importance || null),
           created_at: new Date().toISOString()
         },
@@ -1606,7 +1628,7 @@ export default function AddProfileForm() {
           income_importance: step8.pref_income_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_income_importance || null),
           preferred_occupation_id: step8.pref_occupation_id ? Number(step8.pref_occupation_id) : null,
           occupation_importance: step8.pref_occupation_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_occupation_importance || null),
-          preferred_employment_type: (step8.pref_employment_type as any) || null,
+          preferred_employment_type: cleanEnumVal(step8.pref_employment_type as any),
           employment_type_importance: step8.pref_employment_type_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_employment_type_importance || null),
           created_at: new Date().toISOString()
         },
@@ -1618,7 +1640,7 @@ export default function AddProfileForm() {
           sect_importance: step8.pref_sect_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_sect_importance || null),
           caste_id: step8.pref_caste_id ? Number(step8.pref_caste_id) : null,
           caste_importance: step8.pref_caste_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_caste_importance || null),
-          religious_practice: step8.pref_religious_practice || null,
+          religious_practice: cleanEnumVal(step8.pref_religious_practice),
           religious_practice_importance: step8.pref_religious_practice_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_religious_practice_importance || null),
           created_at: new Date().toISOString()
         },
@@ -1638,30 +1660,30 @@ export default function AddProfileForm() {
         })),
         family: {
           preference_set_id: '',
-          family_setup: step8.pref_family_setup || null,
+          family_setup: cleanEnumVal(step8.pref_family_setup),
           family_setup_importance: step8.pref_family_setup_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_family_setup_importance || null),
-          living_with: step8.pref_living_with || null,
+          living_with: cleanEnumVal(step8.pref_living_with),
           living_with_importance: step8.pref_living_with_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_living_with_importance || null),
-          parents_status_preference: step8.pref_parents_status || null,
+          parents_status_preference: cleanEnumVal(step8.pref_parents_status),
           parents_status_importance: step8.pref_parents_status_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_parents_status_importance || null),
           created_at: new Date().toISOString()
         },
         lifestyle: {
           preference_set_id: '',
-          smoking: step8.pref_smoking || null,
+          smoking: cleanEnumVal(step8.pref_smoking),
           smoking_importance: step8.pref_smoking_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_smoking_importance || null),
-          religious_practice: step8.pref_religious_practice || null,
+          religious_practice: cleanEnumVal(step8.pref_religious_practice),
           religious_practice_importance: step8.pref_religious_practice_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_religious_practice_importance || null),
-          beard_preference: step8.pref_beard || null,
+          beard_preference: cleanEnumVal(step8.pref_beard),
           beard_importance: step8.pref_beard_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_beard_importance || null),
-          hijab_preference: step8.pref_hijab || null,
+          hijab_preference: cleanEnumVal(step8.pref_hijab),
           hijab_importance: step8.pref_hijab_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_hijab_importance || null),
           additional_preferences: step8.pref_additional_lifestyle || null,
           created_at: new Date().toISOString()
         },
         relocation: {
           preference_set_id: '',
-          willing_to_relocate_required: step8.pref_willing_to_relocate_required || null,
+          willing_to_relocate_required: cleanEnumVal(step8.pref_willing_to_relocate_required),
           relocation_importance: step8.pref_relocation_importance === 'DOES_NOT_MATTER' ? null : (step8.pref_relocation_importance || null),
           country_importance: null,
           province_importance: null,
@@ -1677,15 +1699,23 @@ export default function AddProfileForm() {
       }, user.id);
 
       // 4. Update profile status based on whether all mandatory fields across all steps are filled
+      // Preserve PAUSED / INACTIVE / ARCHIVED status when editing an existing profile
       const missingDetails = getMissingMandatoryDetails();
       if (missingDetails.length > 0 || forceDraft) {
         console.warn('Profile saved as DRAFT. Missing mandatory fields:', missingDetails);
       }
       const allMandatoryCompleted = !forceDraft && missingDetails.length === 0;
-      await ProfileService.updateProfileStatus(pid, allMandatoryCompleted ? 'ACTIVE' : 'DRAFT');
+      const preservedStatuses = ['PAUSED', 'INACTIVE', 'ARCHIVED'];
+      const targetStatus =
+        !forceDraft && preservedStatuses.includes(initialProfileStatusRef.current)
+          ? initialProfileStatusRef.current
+          : allMandatoryCompleted
+            ? 'ACTIVE'
+            : 'DRAFT';
+      await ProfileService.updateProfileStatus(pid, targetStatus as any);
 
-      // Refresh the materialized view for matching if it became active
-      if (allMandatoryCompleted) {
+      // Refresh the materialized view for matching if it became active or was active
+      if (targetStatus === 'ACTIVE' || initialProfileStatusRef.current === 'ACTIVE') {
         try {
           const supabase = createClient();
           const { error: rpcError } = await supabase.rpc('refresh_mv_matching_profiles');
@@ -1706,7 +1736,7 @@ export default function AddProfileForm() {
               full_name: step1.full_name,
               phone: step1.phone,
               gender: step1.gender,
-              status: allMandatoryCompleted ? 'ACTIVE' : 'DRAFT',
+              status: targetStatus,
             },
             metadata: {
               step: currentStep,

@@ -375,7 +375,7 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      // Rule 14: Keep existing demographics query unchanged
+      // Rule 14: Keep existing demographics query structure, excluding incomplete DRAFT profiles
       const [
         { data: allProfilesData },
         { data: allEmploymentsData },
@@ -383,19 +383,23 @@ export async function GET(request: NextRequest) {
       ] = await Promise.all([
         supabase
           .from('vw_profile_core')
-          .select('profile_id, gender, current_country_name_en, current_province_name_en, sect_name_en, monthly_income_min, monthly_income_max'),
+          .select('profile_id, gender, status, current_country_name_en, current_province_name_en, sect_name_en, monthly_income_min, monthly_income_max')
+          .neq('status', 'DRAFT'),
         supabase
           .from('employment_records')
-          .select('profile_id, job_title, occupations(name_en), profiles!inner(gender)'),
+          .select('profile_id, job_title, occupations(name_en), profiles!inner(gender, status)')
+          .neq('profiles.status', 'DRAFT'),
         supabase
           .from('education_records')
-          .select('profile_id, qualification, education_levels(name_en), profiles!inner(gender)'),
+          .select('profile_id, qualification, education_levels(name_en), profiles!inner(gender, status)')
+          .neq('profiles.status', 'DRAFT'),
       ]);
 
       // A. Occupations
       const occMap: Record<string, { id: string; name: string; total: number; male: number; female: number }> = {};
       (allEmploymentsData || []).forEach((e: any) => {
-        const title = e.occupations?.name_en || e.job_title || 'General Professional';
+        const title = e.occupations?.name_en || e.job_title;
+        if (!title) return;
         if (!occMap[title]) occMap[title] = { id: title, name: title, total: 0, male: 0, female: 0 };
         occMap[title].total++;
         if (e.profiles?.gender === 'MALE') occMap[title].male++;
@@ -406,7 +410,8 @@ export async function GET(request: NextRequest) {
       // B. Education
       const eduMap: Record<string, { id: string; name: string; total: number; male: number; female: number }> = {};
       (allEducationsData || []).forEach((e: any) => {
-        const title = e.education_levels?.name_en || e.qualification || 'Higher Education';
+        const title = e.education_levels?.name_en || e.qualification;
+        if (!title) return;
         if (!eduMap[title]) eduMap[title] = { id: title, name: title, total: 0, male: 0, female: 0 };
         eduMap[title].total++;
         if (e.profiles?.gender === 'MALE') eduMap[title].male++;
@@ -418,13 +423,15 @@ export async function GET(request: NextRequest) {
       const locCountryMap: Record<string, { id: string; name: string; total: number; male: number; female: number }> = {};
       const locProvinceMap: Record<string, { id: string; name: string; total: number; male: number; female: number }> = {};
       (allProfilesData || []).forEach((p: any) => {
-        const country = p.current_country_name_en || 'Pakistan';
-        if (!locCountryMap[country]) locCountryMap[country] = { id: country, name: country, total: 0, male: 0, female: 0 };
-        locCountryMap[country].total++;
-        if (p.gender === 'MALE') locCountryMap[country].male++;
-        else locCountryMap[country].female++;
+        const country = p.current_country_name_en;
+        if (country) {
+          if (!locCountryMap[country]) locCountryMap[country] = { id: country, name: country, total: 0, male: 0, female: 0 };
+          locCountryMap[country].total++;
+          if (p.gender === 'MALE') locCountryMap[country].male++;
+          else locCountryMap[country].female++;
+        }
 
-        const prov = p.current_province_name_en || (country.toLowerCase() === 'pakistan' ? 'Punjab' : null);
+        const prov = p.current_province_name_en;
         if (prov) {
           if (!locProvinceMap[prov]) locProvinceMap[prov] = { id: prov, name: prov, total: 0, male: 0, female: 0 };
           locProvinceMap[prov].total++;
@@ -438,7 +445,8 @@ export async function GET(request: NextRequest) {
       // D. Sects
       const sectMap: Record<string, { id: string; name: string; total: number; male: number; female: number }> = {};
       (allProfilesData || []).forEach((p: any) => {
-        const sect = p.sect_name_en || 'Sunni';
+        const sect = p.sect_name_en;
+        if (!sect) return;
         if (!sectMap[sect]) sectMap[sect] = { id: sect, name: sect, total: 0, male: 0, female: 0 };
         sectMap[sect].total++;
         if (p.gender === 'MALE') sectMap[sect].male++;
@@ -459,7 +467,8 @@ export async function GET(request: NextRequest) {
         incMap[b.id] = { id: b.id, name: b.name, total: 0, male: 0, female: 0 };
       });
       (allProfilesData || []).forEach((p: any) => {
-        const inc = p.monthly_income_min || p.monthly_income_max || 0;
+        if (p.monthly_income_min == null && p.monthly_income_max == null) return;
+        const inc = Number(p.monthly_income_max ?? p.monthly_income_min ?? 0);
         const matched = incomeBrackets.find((b) => inc >= b.min && inc <= b.max) || incomeBrackets[incomeBrackets.length - 1];
         incMap[matched.id].total++;
         if (p.gender === 'MALE') incMap[matched.id].male++;

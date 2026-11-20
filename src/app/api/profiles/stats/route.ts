@@ -34,11 +34,12 @@ export async function GET(request: NextRequest) {
 
     // Fail-closed: Only MANAGER / HIGH_LEVEL_ADMIN see global counts
     if (!isManagerOrAdmin) {
-      totalQ = totalQ.eq('current_agent_id', user.id);
-      activeQ = activeQ.eq('current_agent_id', user.id);
-      draftQ = draftQ.eq('current_agent_id', user.id);
-      pausedQ = pausedQ.eq('current_agent_id', user.id);
-      archivedQ = archivedQ.eq('current_agent_id', user.id);
+      const ownerFilter = `current_agent_id.eq.${user.id},and(current_agent_id.is.null,created_by.eq.${user.id})`;
+      totalQ = totalQ.or(ownerFilter);
+      activeQ = activeQ.or(ownerFilter);
+      draftQ = draftQ.or(ownerFilter);
+      pausedQ = pausedQ.or(ownerFilter);
+      archivedQ = archivedQ.or(ownerFilter);
     }
 
     // We can use the core view, but simple profile counts are faster

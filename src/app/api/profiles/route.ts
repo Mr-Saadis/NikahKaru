@@ -49,9 +49,9 @@ export async function GET(request: NextRequest) {
       .from('vw_profile_core')
       .select('*', { count: 'exact' });
 
-    // Fail-closed: Only MANAGER / HIGH_LEVEL_ADMIN see all profiles; everyone else restricted to assigned profiles
+    // Fail-closed: Only MANAGER / HIGH_LEVEL_ADMIN see all profiles; everyone else restricted to assigned/created profiles
     if (!isManagerOrAdmin) {
-      query = query.eq('current_agent_id', user.id);
+      query = query.or(`current_agent_id.eq.${user.id},and(current_agent_id.is.null,created_by.eq.${user.id})`);
     }
 
     if (status && status !== 'ALL') {
@@ -108,28 +108,33 @@ export async function GET(request: NextRequest) {
     const profileIds = coreData.map(p => p.profile_id);
     const pausedProfileIds = coreData.filter(p => p.status === 'PAUSED').map(p => p.profile_id);
 
-    // 2. Fetch Nested Arrays and Preferences for these profile IDs
+    // 2. Fetch Nested Arrays, Preferences, and Relocation Info for these profile IDs
     const [
       { data: nestedData, error: nestedError },
       { data: prefData, error: prefError },
+      { data: reloData, error: reloError },
       pauseMap,
     ] = await Promise.all([
       supabase.from('vw_profile_nested_arrays').select('*').in('profile_id', profileIds),
       supabase.from('vw_profile_active_preferences').select('*').in('profile_id', profileIds),
+      supabase.from('relocation_information').select('*').in('profile_id', profileIds),
       pausedProfileIds.length > 0 ? getPauseInfoMap(pausedProfileIds) : Promise.resolve(new Map()),
     ]);
 
     if (nestedError) console.error('Error fetching nested data:', nestedError);
     if (prefError) console.error('Error fetching pref data:', prefError);
+    if (reloError) console.error('Error fetching relocation data:', reloError);
 
     // Create lookup maps
     const nestedMap = new Map((nestedData || []).map(n => [n.profile_id, n]));
     const prefMap = new Map((prefData || []).map(p => [p.profile_id, p]));
+    const reloMap = new Map((reloData || []).map(r => [r.profile_id, r]));
 
     // 3. Map into FullProfile structure
     const fullProfiles = coreData.map(p => {
       const nested = nestedMap.get(p.profile_id);
       const pref = prefMap.get(p.profile_id);
+      const relo = reloMap.get(p.profile_id);
 
       return {
         id: p.profile_id,
@@ -143,17 +148,19 @@ export async function GET(request: NextRequest) {
         archived_at: p.archived_at,
         profile_URL: p.profile_url,
         
-        personal_information: p.full_name ? {
+        personal_information: (p.full_name || p.cnic || p.phone) ? {
           full_name: p.full_name,
           date_of_birth: p.date_of_birth,
           marital_status: p.marital_status,
           number_of_children: p.number_of_children,
           cnic: p.cnic,
+          phone: p.phone,
           nationality_country_id: p.nationality_country_id,
+          multiple_nationality: Boolean(p.multiple_nationality),
           mother_tongue_id: p.mother_tongue_id,
         } : null,
         
-        physical_information: p.height_cm ? {
+        physical_information: (p.height_cm != null || p.weight_kg != null || p.complexion || p.has_disability) ? {
           height_cm: p.height_cm,
           weight_kg: p.weight_kg,
           complexion: p.complexion,
@@ -161,14 +168,14 @@ export async function GET(request: NextRequest) {
           disability_details: p.disability_details,
         } : null,
         
-        religion_information: p.religion_id ? {
+        religion_information: (p.religion_id || p.sect_id || p.caste_id || p.other_caste_text) ? {
           religion_id: p.religion_id,
           sect_id: p.sect_id,
           caste_id: p.caste_id,
           other_caste_text: p.other_caste_text,
         } : null,
         
-        profile_locations: p.current_country_id ? {
+        profile_locations: (p.current_country_id || p.permanent_country_id || p.current_location_text || p.permanent_location_text || p.current_city_id) ? {
           current_country_id: p.current_country_id,
           current_province_id: p.current_province_id,
           current_city_id: p.current_city_id,
@@ -179,7 +186,7 @@ export async function GET(request: NextRequest) {
           permanent_location_text: p.permanent_location_text,
         } : null,
         
-        residency_information: p.house_status ? {
+        residency_information: (p.house_status || p.property_type || p.family_setup || p.living_with) ? {
           house_status: p.house_status,
           property_type: p.property_type,
           family_setup: p.family_setup,
@@ -187,14 +194,14 @@ export async function GET(request: NextRequest) {
           living_with_other_details: p.living_with_other_details,
         } : null,
         
-        income_information: p.monthly_income_min ? {
+        income_information: (p.monthly_income_min != null || p.monthly_income_max != null) ? {
           monthly_income_min: p.monthly_income_min,
           monthly_income_max: p.monthly_income_max,
           currency_code: p.currency_code,
           income_period: p.income_period,
         } : null,
         
-        family_information: p.family_profession_business ? {
+        family_information: (p.family_profession_business || p.social_background || p.family_values || p.family_introduction || p.important_family_circumstances || p.family_additional_details) ? {
           family_profession_business: p.family_profession_business,
           social_background: p.social_background,
           family_values: p.family_values,
@@ -203,12 +210,20 @@ export async function GET(request: NextRequest) {
           additional_details: p.family_additional_details,
         } : null,
         
-        lifestyle_information: p.religious_practice ? {
+        lifestyle_information: (p.religious_practice || p.beard || p.hijab || p.smoking || p.other_lifestyle_information) ? {
           beard: p.beard,
           hijab: p.hijab,
           religious_practice: p.religious_practice,
           smoking: p.smoking,
           other_lifestyle_information: p.other_lifestyle_information,
+        } : null,
+
+        relocation_information: relo ? {
+          willing_to_relocate: relo.willing_to_relocate,
+          preferred_country_id: relo.preferred_country_id,
+          preferred_province_id: relo.preferred_province_id,
+          preferred_city_id: relo.preferred_city_id,
+          relocation_details: relo.relocation_details,
         } : null,
 
         // Arrays from nested view

@@ -457,45 +457,28 @@ export async function fetchAgentBoardInitialColumns(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return {};
 
-  let query = supabase.from('vw_agent_requests_board').select('*').neq('status', 'DRAFT');
-  query = applyBoardFilters(query, filters)
-    .order('request_date', { ascending: false })
-    .limit(limit * AGENT_COLUMN_KEYS.length);
-
-  const { data, error } = await query;
-
   const columnMap: Record<string, RequestItem[]> = {};
   AGENT_COLUMN_KEYS.forEach((colKey) => {
     columnMap[colKey] = [];
   });
 
-  if (error) {
-    console.error('Supabase agent board initial query error:', error);
-    return columnMap;
-  }
-
-  const validRows = (data || []).filter(
-    (item: any) => !item.current_agent_id || item.current_agent_id === user.id
+  // Fetch top `limit` cards per column in parallel so high volume in one column
+  // never starves other columns on initial load.
+  const entries = await Promise.all(
+    AGENT_COLUMN_KEYS.map(async (colKey) => {
+      try {
+        const items = await fetchAgentColumnRequestsWithClient(supabase, user.id, colKey, filters, 0, limit);
+        return [colKey, deduplicateByProfile(items).slice(0, limit)] as const;
+      } catch (err) {
+        console.error(`Error fetching initial agent column ${colKey}:`, err);
+        return [colKey, [] as RequestItem[]] as const;
+      }
+    })
   );
-  const pausedIds = validRows
-    .filter((item: any) => item.status === 'PAUSED')
-    .map((item: any) => item.profile_id || item.source_profile_id)
-    .filter(Boolean);
-  const pauseMap = pausedIds.length > 0 ? await getPauseInfoMap(pausedIds) : new Map();
 
-  const mappedItems = validRows.map((item: any) => {
-    const pid = item.profile_id || item.source_profile_id;
-    const pauseInfo = item.status === 'PAUSED' && pid ? (pauseMap.get(pid) || null) : null;
-    const enriched = item.status === 'PAUSED' ? { ...item, pause_info: pauseInfo } : item;
-    return mapViewRowToRequestItem(enriched, item.status === 'PAUSED' ? 'pause' : undefined);
-  });
-  const uniqueItems = deduplicateByProfile(mappedItems);
-
-  uniqueItems.forEach((item) => {
-    if (columnMap[item.status] && columnMap[item.status].length < limit) {
-      columnMap[item.status].push(item);
-    }
-  });
+  for (const [colKey, items] of entries) {
+    columnMap[colKey] = items;
+  }
 
   return columnMap;
 }

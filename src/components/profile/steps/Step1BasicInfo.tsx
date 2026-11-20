@@ -426,7 +426,12 @@ export default function Step1BasicInfo({
             <label className="block text-[11px] uppercase font-bold tracking-wider text-[#676156] mb-2">Number of Children</label>
             <input type="text" value={data.number_of_children === '' ? '' : data.number_of_children} onChange={(e) => {
               const val = e.target.value.replace(/[^0-9]/g, '');
-              onChange({ ...data, number_of_children: val ? Number(val) : '' });
+              const numVal = val ? Number(val) : '';
+              onChange({
+                ...data,
+                number_of_children: numVal,
+                children: (!numVal || Number(numVal) <= 0) ? [] : data.children,
+              });
             }} placeholder="0" className="w-[80px] bg-white border border-[#EFE9DF] rounded-xl px-3.5 py-2 text-[13px] focus:border-[#064e3b] focus:outline-none" />
           </div>
 
@@ -450,13 +455,24 @@ export default function Step1BasicInfo({
                     placeholder="Living With"
                     className="bg-white border-[#EFE9DF] h-[36px] px-3 w-[160px] text-[12px] rounded-lg"
                   />
-                  <button type="button" onClick={() => onChange({ ...data, children: data.children.filter((_, i) => i !== index) })}
+                  <button type="button" onClick={() => {
+                    const nextChildren = data.children.filter((_, i) => i !== index);
+                    onChange({ ...data, children: nextChildren });
+                  }}
                     className="text-red-500 p-2 opacity-50 hover:opacity-100">
                     <Trash2 size={16} />
                   </button>
                 </div>
               ))}
-              <button type="button" onClick={() => onChange({ ...data, children: [...(data.children || []), { _tempId: crypto.randomUUID(), gender: '', age: '', living_with_profile: 'NO', additional_details: '' }] })}
+              <button type="button" onClick={() => {
+                const nextChildren = [...(data.children || []), { _tempId: crypto.randomUUID(), gender: '', age: '', living_with_profile: 'NO', additional_details: '' }];
+                const currentCount = Number(data.number_of_children || 0);
+                onChange({
+                  ...data,
+                  children: nextChildren,
+                  number_of_children: nextChildren.length > currentCount ? nextChildren.length : data.number_of_children,
+                });
+              }}
                 className="flex items-center gap-1.5 text-[12px] font-bold text-[#064e3b]">
                 <Plus size={14} /> Add Child Record
               </button>

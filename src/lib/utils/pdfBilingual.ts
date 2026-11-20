@@ -29,13 +29,18 @@ const FIELD_LABEL_BILINGUAL_MAP: Record<string, BilingualText> = {
   age: { en: 'Age', ur: 'عمر' },
   date_of_birth: { en: 'Age', ur: 'عمر' },
   dob: { en: 'Age', ur: 'عمر' },
+  'date of birth': { en: 'Date of Birth', ur: 'تاریخِ پیدائش' },
   marital_status: { en: 'Marital Status', ur: 'ازدواجی حیثیت' },
   'marital status': { en: 'Marital Status', ur: 'ازدواجی حیثیت' },
   number_of_children: { en: 'Children', ur: 'بچوں کی تعداد' },
-  children: { en: 'Children', ur: 'بچے' },
+  children: { en: 'Children', ur: 'بچوں کی تعداد' },
+  'children details': { en: 'Children Details', ur: 'بچوں کی تفصیل' },
+  'previous marriages': { en: 'Previous Marriages', ur: 'سابقہ ازدواجی تفصیل' },
   'children allowed': { en: 'Children Allowed', ur: 'بچوں کی اجازت' },
   nationality: { en: 'Nationality', ur: 'قومیت' },
   nationality_country_id: { en: 'Nationality', ur: 'قومیت' },
+  'dual nationality': { en: 'Dual Nationality', ur: 'دوہری شہریت' },
+  multiple_nationality: { en: 'Dual Nationality', ur: 'دوہری شہریت' },
   mother_tongue: { en: 'Mother Tongue', ur: 'مادری زبان' },
   'mother tongue': { en: 'Mother Tongue', ur: 'مادری زبان' },
   mother_tongue_id: { en: 'Mother Tongue', ur: 'مادری زبان' },
@@ -51,19 +56,28 @@ const FIELD_LABEL_BILINGUAL_MAP: Record<string, BilingualText> = {
   disability: { en: 'Disability', ur: 'معذوری' },
   has_disability: { en: 'Disability Status', ur: 'معذوری کی کیفیت' },
   disability_details: { en: 'Disability Details', ur: 'معذوری کی تفصیل' },
+  'disability details': { en: 'Disability Details', ur: 'معذوری کی تفصیل' },
   'disability allowed': { en: 'Disability Allowed', ur: 'معذوری قابلِ قبول' },
 
   // Education & Profession
   'education level': { en: 'Education Level', ur: 'تعلیمی قابلیت' },
   education_level_id: { en: 'Education Level', ur: 'تعلیمی قابلیت' },
   'min education': { en: 'Minimum Education', ur: 'کم از کم تعلیم' },
-  qualification: { en: 'Qualification', ur: 'ڈگری / قابلیت' },
+  qualification: { en: 'Qualification / Degree', ur: 'ڈگری / قابلیت' },
+  institution: { en: 'Institution / University', ur: 'تعلیمی ادارہ' },
+  institution_name: { en: 'Institution / University', ur: 'تعلیمی ادارہ' },
+  'education years': { en: 'Academic Years', ur: 'تعلیمی دورانیہ' },
+  'education details': { en: 'Education Notes', ur: 'تعلیمی تفصیل' },
   education: { en: 'Education', ur: 'تعلیم' },
   education_records: { en: 'Education', ur: 'تعلیم' },
   'field of study': { en: 'Field of Study', ur: 'شعبۂ تعلیم' },
   field_of_study: { en: 'Field of Study', ur: 'شعبۂ تعلیم' },
-  'job title': { en: 'Profession / Designation', ur: 'پیشہ / عہدہ' },
-  job_title: { en: 'Profession / Designation', ur: 'پیشہ / عہدہ' },
+  occupation: { en: 'Occupation', ur: 'پیشہ' },
+  'job title': { en: 'Designation / Job Title', ur: 'عہدہ / ملازمت' },
+  job_title: { en: 'Designation / Job Title', ur: 'عہدہ / ملازمت' },
+  organization: { en: 'Organization / Employer', ur: 'کمپنی / ادارہ' },
+  organization_name: { en: 'Organization / Employer', ur: 'کمپنی / ادارہ' },
+  'employment details': { en: 'Employment Notes', ur: 'ملازمت کی تفصیل' },
   occupation_id: { en: 'Occupation', ur: 'پیشہ' },
   'preferred profession': { en: 'Preferred Profession', ur: 'پسندیدہ پیشہ' },
   employment: { en: 'Employment', ur: 'ملازمت / روزگار' },
@@ -80,15 +94,26 @@ const FIELD_LABEL_BILINGUAL_MAP: Record<string, BilingualText> = {
   sect_id: { en: 'Sect / Maslak', ur: 'مسلک / فرقہ' },
   caste: { en: 'Caste / Biradari', ur: 'ذات / برادری' },
   caste_id: { en: 'Caste / Biradari', ur: 'ذات / برادری' },
+  'other caste': { en: 'Sub-Caste / Other Caste', ur: 'ذیلی ذات / برادری' },
+  other_caste_text: { en: 'Sub-Caste / Other Caste', ur: 'ذیلی ذات / برادری' },
 
   // Location & Residency
   'current country': { en: 'Current Country', ur: 'موجودہ ملک' },
   current_country_id: { en: 'Current Country', ur: 'موجودہ ملک' },
   'current province': { en: 'Current Province', ur: 'موجودہ صوبہ' },
+  current_province_id: { en: 'Current Province', ur: 'موجودہ صوبہ' },
   'current city': { en: 'Current City', ur: 'موجودہ شہر' },
   current_city_id: { en: 'Current City', ur: 'موجودہ شہر' },
+  'current address': { en: 'Current Area / Address', ur: 'موجودہ علاقہ / پتہ' },
+  current_location_text: { en: 'Current Area / Address', ur: 'موجودہ علاقہ / پتہ' },
+  'permanent country': { en: 'Permanent Country', ur: 'مستقل ملک' },
+  permanent_country_id: { en: 'Permanent Country', ur: 'مستقل ملک' },
+  'permanent province': { en: 'Permanent Province', ur: 'مستقل صوبہ' },
+  permanent_province_id: { en: 'Permanent Province', ur: 'مستقل صوبہ' },
   'permanent city': { en: 'Permanent City', ur: 'مستقل شہر' },
   permanent_city_id: { en: 'Permanent City', ur: 'مستقل شہر' },
+  'permanent address': { en: 'Permanent Area / Address', ur: 'مستقل علاقہ / پتہ' },
+  permanent_location_text: { en: 'Permanent Area / Address', ur: 'مستقل علاقہ / پتہ' },
   city: { en: 'City', ur: 'شہر' },
   city_id: { en: 'City', ur: 'شہر' },
   country: { en: 'Country', ur: 'ملک' },
@@ -96,9 +121,13 @@ const FIELD_LABEL_BILINGUAL_MAP: Record<string, BilingualText> = {
   'preferred country': { en: 'Preferred Country', ur: 'پسندیدہ ملک' },
   'preferred province': { en: 'Preferred Province', ur: 'پسندیدہ صوبہ' },
   'preferred city': { en: 'Preferred City', ur: 'پسندیدہ شہر' },
+  'preferred locations': { en: 'Preferred Locations', ur: 'پسندیدہ مقامات' },
+  'excluded locations': { en: 'Excluded Locations', ur: 'ناقابلِ قبول مقامات' },
   residency: { en: 'Nationality / Residency', ur: 'شہریت / رہائش' },
   'house status': { en: 'House Status', ur: 'رہائش کی ملکیت' },
   house_status: { en: 'House Status', ur: 'رہائش کی ملکیت' },
+  'property type': { en: 'Property Type', ur: 'جائیداد کی قسم' },
+  property_type: { en: 'Property Type', ur: 'جائیداد کی قسم' },
 
   // Family
   profession: { en: 'Family Business / Profession', ur: 'خاندانی کاروبار / پیشہ' },
@@ -106,14 +135,35 @@ const FIELD_LABEL_BILINGUAL_MAP: Record<string, BilingualText> = {
   'family profession': { en: 'Family Profession', ur: 'خاندانی پیشہ' },
   'social background': { en: 'Social Background', ur: 'سماجی حیثیت' },
   social_background: { en: 'Social Background', ur: 'سماجی حیثیت' },
+  'family values': { en: 'Family Values', ur: 'خاندانی اقدار' },
+  family_values: { en: 'Family Values', ur: 'خاندانی اقدار' },
+  'family introduction': { en: 'Family Introduction', ur: 'خاندانی تعارف' },
+  family_introduction: { en: 'Family Introduction', ur: 'خاندانی تعارف' },
+  'family circumstances': { en: 'Family Circumstances', ur: 'اہم خاندانی حالات' },
+  important_family_circumstances: { en: 'Family Circumstances', ur: 'اہم خاندانی حالات' },
+  'additional family info': { en: 'Additional Family Details', ur: 'مزید خاندانی تفصیل' },
+  'father name': { en: 'Father Name', ur: 'والد کا نام' },
+  'father status': { en: 'Father Status', ur: 'والد کی کیفیت' },
+  'father profession': { en: 'Father Profession', ur: 'والد کا پیشہ' },
+  'father education': { en: 'Father Education', ur: 'والد کی تعلیم' },
+  'father location': { en: 'Father Location', ur: 'والد کی رہائش' },
+  'father details': { en: 'Father Notes', ur: 'والد کی مزید تفصیل' },
+  'mother name': { en: 'Mother Name', ur: 'والدہ کا نام' },
+  'mother status': { en: 'Mother Status', ur: 'والدہ کی کیفیت' },
+  'mother profession': { en: 'Mother Profession', ur: 'والدہ کا پیشہ' },
+  'mother education': { en: 'Mother Education', ur: 'والدہ کی تعلیم' },
+  'mother location': { en: 'Mother Location', ur: 'والدہ کی رہائش' },
+  'mother details': { en: 'Mother Notes', ur: 'والدہ کی مزید تفصیل' },
+  'siblings count': { en: 'Siblings Summary', ur: 'بہن بھائیوں کی تعداد' },
   'family setup': { en: 'Family Setup', ur: 'خاندانی نظام' },
   family_setup: { en: 'Family Setup', ur: 'خاندانی نظام' },
   'living with': { en: 'Living Arrangement', ur: 'رہائشی انتظام' },
   living_with: { en: 'Living Arrangement', ur: 'رہائشی انتظام' },
+  'living details': { en: 'Living Details', ur: 'رہائش کی تفصیل' },
   'living preference': { en: 'Living Preference', ur: 'رہائش کی ترجیح' },
   'parents status': { en: 'Parents Status', ur: 'والدین کی کیفیت' },
 
-  // Lifestyle
+  // Lifestyle & Relocation
   prayer: { en: 'Religious Practice', ur: 'دینی رجحان / نماز' },
   'religious practice': { en: 'Religious Practice', ur: 'دینی رجحان' },
   religious_practice: { en: 'Religious Practice', ur: 'دینی رجحان' },
@@ -122,11 +172,22 @@ const FIELD_LABEL_BILINGUAL_MAP: Record<string, BilingualText> = {
   hijab: { en: 'Hijab / Purdah', ur: 'حجاب / پردہ' },
   'hijab preference': { en: 'Hijab Preference', ur: 'حجاب کی ترجیح' },
   smoking: { en: 'Smoking Habit', ur: 'سگریٹ نوشی' },
+  'lifestyle notes': { en: 'Lifestyle Notes', ur: 'طرزِ زندگی کی مزید تفصیل' },
+  other_lifestyle_information: { en: 'Lifestyle Notes', ur: 'طرزِ زندگی کی مزید تفصیل' },
+  'willing to relocate': { en: 'Willing to Relocate', ur: 'نقل مکانی پر آمادگی' },
+  willing_to_relocate: { en: 'Willing to Relocate', ur: 'نقل مکانی پر آمادگی' },
+  'relocation country': { en: 'Relocation Country', ur: 'نقل مکانی کا ملک' },
+  'relocation province': { en: 'Relocation Province', ur: 'نقل مکانی کا صوبہ' },
+  'relocation city': { en: 'Relocation City', ur: 'نقل مکانی کا شہر' },
+  'relocation details': { en: 'Relocation Notes', ur: 'نقل مکانی کی تفصیل' },
+  relocation_details: { en: 'Relocation Notes', ur: 'نقل مکانی کی تفصیل' },
 
   // Other Preferences
   'desired age': { en: 'Desired Age', ur: 'مطلوبہ عمر' },
   relocation: { en: 'Relocation', ur: 'نقل مکانی' },
   'relocation target': { en: 'Relocation Destination', ur: 'نقل مکانی کا مقام' },
+  'excluded relocation': { en: 'Excluded Relocation', ur: 'ناقابلِ قبول نقل مکانی' },
+  'additional preferences': { en: 'Additional Preferences', ur: 'مزید ترجیحات' },
   preferences: { en: 'Preferences', ur: 'ترجیحات' },
   status: { en: 'Status', ur: 'حیثیت' },
 };
@@ -421,6 +482,26 @@ export function getBilingualFieldLabel(labelOrPath: string): BilingualText {
   }
   if (FIELD_LABEL_BILINGUAL_MAP[lastPart]) {
     return FIELD_LABEL_BILINGUAL_MAP[lastPart];
+  }
+
+  // Dynamic numbered labels (e.g. Child #1, Previous Marriage #1, Education #2, Employment #2, Brother #1, Sister #1, Sibling #1)
+  const numberedMatch = trimmed.match(/^(Child|Previous Marriage|Education|Employment|Brother|Sister|Sibling)\s*#(\d+)$/i);
+  if (numberedMatch) {
+    const kind = numberedMatch[1].toLowerCase();
+    const num = numberedMatch[2];
+    const urPrefixMap: Record<string, string> = {
+      child: 'بچہ نمبر',
+      'previous marriage': 'سابقہ شادی نمبر',
+      education: 'تعلیمی ریکارڈ نمبر',
+      employment: 'ملازمت ریکارڈ نمبر',
+      brother: 'بھائی نمبر',
+      sister: 'بہن نمبر',
+      sibling: 'بہن بھائی نمبر',
+    };
+    return {
+      en: `${numberedMatch[1]} #${num}`,
+      ur: urPrefixMap[kind] ? `${urPrefixMap[kind]} ${num}` : '',
+    };
   }
 
   const prettyEn = (trimmed.includes('.') ? lastPart : trimmed)
@@ -808,9 +889,18 @@ export function resolveExplicitUrduFromProfile(
     if (key === 'caste') return profileData.caste_name_ur || null;
     if (key === 'mother tongue') return profileData.mother_tongue_name_ur || null;
     if (key === 'current country') return profileData.current_country_name_ur || null;
+    if (key === 'current province') return profileData.current_province_name_ur || null;
     if (key === 'current city') return profileData.current_city_name_ur || null;
+    if (key === 'permanent country') return profileData.permanent_country_name_ur || null;
+    if (key === 'permanent province') return profileData.permanent_province_name_ur || null;
     if (key === 'permanent city') return profileData.permanent_city_name_ur || null;
     if (key === 'residency' || key === 'nationality') return profileData.nationality_country_name_ur || null;
+    if (key === 'education level') {
+      return profileData.education_level_name_ur || profileData.education_records?.[0]?.education_level_name_ur || null;
+    }
+    if (key === 'occupation') {
+      return profileData.occupation_name_ur || profileData.employment_records?.[0]?.occupation_name_ur || null;
+    }
   }
 
   if (preferences) {
