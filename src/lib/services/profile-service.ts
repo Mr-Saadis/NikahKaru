@@ -34,6 +34,22 @@ export interface ProfileFilters {
 
 const trimStr = (val: any): string | null => (typeof val === 'string' ? val.trim() || null : val || null);
 
+const profileWriteLocks = new Map<string, Promise<unknown>>();
+
+async function withProfileLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prev = profileWriteLocks.get(key) ?? Promise.resolve();
+  const run = prev.catch(() => undefined).then(() => fn());
+  const tracked = run.catch(() => undefined);
+  profileWriteLocks.set(key, tracked);
+  try {
+    return await run;
+  } finally {
+    if (profileWriteLocks.get(key) === tracked) {
+      profileWriteLocks.delete(key);
+    }
+  }
+}
+
 export class ProfileService {
   /**
    * CREATE / INITIALIZE PROFILE
@@ -162,11 +178,9 @@ export class ProfileService {
    */
   static async savePersonalInfo(profileId: string, data: Partial<PersonalInformation>): Promise<PersonalInformation> {
     const supabase = createClient();
-    
-    // Check if exists
-    const { data: existing } = await supabase.from('personal_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
-    
+
     const sanitized = {
+      profile_id: profileId,
       full_name: data.full_name ? String(data.full_name).trim() : '',
       cnic: data.cnic ? String(data.cnic).trim() : null,
       phone: data.phone ? String(data.phone).trim() : null,
@@ -178,16 +192,13 @@ export class ProfileService {
       mother_tongue_id: data.mother_tongue_id ? Number(data.mother_tongue_id) : null,
     };
 
-    let result;
-    if (existing) {
-      const { data: updated, error } = await supabase.from('personal_information').update(sanitized).eq('profile_id', profileId).select().single();
-      if (error) throw error;
-      result = updated;
-    } else {
-      const { data: inserted, error } = await supabase.from('personal_information').insert({ ...sanitized, profile_id: profileId }).select().single();
-      if (error) throw error;
-      result = inserted;
-    }
+    const { data: result, error } = await supabase
+      .from('personal_information')
+      .upsert(sanitized, { onConflict: 'profile_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
     return result as PersonalInformation;
   }
 
@@ -196,13 +207,13 @@ export class ProfileService {
    */
   static async savePhysicalInfo(profileId: string, data: Partial<PhysicalInformation>): Promise<PhysicalInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('physical_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
 
     const h = (data.height_cm != null && (data.height_cm as any) !== '') ? Number(data.height_cm) : null;
     const w = (data.weight_kg != null && (data.weight_kg as any) !== '') ? Number(data.weight_kg) : null;
 
-    const sanitized: Partial<PhysicalInformation> = {
+    const sanitized = {
       ...data,
+      profile_id: profileId,
       height_cm: (h !== null && !isNaN(h) && h >= 80 && h <= 250) ? h : null,
       weight_kg: (w !== null && !isNaN(w) && w >= 20 && w <= 400) ? w : null,
       complexion: data.complexion || null,
@@ -210,16 +221,13 @@ export class ProfileService {
       disability_details: data.has_disability ? (data.disability_details || null) : null,
     };
 
-    let result;
-    if (existing) {
-      const { data: updated, error } = await supabase.from('physical_information').update(sanitized).eq('profile_id', profileId).select().single();
-      if (error) throw error;
-      result = updated;
-    } else {
-      const { data: inserted, error } = await supabase.from('physical_information').insert({ ...sanitized, profile_id: profileId }).select().single();
-      if (error) throw error;
-      result = inserted;
-    }
+    const { data: result, error } = await supabase
+      .from('physical_information')
+      .upsert(sanitized, { onConflict: 'profile_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
     return result as PhysicalInformation;
   }
 
@@ -227,13 +235,8 @@ export class ProfileService {
    * STEP 3A: Education Records
    */
   static async saveEducationRecords(profileId: string, records: Partial<EducationRecord>[]): Promise<void> {
-    const supabase = createClient();
-    
-    await supabase.from('education_records').delete().eq('profile_id', profileId);
-    
-    if (records.length > 0) {
+    return withProfileLock(`education_records:${profileId}`, async () => {
       const sanitized = records.map(r => ({
-        profile_id: profileId,
         education_level_id: r.education_level_id ? Number(r.education_level_id) : null,
         qualification: trimStr(r.qualification),
         institution_name: trimStr(r.institution_name),
@@ -243,20 +246,20 @@ export class ProfileService {
         is_highest_qualification: Boolean(r.is_highest_qualification),
         details: trimStr(r.details),
       }));
-      const { error } = await supabase.from('education_records').insert(sanitized);
-      if (error) throw error;
-    }
+      const { replaceProfileChildRecordsAction } = await import('@/lib/actions/profiles');
+      const result = await replaceProfileChildRecordsAction(profileId, 'education_records', sanitized);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save education records');
+      }
+    });
   }
 
   /**
    * STEP 3B: Employment Records
    */
   static async saveEmploymentRecords(profileId: string, records: Partial<EmploymentRecord>[]): Promise<void> {
-    const supabase = createClient();
-    await supabase.from('employment_records').delete().eq('profile_id', profileId);
-    if (records.length > 0) {
+    return withProfileLock(`employment_records:${profileId}`, async () => {
       const sanitized = records.map(r => ({
-        profile_id: profileId,
         occupation_id: r.occupation_id ? Number(r.occupation_id) : null,
         job_title: trimStr(r.job_title),
         organization_name: trimStr(r.organization_name),
@@ -266,9 +269,12 @@ export class ProfileService {
         is_current: Boolean(r.is_current),
         details: trimStr(r.details),
       }));
-      const { error } = await supabase.from('employment_records').insert(sanitized);
-      if (error) throw error;
-    }
+      const { replaceProfileChildRecordsAction } = await import('@/lib/actions/profiles');
+      const result = await replaceProfileChildRecordsAction(profileId, 'employment_records', sanitized);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save employment records');
+      }
+    });
   }
 
   /**
@@ -276,17 +282,13 @@ export class ProfileService {
    */
   static async saveIncomeInfo(profileId: string, data: Partial<IncomeInformation>): Promise<IncomeInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('income_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
-    let result;
-    if (existing) {
-      const { data: updated, error } = await supabase.from('income_information').update(data).eq('profile_id', profileId).select().single();
-      if (error) throw error;
-      result = updated;
-    } else {
-      const { data: inserted, error } = await supabase.from('income_information').insert({ ...data, profile_id: profileId }).select().single();
-      if (error) throw error;
-      result = inserted;
-    }
+    const { data: result, error } = await supabase
+      .from('income_information')
+      .upsert({ ...data, profile_id: profileId }, { onConflict: 'profile_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
     return result as IncomeInformation;
   }
 
@@ -295,21 +297,18 @@ export class ProfileService {
    */
   static async saveReligionInfo(profileId: string, data: Partial<ReligionInformation>): Promise<ReligionInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('religion_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     const sanitized = {
       ...data,
+      profile_id: profileId,
       other_caste_text: trimStr(data.other_caste_text),
     };
-    let result;
-    if (existing) {
-      const { data: updated, error } = await supabase.from('religion_information').update(sanitized).eq('profile_id', profileId).select().single();
-      if (error) throw error;
-      result = updated;
-    } else {
-      const { data: inserted, error } = await supabase.from('religion_information').insert({ ...sanitized, profile_id: profileId }).select().single();
-      if (error) throw error;
-      result = inserted;
-    }
+    const { data: result, error } = await supabase
+      .from('religion_information')
+      .upsert(sanitized, { onConflict: 'profile_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
     return result as ReligionInformation;
   }
 
@@ -318,22 +317,19 @@ export class ProfileService {
    */
   static async saveLocations(profileId: string, data: Partial<ProfileLocation>): Promise<ProfileLocation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('profile_locations').select('profile_id').eq('profile_id', profileId).maybeSingle();
     const sanitized = {
       ...data,
+      profile_id: profileId,
       current_location_text: trimStr(data.current_location_text),
       permanent_location_text: trimStr(data.permanent_location_text),
     };
-    let result;
-    if (existing) {
-      const { data: updated, error } = await supabase.from('profile_locations').update(sanitized).eq('profile_id', profileId).select().single();
-      if (error) throw error;
-      result = updated;
-    } else {
-      const { data: inserted, error } = await supabase.from('profile_locations').insert({ ...sanitized, profile_id: profileId }).select().single();
-      if (error) throw error;
-      result = inserted;
-    }
+    const { data: result, error } = await supabase
+      .from('profile_locations')
+      .upsert(sanitized, { onConflict: 'profile_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
     return result as ProfileLocation;
   }
 
@@ -342,21 +338,18 @@ export class ProfileService {
    */
   static async saveResidencyInfo(profileId: string, data: Partial<ResidencyInformation>): Promise<ResidencyInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('residency_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
     const sanitized = {
       ...data,
+      profile_id: profileId,
       living_with_other_details: trimStr(data.living_with_other_details),
     };
-    let result;
-    if (existing) {
-      const { data: updated, error } = await supabase.from('residency_information').update(sanitized).eq('profile_id', profileId).select().single();
-      if (error) throw error;
-      result = updated;
-    } else {
-      const { data: inserted, error } = await supabase.from('residency_information').insert({ ...sanitized, profile_id: profileId }).select().single();
-      if (error) throw error;
-      result = inserted;
-    }
+    const { data: result, error } = await supabase
+      .from('residency_information')
+      .upsert(sanitized, { onConflict: 'profile_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
     return result as ResidencyInformation;
   }
 
@@ -364,64 +357,50 @@ export class ProfileService {
    * STEP 6A: Parents
    */
   static async saveParents(profileId: string, records: Partial<Parent>[]): Promise<void> {
-    const supabase = createClient();
-    
-    // Deduplicate by parent_type so there is never more than 1 FATHER and 1 MOTHER
-    const seen = new Set<string>();
-    const uniqueRecords: Partial<Parent>[] = [];
-    for (let i = records.length - 1; i >= 0; i--) {
-      const r = records[i];
-      const type = (r.parent_type as string)?.toUpperCase();
-      if ((type === 'FATHER' || type === 'MOTHER') && !seen.has(type)) {
-        seen.add(type);
-        uniqueRecords.unshift({ ...r, parent_type: type as 'FATHER' | 'MOTHER' });
+    return withProfileLock(`parents:${profileId}`, async () => {
+      // Deduplicate by parent_type so there is never more than 1 FATHER and 1 MOTHER
+      const seen = new Set<string>();
+      const uniqueRecords: Partial<Parent>[] = [];
+      for (let i = records.length - 1; i >= 0; i--) {
+        const r = records[i];
+        const type = (r.parent_type as string)?.toUpperCase();
+        if ((type === 'FATHER' || type === 'MOTHER') && !seen.has(type)) {
+          seen.add(type);
+          uniqueRecords.unshift({ ...r, parent_type: type as 'FATHER' | 'MOTHER' });
+        }
       }
-    }
 
-    if (uniqueRecords.length === 0) {
-      await supabase.from('parents').delete().eq('profile_id', profileId);
-      return;
-    }
+      const sanitized = uniqueRecords.map(r => {
+        const ageNum = (r.age != null && (r.age as any) !== '') ? Number(r.age) : null;
+        return {
+          parent_type: r.parent_type as 'FATHER' | 'MOTHER',
+          status: (r.status || 'ALIVE') as 'ALIVE' | 'DECEASED',
+          full_name: trimStr(r.full_name),
+          age: (ageNum !== null && !isNaN(ageNum) && ageNum >= 18 && ageNum <= 120) ? ageNum : null,
+          profession: trimStr(r.profession),
+          education: trimStr(r.education),
+          country_id: r.country_id ? Number(r.country_id) : null,
+          city_id: r.city_id ? Number(r.city_id) : null,
+          living_arrangement: trimStr(r.living_arrangement),
+          social_background: trimStr(r.social_background),
+          additional_details: trimStr(r.additional_details),
+        };
+      });
 
-    // Delete any parent types that are no longer in the list
-    const typesPresent = uniqueRecords.map(r => r.parent_type!);
-    if (typesPresent.length === 1) {
-      const otherType = typesPresent[0] === 'FATHER' ? 'MOTHER' : 'FATHER';
-      await supabase.from('parents').delete().eq('profile_id', profileId).eq('parent_type', otherType);
-    }
-
-    const sanitized = uniqueRecords.map(r => {
-      const ageNum = (r.age != null && (r.age as any) !== '') ? Number(r.age) : null;
-      return {
-        profile_id: profileId,
-        parent_type: r.parent_type as 'FATHER' | 'MOTHER',
-        status: (r.status || 'ALIVE') as 'ALIVE' | 'DECEASED',
-        full_name: trimStr(r.full_name),
-        age: (ageNum !== null && !isNaN(ageNum) && ageNum >= 18 && ageNum <= 120) ? ageNum : null,
-        profession: trimStr(r.profession),
-        education: trimStr(r.education),
-        country_id: r.country_id ? Number(r.country_id) : null,
-        city_id: r.city_id ? Number(r.city_id) : null,
-        living_arrangement: trimStr(r.living_arrangement),
-        social_background: trimStr(r.social_background),
-        additional_details: trimStr(r.additional_details),
-      };
+      const { syncProfileParentsAction } = await import('@/lib/actions/profiles');
+      const result = await syncProfileParentsAction(profileId, sanitized);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save parents');
+      }
     });
-
-    // Use upsert to eliminate race conditions and avoid duplicate key errors
-    const { error } = await supabase.from('parents').upsert(sanitized, { onConflict: 'profile_id,parent_type' });
-    if (error) throw error;
   }
 
   /**
    * STEP 6B: Siblings
    */
   static async saveSiblings(profileId: string, records: Partial<Sibling>[]): Promise<void> {
-    const supabase = createClient();
-    await supabase.from('siblings').delete().eq('profile_id', profileId);
-    if (records.length > 0) {
+    return withProfileLock(`siblings:${profileId}`, async () => {
       const sanitized = records.map(r => ({
-        profile_id: profileId,
         gender: (r.gender || 'MALE') as 'MALE' | 'FEMALE',
         full_name: trimStr(r.full_name),
         age: r.age ? Number(r.age) : null,
@@ -431,9 +410,12 @@ export class ProfileService {
         country_id: r.country_id ? Number(r.country_id) : null,
         city_id: r.city_id ? Number(r.city_id) : null,
       }));
-      const { error } = await supabase.from('siblings').insert(sanitized);
-      if (error) throw error;
-    }
+      const { replaceProfileChildRecordsAction } = await import('@/lib/actions/profiles');
+      const result = await replaceProfileChildRecordsAction(profileId, 'siblings', sanitized);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save siblings');
+      }
+    });
   }
 
   /**
@@ -441,9 +423,9 @@ export class ProfileService {
    */
   static async saveFamilyInfo(profileId: string, data: Partial<FamilyInformation>): Promise<FamilyInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('family_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
-    
+
     const sanitized = {
+      profile_id: profileId,
       family_profession_business: data.family_profession_business ? String(data.family_profession_business).trim() : null,
       social_background: data.social_background ? String(data.social_background).trim() : null,
       family_values: data.family_values ? String(data.family_values).trim() : null,
@@ -452,16 +434,13 @@ export class ProfileService {
       additional_details: data.additional_details ? String(data.additional_details).trim() : null,
     };
 
-    let result;
-    if (existing) {
-      const { data: updated, error } = await supabase.from('family_information').update(sanitized).eq('profile_id', profileId).select().single();
-      if (error) throw error;
-      result = updated;
-    } else {
-      const { data: inserted, error } = await supabase.from('family_information').insert({ ...sanitized, profile_id: profileId }).select().single();
-      if (error) throw error;
-      result = inserted;
-    }
+    const { data: result, error } = await supabase
+      .from('family_information')
+      .upsert(sanitized, { onConflict: 'profile_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
     return result as FamilyInformation;
   }
 
@@ -470,23 +449,20 @@ export class ProfileService {
    */
   static async saveLifestyleInfo(profileId: string, data: Partial<LifestyleInformation>): Promise<LifestyleInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('lifestyle_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
-    
+
     const sanitized = {
       ...data,
+      profile_id: profileId,
       other_lifestyle_information: data.other_lifestyle_information ? String(data.other_lifestyle_information).trim() : null,
     };
 
-    let result;
-    if (existing) {
-      const { data: updated, error } = await supabase.from('lifestyle_information').update(sanitized).eq('profile_id', profileId).select().single();
-      if (error) throw error;
-      result = updated;
-    } else {
-      const { data: inserted, error } = await supabase.from('lifestyle_information').insert({ ...sanitized, profile_id: profileId }).select().single();
-      if (error) throw error;
-      result = inserted;
-    }
+    const { data: result, error } = await supabase
+      .from('lifestyle_information')
+      .upsert(sanitized, { onConflict: 'profile_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
     return result as LifestyleInformation;
   }
 
@@ -495,23 +471,20 @@ export class ProfileService {
    */
   static async saveRelocationInfo(profileId: string, data: Partial<RelocationInformation>): Promise<RelocationInformation> {
     const supabase = createClient();
-    const { data: existing } = await supabase.from('relocation_information').select('profile_id').eq('profile_id', profileId).maybeSingle();
-    
+
     const sanitized = {
       ...data,
+      profile_id: profileId,
       relocation_details: data.relocation_details ? String(data.relocation_details).trim() : null,
     };
 
-    let result;
-    if (existing) {
-      const { data: updated, error } = await supabase.from('relocation_information').update(sanitized).eq('profile_id', profileId).select().single();
-      if (error) throw error;
-      result = updated;
-    } else {
-      const { data: inserted, error } = await supabase.from('relocation_information').insert({ ...sanitized, profile_id: profileId }).select().single();
-      if (error) throw error;
-      result = inserted;
-    }
+    const { data: result, error } = await supabase
+      .from('relocation_information')
+      .upsert(sanitized, { onConflict: 'profile_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
     return result as RelocationInformation;
   }
 
@@ -598,27 +571,24 @@ export class ProfileService {
    * CHILDREN & PREVIOUS MARRIAGES
    */
   static async saveChildren(profileId: string, data: any[]): Promise<void> {
-    const supabase = createClient();
-    await supabase.from('children').delete().eq('profile_id', profileId);
-    if (data.length > 0) {
+    return withProfileLock(`children:${profileId}`, async () => {
       const sanitized = data.map(d => ({
-        profile_id: profileId,
         gender: d.gender || null,
         age: d.age ? Number(d.age) : null,
         living_with_profile: d.living_with_profile != null ? Boolean(d.living_with_profile) : null,
         additional_details: trimStr(d.additional_details),
       }));
-      const { error } = await supabase.from('children').insert(sanitized);
-      if (error) throw error;
-    }
+      const { replaceProfileChildRecordsAction } = await import('@/lib/actions/profiles');
+      const result = await replaceProfileChildRecordsAction(profileId, 'children', sanitized);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save children records');
+      }
+    });
   }
 
   static async savePreviousMarriages(profileId: string, data: any[]): Promise<void> {
-    const supabase = createClient();
-    await supabase.from('previous_marriages').delete().eq('profile_id', profileId);
-    if (data.length > 0) {
+    return withProfileLock(`previous_marriages:${profileId}`, async () => {
       const sanitized = data.map((d, index) => ({
-        profile_id: profileId,
         marriage_number: index + 1,
         marriage_status: d.marriage_status || null,
         marriage_year: d.marriage_year ? Number(d.marriage_year) : null,
@@ -630,9 +600,12 @@ export class ProfileService {
         children_live_with_profile: d.children_live_with_profile != null ? Boolean(d.children_live_with_profile) : null,
         additional_details: trimStr(d.additional_details),
       }));
-      const { error } = await supabase.from('previous_marriages').insert(sanitized);
-      if (error) throw error;
-    }
+      const { replaceProfileChildRecordsAction } = await import('@/lib/actions/profiles');
+      const result = await replaceProfileChildRecordsAction(profileId, 'previous_marriages', sanitized);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save previous marriages');
+      }
+    });
   }
 
   static async deleteProfile(profileId: string): Promise<void> {

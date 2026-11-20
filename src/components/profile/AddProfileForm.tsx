@@ -75,6 +75,84 @@ function mergeNonEmptyLocal<T extends Record<string, any>>(
   return next;
 }
 
+const normOptStr = (v: unknown): string | null =>
+  typeof v === 'string' ? (v.trim() || null) : v == null ? null : String(v);
+
+function dedupeEducationRecords<T extends Record<string, any>>(list: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const r of list) {
+    const key = JSON.stringify([
+      r.education_level_id ? Number(r.education_level_id) : null,
+      normOptStr(r.qualification),
+      normOptStr(r.institution_name),
+      normOptStr(r.field_of_study),
+      r.start_year ? Number(r.start_year) : null,
+      r.end_year ? Number(r.end_year) : null,
+      Boolean(r.is_highest_qualification),
+      normOptStr(r.details),
+    ]);
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(r);
+    }
+  }
+  return out;
+}
+
+function dedupeEmploymentRecords<T extends Record<string, any>>(list: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const r of list) {
+    const key = JSON.stringify([
+      r.occupation_id ? Number(r.occupation_id) : null,
+      normOptStr(r.job_title),
+      normOptStr(r.organization_name),
+      normOptStr(r.employment_type),
+      r.start_date || null,
+      r.is_current ? null : (r.end_date || null),
+      Boolean(r.is_current),
+      normOptStr(r.details),
+    ]);
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(r);
+    }
+  }
+  return out;
+}
+
+function dedupePreferredLocations<T extends Record<string, any>>(list: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const l of list) {
+    const key = `${Number(l.country_id)}|${l.province_id ? Number(l.province_id) : ''}|${l.city_id ? Number(l.city_id) : ''}|${Boolean(l.is_excluded)}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(l);
+    }
+  }
+  return out;
+}
+
+function mergeStep3Local(prev: Step3Data, localStep3: Record<string, any>): Step3Data {
+  const merged = mergeNonEmptyLocal(prev, localStep3);
+  return {
+    ...merged,
+    education_records: dedupeEducationRecords(merged.education_records || []),
+    employment_records: dedupeEmploymentRecords(merged.employment_records || []),
+  };
+}
+
+function mergeStep8Local(prev: Step8Data, localStep8: Record<string, any>): Step8Data {
+  const merged = mergeNonEmptyLocal(prev, localStep8);
+  return {
+    ...merged,
+    pref_locations: dedupePreferredLocations(merged.pref_locations || []),
+    pref_relocations: dedupePreferredLocations(merged.pref_relocations || []),
+  };
+}
+
 const UNLOADED_SENTINEL = '__UNLOADED__';
 
 const isValidCnic = (cnic?: string): boolean => (cnic || '').replace(/\D/g, '').length === 13;
@@ -304,8 +382,12 @@ export default function AddProfileForm() {
             const inc = Array.isArray(profile.income_information) ? profile.income_information[0] : profile.income_information;
             setStep3(prev => ({
               ...prev,
-              education_records: (profile.education_records || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID() })),
-              employment_records: (profile.employment_records || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID() })),
+              education_records: dedupeEducationRecords(
+                (profile.education_records || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID() }))
+              ),
+              employment_records: dedupeEmploymentRecords(
+                (profile.employment_records || []).map((r: any) => ({ ...r, _tempId: r.id || crypto.randomUUID() }))
+              ),
               monthly_income_min: inc?.monthly_income_min?.toString() || '',
               monthly_income_max: inc?.monthly_income_max?.toString() || '',
             }));
@@ -441,14 +523,16 @@ export default function AddProfileForm() {
                 pref_location_province_importance: prefs.location.province_importance || 'DOES_NOT_MATTER',
                 pref_location_city_importance: prefs.location.city_importance || 'DOES_NOT_MATTER',
               }),
-              pref_locations: (prefs.preferredLocations || []).map((l: any) => ({
-                ...l,
-                _tempId: l.id || crypto.randomUUID(),
-                country_id: Number(l.country_id),
-                province_id: l.province_id ? Number(l.province_id) : null,
-                city_id: l.city_id ? Number(l.city_id) : null,
-                is_excluded: Boolean(l.is_excluded),
-              })),
+              pref_locations: dedupePreferredLocations(
+                (prefs.preferredLocations || []).map((l: any) => ({
+                  ...l,
+                  _tempId: l.id || crypto.randomUUID(),
+                  country_id: Number(l.country_id),
+                  province_id: l.province_id ? Number(l.province_id) : null,
+                  city_id: l.city_id ? Number(l.city_id) : null,
+                  is_excluded: Boolean(l.is_excluded),
+                }))
+              ),
               ...(prefs.family && {
                 pref_family_setup: prefs.family.family_setup || '',
                 pref_family_setup_importance: prefs.family.family_setup_importance || 'DOES_NOT_MATTER',
@@ -466,25 +550,27 @@ export default function AddProfileForm() {
                 pref_willing_to_relocate_required: prefs.relocation.willing_to_relocate_required || '',
                 pref_relocation_importance: prefs.relocation.relocation_importance || 'DOES_NOT_MATTER',
               }),
-              pref_relocations: (prefs.preferredRelocations || []).map((l: any) => ({
-                ...l,
-                _tempId: l.id || crypto.randomUUID(),
-                country_id: Number(l.country_id),
-                province_id: l.province_id ? Number(l.province_id) : null,
-                city_id: l.city_id ? Number(l.city_id) : null,
-                is_excluded: Boolean(l.is_excluded),
-              }))
+              pref_relocations: dedupePreferredLocations(
+                (prefs.preferredRelocations || []).map((l: any) => ({
+                  ...l,
+                  _tempId: l.id || crypto.randomUUID(),
+                  country_id: Number(l.country_id),
+                  province_id: l.province_id ? Number(l.province_id) : null,
+                  city_id: l.city_id ? Number(l.city_id) : null,
+                  is_excluded: Boolean(l.is_excluded),
+                }))
+              )
             }));
           }
           if (localData) {
             if (localData.step1) setStep1(prev => mergeNonEmptyLocal(prev, localData!.step1));
             if (localData.step2) setStep2(prev => mergeNonEmptyLocal(prev, localData!.step2));
-            if (localData.step3) setStep3(prev => mergeNonEmptyLocal(prev, localData!.step3));
+            if (localData.step3) setStep3(prev => mergeStep3Local(prev, localData!.step3));
             if (localData.step4) setStep4(prev => mergeNonEmptyLocal(prev, localData!.step4));
             if (localData.step5) setStep5(prev => mergeNonEmptyLocal(prev, localData!.step5));
             if (localData.step6) setStep6(prev => mergeNonEmptyLocal(prev, localData!.step6));
             if (localData.step7) setStep7(prev => mergeNonEmptyLocal(prev, localData!.step7));
-            if (localData.step8) setStep8(prev => mergeNonEmptyLocal(prev, localData!.step8));
+            if (localData.step8) setStep8(prev => mergeStep8Local(prev, localData!.step8));
           }
 
           // Auto-resume to the next step if not explicitly forced via step query param
@@ -510,12 +596,12 @@ export default function AddProfileForm() {
           if (localData) {
             if (localData.step1) setStep1(prev => mergeNonEmptyLocal(prev, localData!.step1));
             if (localData.step2) setStep2(prev => mergeNonEmptyLocal(prev, localData!.step2));
-            if (localData.step3) setStep3(prev => mergeNonEmptyLocal(prev, localData!.step3));
+            if (localData.step3) setStep3(prev => mergeStep3Local(prev, localData!.step3));
             if (localData.step4) setStep4(prev => mergeNonEmptyLocal(prev, localData!.step4));
             if (localData.step5) setStep5(prev => mergeNonEmptyLocal(prev, localData!.step5));
             if (localData.step6) setStep6(prev => mergeNonEmptyLocal(prev, localData!.step6));
             if (localData.step7) setStep7(prev => mergeNonEmptyLocal(prev, localData!.step7));
-            if (localData.step8) setStep8(prev => mergeNonEmptyLocal(prev, localData!.step8));
+            if (localData.step8) setStep8(prev => mergeStep8Local(prev, localData!.step8));
           }
         } finally {
           if (isMounted) {
@@ -532,12 +618,12 @@ export default function AddProfileForm() {
         try {
           if (localData.step1) setStep1(prev => mergeNonEmptyLocal(prev, localData!.step1));
           if (localData.step2) setStep2(prev => mergeNonEmptyLocal(prev, localData!.step2));
-          if (localData.step3) setStep3(prev => mergeNonEmptyLocal(prev, localData!.step3));
+          if (localData.step3) setStep3(prev => mergeStep3Local(prev, localData!.step3));
           if (localData.step4) setStep4(prev => mergeNonEmptyLocal(prev, localData!.step4));
           if (localData.step5) setStep5(prev => mergeNonEmptyLocal(prev, localData!.step5));
           if (localData.step6) setStep6(prev => mergeNonEmptyLocal(prev, localData!.step6));
           if (localData.step7) setStep7(prev => mergeNonEmptyLocal(prev, localData!.step7));
-          if (localData.step8) setStep8(prev => mergeNonEmptyLocal(prev, localData!.step8));
+          if (localData.step8) setStep8(prev => mergeStep8Local(prev, localData!.step8));
         } catch (e) {
           console.error('Failed to recover from local storage', e);
         }
@@ -561,7 +647,12 @@ export default function AddProfileForm() {
   }, [formData, profileId, isInitialLoadDone]);
 
   // AutoSave to DB with flush capability
-  const { flush: flushAutoSave } = useAutoSave({
+  const {
+    flush: flushAutoSave,
+    cancel: cancelAutoSave,
+    waitForIdle: waitForAutoSaveIdle,
+    markSaved: markAutoSaveSaved,
+  } = useAutoSave({
     data: formData,
     enabled: !!profileId && isInitialLoadDone, // Only auto-save after initial data load completes
     delay: 1500,
@@ -995,11 +1086,9 @@ export default function AddProfileForm() {
       }
     }
 
-    // Persist current step immediately when moving steps on an existing draft
+    // Persist any dirty changes immediately through the serialized auto-save pipeline
     if (profileId && currentStep !== step) {
-      saveStepData(profileId, currentStep, formData).catch((err) => {
-        console.warn('Step auto-persist error:', err);
-      });
+      void flushAutoSave();
     }
 
     if (step >= 1 && step <= STEPS.length) {
@@ -1013,132 +1102,11 @@ export default function AddProfileForm() {
     }
   };
 
-  const saveStepData = async (pid: string, stepNum: number, data: typeof formData) => {
-    if (!pid) return;
-    const tasks: Promise<any>[] = [];
-
-    if (stepNum === 1) {
-      tasks.push(ProfileService.savePersonalInfo(pid, {
-        full_name: data.step1.full_name,
-        cnic: data.step1.cnic || null,
-        phone: data.step1.phone || null,
-        date_of_birth: data.step1.date_of_birth || null,
-        marital_status: data.step1.marital_status || 'NEVER_MARRIED',
-        nationality_country_id: data.step1.nationality_country_id ? Number(data.step1.nationality_country_id) : null,
-        multiple_nationality: Boolean(data.step1.multiple_nationality),
-        mother_tongue_id: data.step1.mother_tongue_id ? Number(data.step1.mother_tongue_id) : null,
-        number_of_children: data.step1.number_of_children ? Number(data.step1.number_of_children) : 0,
-      }));
-      if (data.step1.marital_status && data.step1.marital_status !== 'NEVER_MARRIED') {
-        tasks.push(ProfileService.saveChildren(pid, data.step1.children.map(({ _tempId, ...rest }: any) => ({
-          ...rest,
-          age: rest.age ? Number(rest.age) : null,
-          living_with_profile: rest.living_with_profile === 'YES'
-        }))));
-        tasks.push(ProfileService.savePreviousMarriages(pid, data.step1.previous_marriages.map(({ _tempId, ...rest }: any) => ({
-          ...rest,
-          marriage_year: rest.marriage_year ? Number(rest.marriage_year) : null,
-          end_year: rest.end_year ? Number(rest.end_year) : null,
-          children_count: rest.children_count ? Number(rest.children_count) : 0,
-          children_live_with_profile: rest.children_live_with_profile === 'YES'
-        }))));
-      }
-    } else if (stepNum === 2) {
-      const h = (data.step2.height_cm != null && (data.step2.height_cm as any) !== '') ? Number(data.step2.height_cm) : null;
-      const w = (data.step2.weight_kg != null && (data.step2.weight_kg as any) !== '') ? Number(data.step2.weight_kg) : null;
-      tasks.push(ProfileService.savePhysicalInfo(pid, {
-        height_cm: (h !== null && !isNaN(h) && h >= 80 && h <= 250) ? h : null,
-        weight_kg: (w !== null && !isNaN(w) && w >= 20 && w <= 400) ? w : null,
-        complexion: data.step2.complexion || null,
-        has_disability: Boolean(data.step2.has_disability),
-        disability_details: data.step2.has_disability ? data.step2.disability_details : null,
-      }));
-    } else if (stepNum === 3) {
-      const validEdus = data.step3.education_records.filter((e: any) => e.education_level_id).map(({ _tempId, ...rest }: any) => rest);
-      tasks.push(ProfileService.saveEducationRecords(pid, validEdus));
-      const validEmps = data.step3.employment_records.filter((e: any) => e.occupation_id || e.employment_type || e.job_title?.trim() || e.organization_name?.trim() || e.details?.trim()).map(({ _tempId, ...rest }: any) => rest);
-      tasks.push(ProfileService.saveEmploymentRecords(pid, validEmps));
-      if (data.step3.monthly_income_min || data.step3.monthly_income_max) {
-        tasks.push(ProfileService.saveIncomeInfo(pid, {
-          monthly_income_min: data.step3.monthly_income_min ? Number(data.step3.monthly_income_min) : null,
-          monthly_income_max: data.step3.monthly_income_max ? Number(data.step3.monthly_income_max) : null,
-          currency_code: 'PKR',
-          income_period: 'MONTHLY',
-        }));
-      }
-    } else if (stepNum === 4) {
-      tasks.push(ProfileService.saveReligionInfo(pid, {
-        religion_id: data.step4.religion_id ? Number(data.step4.religion_id) : null,
-        sect_id: data.step4.sect_id ? Number(data.step4.sect_id) : null,
-        caste_id: data.step4.caste_id ? Number(data.step4.caste_id) : null,
-        other_caste_text: data.step4.other_caste_text || null,
-      }));
-    } else if (stepNum === 5) {
-      const isCurrentPak = Number(data.step5.current_country_id) === 131;
-      const isPermPak = Number(data.step5.permanent_country_id) === 131;
-      tasks.push(ProfileService.saveLocations(pid, {
-        current_country_id: data.step5.current_country_id ? Number(data.step5.current_country_id) : null,
-        current_province_id: isCurrentPak && data.step5.current_province_id ? Number(data.step5.current_province_id) : null,
-        current_city_id: isCurrentPak && data.step5.current_city_id ? Number(data.step5.current_city_id) : null,
-        permanent_country_id: data.step5.permanent_country_id ? Number(data.step5.permanent_country_id) : null,
-        permanent_province_id: isPermPak && data.step5.permanent_province_id ? Number(data.step5.permanent_province_id) : null,
-        permanent_city_id: isPermPak && data.step5.permanent_city_id ? Number(data.step5.permanent_city_id) : null,
-        current_location_text: (!isCurrentPak ? [data.step5.current_city_text, data.step5.current_province_text, data.step5.current_location_text].filter(Boolean).join(', ') : data.step5.current_location_text) || null,
-        permanent_location_text: (!isPermPak ? [data.step5.permanent_city_text, data.step5.permanent_province_text, data.step5.permanent_location_text].filter(Boolean).join(', ') : data.step5.permanent_location_text) || null,
-      }));
-      tasks.push(ProfileService.saveResidencyInfo(pid, {
-        house_status: data.step5.house_status || null,
-        property_type: data.step5.property_type || null,
-        family_setup: data.step5.family_setup || null,
-        living_with: data.step5.living_with || null,
-        living_with_other_details: data.step5.living_with === 'OTHER' ? data.step5.living_with_other_details : null,
-      }));
-    } else if (stepNum === 6) {
-      tasks.push(ProfileService.saveParents(pid, data.step6.parents.map(({ _tempId, ...rest }: any) => ({
-        ...rest,
-        age: rest.age ? Number(rest.age) : null,
-        country_id: rest.country_id || null,
-        city_id: rest.city_id || null,
-      }))));
-      tasks.push(ProfileService.saveSiblings(pid, data.step6.siblings.map(({ _tempId, ...rest }: any) => ({
-        ...rest,
-        gender: rest.gender || 'MALE',
-        age: rest.age ? Number(rest.age) : null,
-        marital_status: rest.marital_status || null,
-        country_id: rest.country_id || null,
-        city_id: rest.city_id || null,
-      }))));
-      tasks.push(ProfileService.saveFamilyInfo(pid, {
-        family_profession_business: data.step6.family_profession_business || null,
-        social_background: data.step6.social_background || null,
-        family_values: data.step6.family_values || null,
-        family_introduction: data.step6.family_introduction || null,
-        important_family_circumstances: data.step6.important_family_circumstances || null,
-        additional_details: data.step6.additional_details || null,
-      }));
-    } else if (stepNum === 7) {
-      tasks.push(ProfileService.saveLifestyleInfo(pid, {
-        beard: data.step7.beard || null,
-        hijab: data.step7.hijab || null,
-        religious_practice: data.step7.religious_practice || null,
-        smoking: data.step7.smoking || null,
-        other_lifestyle_information: data.step7.other_lifestyle_information || null,
-      }));
-      tasks.push(ProfileService.saveRelocationInfo(pid, {
-        willing_to_relocate: data.step7.willing_to_relocate || null,
-        preferred_country_id: data.step7.preferred_country_id ? Number(data.step7.preferred_country_id) : null,
-        preferred_province_id: data.step7.preferred_province_id ? Number(data.step7.preferred_province_id) : null,
-        preferred_city_id: data.step7.preferred_city_id ? Number(data.step7.preferred_city_id) : null,
-        relocation_details: data.step7.relocation_details || null,
-      }));
-    }
-
-    tasks.push(ProfileService.touchProfile(pid));
-    await Promise.allSettled(tasks);
-  };
-
   const next = () => goToStep(currentStep + 1);
   const back = () => {
+    if (profileId) {
+      void flushAutoSave();
+    }
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
@@ -1411,6 +1379,10 @@ export default function AddProfileForm() {
     setError(null);
 
     try {
+      // Cancel any pending auto-save debounce and wait for any active auto-save to finish
+      cancelAutoSave();
+      await waitForAutoSaveIdle();
+
       // Final server-side duplicate CNIC guard right before DB write
       if (isValidCnic(step1.cnic)) {
         const params = new URLSearchParams({ cnic: step1.cnic });
@@ -1728,6 +1700,9 @@ export default function AddProfileForm() {
       localStorage.removeItem('nikahkaru_draft_new');
       localStorage.removeItem(`nikahkaro_draft_${pid}`);
       localStorage.removeItem('nikahkaro_draft_new');
+
+      // Mark current snapshot saved so unmounting on redirect never triggers a trailing auto-save
+      markAutoSaveSaved();
 
       // Role-based redirect after saving:
       // If AGENT -> redirect to /profiles with this profile open

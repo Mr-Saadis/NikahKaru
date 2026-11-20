@@ -1,5 +1,21 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@/lib/supabase/client';
 import type { AllPreferences } from '../types/database.types';
+
+const prefWriteLocks = new Map<string, Promise<unknown>>();
+
+async function withPrefLock<T>(profileId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = prefWriteLocks.get(profileId) ?? Promise.resolve();
+  const run = prev.catch(() => undefined).then(() => fn());
+  const tracked = run.catch(() => undefined);
+  prefWriteLocks.set(profileId, tracked);
+  try {
+    return await run;
+  } finally {
+    if (prefWriteLocks.get(profileId) === tracked) {
+      prefWriteLocks.delete(profileId);
+    }
+  }
+}
 
 export class PreferenceService {
   /**
@@ -9,149 +25,140 @@ export class PreferenceService {
    * already referenced by an official match_run.
    */
   static async savePreferences(profileId: string, data: AllPreferences, createdBy: string): Promise<void> {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    return withPrefLock(profileId, async () => {
+      const supabase = createClient();
 
-    let setId: string | null = null;
+      let setId: string | null = null;
 
-    // 1. Reuse existing current preference_set if not locked by an official match_run
-    const { data: currentSet } = await supabase
-      .from('preference_sets')
-      .select('id, version')
-      .eq('profile_id', profileId)
-      .eq('is_current', true)
-      .order('version', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (currentSet) {
-      const { count: matchRunCount, error: matchRunError } = await supabase
-        .from('match_runs')
-        .select('id', { count: 'exact', head: true })
-        .eq('preference_set_id', currentSet.id);
-
-      if (!matchRunError && (matchRunCount ?? 0) === 0) {
-        setId = currentSet.id;
-      }
-    }
-
-    // 2. Create a new preference_set only when none exists or current is tied to a match_run
-    if (!setId) {
-      await supabase
+      // 1. Reuse existing current preference_set if not locked by an official match_run
+      const { data: currentSet } = await supabase
         .from('preference_sets')
-        .update({ is_current: false })
-        .eq('profile_id', profileId);
-
-      const { data: latestSet } = await supabase
-        .from('preference_sets')
-        .select('version')
+        .select('id, version')
         .eq('profile_id', profileId)
+        .eq('is_current', true)
         .order('version', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      const nextVersion = latestSet ? latestSet.version + 1 : 1;
+      if (currentSet) {
+        const { count: matchRunCount, error: matchRunError } = await supabase
+          .from('match_runs')
+          .select('id', { count: 'exact', head: true })
+          .eq('preference_set_id', currentSet.id);
 
-      const { data: newSet, error: setError } = await supabase
-        .from('preference_sets')
-        .insert({
-          profile_id: profileId,
-          version: nextVersion,
-          is_current: true,
-          created_by: createdBy,
-        })
-        .select('id')
-        .single();
-
-      if (setError || !newSet) {
-        throw new Error(`Failed to create preference set: ${setError?.message}`);
-      }
-
-      setId = newSet.id;
-    }
-
-    if (!setId) {
-      throw new Error('Failed to resolve or create preference set ID');
-    }
-
-    const currentSetId = setId;
-
-    // 3. Upsert all provided preference sub-tables in parallel
-    const sectionTables: Array<[keyof AllPreferences, string]> = [
-      ['basic', 'basic_preferences'],
-      ['physical', 'physical_preferences'],
-      ['education', 'education_preferences'],
-      ['profession', 'profession_preferences'],
-      ['religion', 'religion_preferences'],
-      ['location', 'location_preferences'],
-      ['family', 'family_preferences'],
-      ['lifestyle', 'lifestyle_preferences'],
-      ['relocation', 'relocation_preferences'],
-    ];
-
-    const tasks = sectionTables
-      .filter(([key]) => Boolean(data[key]))
-      .map(([key, table]) =>
-        (supabase.from(table as any) as any)
-          .upsert({ ...(data[key] as any), preference_set_id: currentSetId }, { onConflict: 'preference_set_id' })
-      );
-
-    const results = await Promise.all(tasks);
-
-    // Check for errors
-    for (const result of results) {
-      if (result.error) {
-        console.error('Preference upsert error:', result.error);
-        throw new Error(`Failed to save a preference section: ${result.error.message}`);
-      }
-    }
-
-    // 4. Save preferred locations (delete old, insert new)
-    if (data.preferredLocations !== undefined) {
-      await supabase.from('preferred_locations').delete().eq('preference_set_id', setId);
-      if (data.preferredLocations && data.preferredLocations.length > 0) {
-        const rows = data.preferredLocations.map(loc => ({
-          preference_set_id: setId,
-          country_id: Number(loc.country_id),
-          province_id: loc.province_id ? Number(loc.province_id) : null,
-          city_id: loc.city_id ? Number(loc.city_id) : null,
-          is_excluded: Boolean(loc.is_excluded),
-        }));
-        const { error: plError } = await supabase.from('preferred_locations').insert(rows);
-        if (plError) {
-          console.error('Error saving preferred_locations:', plError);
-          throw new Error(`Failed to save preferred locations: ${plError.message}`);
+        if (!matchRunError && (matchRunCount ?? 0) === 0) {
+          setId = currentSet.id;
         }
       }
-    }
 
-    // 5. Save preferred relocations (delete old, insert new)
-    if (data.preferredRelocations !== undefined) {
-      await supabase.from('preferred_relocations').delete().eq('preference_set_id', setId);
-      if (data.preferredRelocations && data.preferredRelocations.length > 0) {
-        const rows = data.preferredRelocations.map(loc => ({
-          preference_set_id: setId,
-          country_id: Number(loc.country_id),
-          province_id: loc.province_id ? Number(loc.province_id) : null,
-          city_id: loc.city_id ? Number(loc.city_id) : null,
-          is_excluded: Boolean(loc.is_excluded),
-        }));
-        const { error: prError } = await supabase.from('preferred_relocations').insert(rows);
-        if (prError) {
-          console.error('Error saving preferred_relocations:', prError);
-          throw new Error(`Failed to save preferred relocations: ${prError.message}`);
+      // 2. Create a new preference_set only when none exists or current is tied to a match_run
+      if (!setId) {
+        await supabase
+          .from('preference_sets')
+          .update({ is_current: false })
+          .eq('profile_id', profileId);
+
+        const { data: latestSet } = await supabase
+          .from('preference_sets')
+          .select('version')
+          .eq('profile_id', profileId)
+          .order('version', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const nextVersion = latestSet ? latestSet.version + 1 : 1;
+
+        const { data: newSet, error: setError } = await supabase
+          .from('preference_sets')
+          .insert({
+            profile_id: profileId,
+            version: nextVersion,
+            is_current: true,
+            created_by: createdBy,
+          })
+          .select('id')
+          .single();
+
+        if (setError || !newSet) {
+          throw new Error(`Failed to create preference set: ${setError?.message}`);
+        }
+
+        setId = newSet.id;
+      }
+
+      if (!setId) {
+        throw new Error('Failed to resolve or create preference set ID');
+      }
+
+      const currentSetId = setId;
+
+      // 3. Upsert all provided preference sub-tables in parallel
+      const sectionTables: Array<[keyof AllPreferences, string]> = [
+        ['basic', 'basic_preferences'],
+        ['physical', 'physical_preferences'],
+        ['education', 'education_preferences'],
+        ['profession', 'profession_preferences'],
+        ['religion', 'religion_preferences'],
+        ['location', 'location_preferences'],
+        ['family', 'family_preferences'],
+        ['lifestyle', 'lifestyle_preferences'],
+        ['relocation', 'relocation_preferences'],
+      ];
+
+      const tasks = sectionTables
+        .filter(([key]) => Boolean(data[key]))
+        .map(([key, table]) =>
+          (supabase.from(table as any) as any)
+            .upsert({ ...(data[key] as any), preference_set_id: currentSetId }, { onConflict: 'preference_set_id' })
+        );
+
+      const results = await Promise.all(tasks);
+
+      // Check for errors
+      for (const result of results) {
+        if (result.error) {
+          console.error('Preference upsert error:', result.error);
+          throw new Error(`Failed to save a preference section: ${result.error.message}`);
         }
       }
-    }
+
+      // 4 & 5. Sync preferred locations & relocations atomically via authorized server action
+      if (data.preferredLocations !== undefined || data.preferredRelocations !== undefined) {
+        const { replacePreferenceChildRecordsAction } = await import('@/lib/actions/profiles');
+
+        if (data.preferredLocations !== undefined) {
+          const rows = (data.preferredLocations || []).map(loc => ({
+            country_id: Number(loc.country_id),
+            province_id: loc.province_id ? Number(loc.province_id) : null,
+            city_id: loc.city_id ? Number(loc.city_id) : null,
+            is_excluded: Boolean(loc.is_excluded),
+          }));
+          const plRes = await replacePreferenceChildRecordsAction(setId, 'preferred_locations', rows);
+          if (!plRes.success) {
+            console.error('Error saving preferred_locations:', plRes.error);
+            throw new Error(`Failed to save preferred locations: ${plRes.error || 'Unknown error'}`);
+          }
+        }
+
+        if (data.preferredRelocations !== undefined) {
+          const rows = (data.preferredRelocations || []).map(loc => ({
+            country_id: Number(loc.country_id),
+            province_id: loc.province_id ? Number(loc.province_id) : null,
+            city_id: loc.city_id ? Number(loc.city_id) : null,
+            is_excluded: Boolean(loc.is_excluded),
+          }));
+          const prRes = await replacePreferenceChildRecordsAction(setId, 'preferred_relocations', rows);
+          if (!prRes.success) {
+            console.error('Error saving preferred_relocations:', prRes.error);
+            throw new Error(`Failed to save preferred relocations: ${prRes.error || 'Unknown error'}`);
+          }
+        }
+      }
+    });
   }
 
   static async getCurrentPreferences(profileId: string): Promise<AllPreferences | null> {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
 
     // 1. Prefer enriched view (includes lookup name_en / name_ur)
     const { data: viewRows, error: viewError } = await supabase
