@@ -26,6 +26,7 @@ import {
   CheckCircle,
   FileText,
   PauseCircle,
+  PlayCircle,
   Archive,
   Globe,
   Briefcase,
@@ -47,6 +48,10 @@ import { notificationService } from '@/lib/services/notification-service';
 import { generateReleasedProfilesPDF } from '@/lib/utils/pdfExport';
 import { markRequestAsDownloaded } from '@/lib/actions/requests';
 import { ProfileService, type ProfileFilters } from '@/lib/services/profile-service';
+import { resumeProfileAction } from '@/lib/actions/profiles';
+import PauseProfileDialog from '@/components/profile/PauseProfileDialog';
+import { invalidateProfileAuditLogCache } from '@/components/requests/ProfileAuditLogsSection';
+import { formatPauseBadge, formatPauseDate, isPauseReminderDue } from '@/lib/utils/pauseFormatting';
 import type { ProfileListItem, ProfileStatus, FullProfile } from '@/lib/types/database.types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -126,7 +131,7 @@ function StatusBadge({ status, size = 'sm' }: { status: ProfileStatus; size?: 's
     case 'DRAFT':
       return <span className={`inline-flex items-center font-bold rounded-full bg-[#F4EFE7] text-[#696256] ${cls}`}>Draft</span>;
     case 'PAUSED':
-      return <span className={`inline-flex items-center font-bold rounded-full bg-[#FEF3C7] text-[#92400E] border border-[#F6E1BA] ${cls}`}>Paused</span>;
+      return <span className={`inline-flex items-center font-bold rounded-full bg-[#F7ECE6] text-[#9E472A] border border-[#EBCFC1] ${cls}`}>Paused</span>;
     case 'ARCHIVED':
       return <span className={`inline-flex items-center font-bold rounded-full bg-[#FEE2E2] text-[#991B1B] border border-[#FCA5A5]/40 ${cls}`}>Archived</span>;
     default:
@@ -346,6 +351,8 @@ export default function ProfilesListPage() {
   const [activeRequest, setActiveRequest] = useState<ProfileRequestInfo | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isMarkingDownloaded, setIsMarkingDownloaded] = useState(false);
+  const [pauseDialogMode, setPauseDialogMode] = useState<'pause' | 'extend' | null>(null);
+  const [isResumingProfile, setIsResumingProfile] = useState(false);
   const [runningMatchesMap, setRunningMatchesMap] = useState<Record<string, boolean>>({});
   const { addLock, removeLock, isLocked } = useNavigationLock();
 
@@ -635,6 +642,52 @@ export default function ProfilesListPage() {
       toast.info('Workflow: "Complete" selected. (Full outcome workflow rules will be connected next)');
     } else {
       toast.info('Workflow: "Incomplete" selected. (Full workflow rules will be connected next)');
+    }
+  };
+
+  const applyLocalPauseState = useCallback((
+    targetProfileId: string,
+    nextStatus: ProfileStatus,
+    nextPauseInfo: any
+  ) => {
+    setSelectedProfile((prev) =>
+      prev && prev.id === targetProfileId
+        ? { ...prev, status: nextStatus, pause_info: nextPauseInfo }
+        : prev
+    );
+    if (fullProfileCache.current[targetProfileId]) {
+      fullProfileCache.current[targetProfileId] = {
+        ...fullProfileCache.current[targetProfileId],
+        status: nextStatus,
+        pause_info: nextPauseInfo,
+      };
+    }
+    setProfiles((prev) =>
+      prev.map((p) =>
+        p.id === targetProfileId
+          ? { ...p, status: nextStatus, pause_info: nextPauseInfo }
+          : p
+      )
+    );
+    ProfileService.getProfileStats().then(setStats).catch(console.error);
+  }, []);
+
+  const handleResumeSelectedProfile = async () => {
+    if (!selectedProfile || isResumingProfile) return;
+    setIsResumingProfile(true);
+    try {
+      const res = await resumeProfileAction(selectedProfile.id);
+      if (!res.success) {
+        toast.error(res.error || 'Failed to activate profile');
+        return;
+      }
+      applyLocalPauseState(selectedProfile.id, 'ACTIVE', null);
+      invalidateProfileAuditLogCache(selectedProfile.id);
+      toast.success('Profile activated and returned to active matching pool.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to activate profile');
+    } finally {
+      setIsResumingProfile(false);
     }
   };
 
@@ -1974,18 +2027,35 @@ export default function ProfilesListPage() {
                     </div>
 
                     {/* Bottom Row: Status Pill & Message */}
-                    <div className="flex items-center justify-between pt-2 border-t border-white/[0.08] mt-1">
-                      {isSelected ? (
-                        <span className="px-3 py-1 rounded-[12px] font-bold bg-white/20 text-white text-[10px] uppercase tracking-widest">
-                          {formatEnum(profile.status)}
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 rounded-[12px] font-bold bg-white/10 text-white/80 text-[10px] uppercase tracking-widest">
-                          {formatEnum(profile.status)}
-                        </span>
-                      )}
+                    <div className="flex items-center justify-between pt-2 border-t border-white/[0.08] mt-1 gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {isSelected ? (
+                          <span className="px-3 py-1 rounded-[12px] font-bold bg-white/20 text-white text-[10px] uppercase tracking-widest shrink-0">
+                            {formatEnum(profile.status)}
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-[12px] font-bold bg-white/10 text-white/80 text-[10px] uppercase tracking-widest shrink-0">
+                            {formatEnum(profile.status)}
+                          </span>
+                        )}
+                        {profile.status === 'PAUSED' && profile.pause_info && (() => {
+                          const b = formatPauseBadge(profile.pause_info);
+                          if (b.isIndefinite) return null;
+                          return (
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
+                                b.isDue
+                                  ? 'bg-[#C86A4A] text-white'
+                                  : 'bg-white/15 text-[#F2EDE1]'
+                              }`}
+                            >
+                              {b.label}
+                            </span>
+                          );
+                        })()}
+                      </div>
 
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-white' : 'text-white/40 group-hover:text-white/60'}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${isSelected ? 'text-white' : 'text-white/40 group-hover:text-white/60'}`}>
                         {isSelected ? 'Viewing' : 'Open'}
                       </span>
                     </div>
@@ -2087,13 +2157,44 @@ export default function ProfilesListPage() {
                       </button>
                     </Link>
                     <button 
-                      onClick={!activeRequest ? handleRequestMatch : undefined}
-                      disabled={Boolean(activeRequest) || matchRequesting}
+                      onClick={!activeRequest && selectedProfile.status === 'ACTIVE' ? handleRequestMatch : undefined}
+                      disabled={Boolean(activeRequest) || matchRequesting || selectedProfile.status !== 'ACTIVE'}
                       className="w-10 h-10 rounded-full bg-[#C86A4A] text-white flex items-center justify-center cursor-pointer hover:bg-[#a6563b] transition-all shadow-sm disabled:opacity-50 disabled:cursor-default"
-                      title={activeRequest ? `Workflow Stage: ${formatEnum(activeRequest.workflowStage)}` : 'Send Match Analysis Request'}
+                      title={
+                        selectedProfile.status === 'PAUSED'
+                          ? 'Profile is Paused — Activate to request matches'
+                          : activeRequest
+                            ? `Workflow Stage: ${formatEnum(activeRequest.workflowStage)}`
+                            : 'Send Match Analysis Request'
+                      }
                     >
                       <Send className="w-[18px] h-[18px]" />
                     </button>
+                    {selectedProfile.status === 'ACTIVE' && (
+                      <button
+                        type="button"
+                        onClick={() => setPauseDialogMode('pause')}
+                        className="w-10 h-10 rounded-full bg-[#F4EFE7] border border-[#E5DED3] text-[#1F3B34] flex items-center justify-center cursor-pointer hover:bg-[#C86A4A] hover:text-white hover:border-[#C86A4A] transition-all shadow-sm"
+                        title="Pause Profile"
+                      >
+                        <PauseCircle className="w-[18px] h-[18px]" />
+                      </button>
+                    )}
+                    {selectedProfile.status === 'PAUSED' && (
+                      <button
+                        type="button"
+                        onClick={handleResumeSelectedProfile}
+                        disabled={isResumingProfile}
+                        className="w-10 h-10 rounded-full bg-[#1F3B34] text-white flex items-center justify-center cursor-pointer hover:bg-[#172E29] transition-all shadow-sm disabled:opacity-50"
+                        title="Activate Profile"
+                      >
+                        {isResumingProfile ? (
+                          <Loader2 className="w-[18px] h-[18px] animate-spin" />
+                        ) : (
+                          <PlayCircle className="w-[18px] h-[18px]" />
+                        )}
+                      </button>
+                    )}
                     <button 
                       onClick={['responded', 'downloaded'].includes(activeRequest?.workflowStage || '') ? handleDownloadReleasedDossier : undefined}
                       disabled={isDownloadingPdf}
@@ -2155,6 +2256,53 @@ export default function ProfilesListPage() {
                 </div>
               </div>
 
+              {/* Paused Profile Banner with Reminder & Quick Actions */}
+              {selectedProfile.status === 'PAUSED' && (
+                <div className="mx-6 lg:mx-8 mt-4 rounded-[20px] bg-white border border-[#E9E4DC] border-l-4 border-l-[#C86A4A] px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-[#F7ECE6] text-[#C86A4A] flex items-center justify-center shrink-0 mt-0.5">
+                      <PauseCircle className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[13px] font-bold text-[#1F3B34]">
+                          Profile Paused
+                        </span>
+                        {selectedProfile.pause_info?.pause_until && isPauseReminderDue(selectedProfile.pause_info) && (
+                          <span className="px-2 py-0.5 rounded-full bg-[#C86A4A] text-white text-[10px] font-bold uppercase tracking-wider">
+                            Reminder Due
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[12px] text-[#696256] mt-0.5">
+                        {selectedProfile.pause_info?.pause_until
+                          ? `Reminder set for ${formatPauseDate(selectedProfile.pause_info.pause_until)}`
+                          : 'Paused indefinitely (no end timer)'}
+                        {selectedProfile.pause_info?.reason ? ` • Reason: ${selectedProfile.pause_info.reason}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setPauseDialogMode('extend')}
+                      className="h-8 px-3.5 rounded-full bg-[#FAF8F5] border border-[#E9E4DC] text-[#1F3B34] text-[11.5px] font-semibold hover:bg-[#F2EDE1] transition-colors cursor-pointer"
+                    >
+                      Update Reminder
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isResumingProfile}
+                      onClick={handleResumeSelectedProfile}
+                      className="h-8 px-4 rounded-full bg-[#1F3B34] text-white text-[11.5px] font-bold hover:bg-[#172E29] transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                    >
+                      {isResumingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlayCircle className="w-3.5 h-3.5" />}
+                      <span>Activate Now</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* ─── Dashboard Workspace ─── */}
               <div id="details-scroll-container" onScroll={handleScroll} className="flex-1 p-5 overflow-y-auto custom-scrollbar">
                 {renderTabContent()}
@@ -2163,6 +2311,24 @@ export default function ProfilesListPage() {
           )}
         </div>
       </div>
+
+      {/* Pause / Extend Reminder Modal */}
+      {pauseDialogMode && selectedProfile && (
+        <PauseProfileDialog
+          isOpen={Boolean(pauseDialogMode)}
+          mode={pauseDialogMode}
+          profileId={selectedProfile.id}
+          profileName={selectedProfile.personal_information?.full_name || 'Profile'}
+          currentPauseInfo={selectedProfile.pause_info || null}
+          onClose={() => setPauseDialogMode(null)}
+          onSuccess={(res) => {
+            applyLocalPauseState(selectedProfile.id, 'PAUSED', res.pauseInfo);
+            invalidateProfileAuditLogCache(selectedProfile.id);
+            setPauseDialogMode(null);
+          }}
+          onToast={(msg) => toast.success(msg)}
+        />
+      )}
 
       {/* Custom scrollbar */}
       <style jsx global>{`

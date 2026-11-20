@@ -21,6 +21,21 @@ export async function runMatching(
   sourceProfileId: string,
   options: MatchingOptions
 ): Promise<MatchResult[]> {
+  // 0. Live status verification — paused or non-active profiles cannot run matching
+  const { data: sourceStatusRow } = await supabase
+    .from('profiles')
+    .select('status')
+    .eq('id', sourceProfileId)
+    .maybeSingle();
+
+  if (sourceStatusRow && sourceStatusRow.status !== 'ACTIVE') {
+    throw new Error(
+      sourceStatusRow.status === 'PAUSED'
+        ? 'This profile is currently PAUSED. Please activate it before running matching.'
+        : `Matching can only run on ACTIVE profiles (current status: ${sourceStatusRow.status}).`
+    );
+  }
+
   // 1. Get eligible candidates using the optimized RPC
   const candidateLimit = options.limit || 500; // Reasonable default for bulk
   const { data: flatCandidates, error: candidatesError } = await supabase
@@ -31,6 +46,23 @@ export async function runMatching(
 
   if (candidatesError) {
     throw new Error(`Failed to fetch candidates via RPC: ${candidatesError.message}`);
+  }
+
+  // Defense-in-depth: exclude any candidate whose live status is not ACTIVE (e.g. recently PAUSED)
+  let activeCandidates: any[] = flatCandidates || [];
+  if (activeCandidates.length > 0) {
+    const candidateIds = activeCandidates.map((c: any) => c.profile_id).filter(Boolean);
+    if (candidateIds.length > 0) {
+      const { data: activeRows } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('id', candidateIds)
+        .eq('status', 'ACTIVE');
+      if (activeRows) {
+        const activeSet = new Set(activeRows.map((r: any) => r.id));
+        activeCandidates = activeCandidates.filter((c: any) => activeSet.has(c.profile_id));
+      }
+    }
   }
 
   // 2. Load source profile data from the materialized view
@@ -63,7 +95,7 @@ export async function runMatching(
   }
 
   // 3. Bulk fetch preferences for source AND all candidates
-  const allProfileIds = [sourceProfileId, ...(flatCandidates || []).map((c: any) => c.profile_id)];
+  const allProfileIds = [sourceProfileId, ...activeCandidates.map((c: any) => c.profile_id)];
 
   const { data: flatPrefsList, error: prefsError } = await supabase
     .from('v_current_matching_preferences')
@@ -93,7 +125,7 @@ export async function runMatching(
   const results: MatchResult[] = [];
 
   // 5. Iterate over candidates
-  for (const flatCandidate of (flatCandidates || [])) {
+  for (const flatCandidate of activeCandidates) {
     const candidatePrefs = prefsMap.get(flatCandidate.profile_id);
     if (!candidatePrefs) continue; // If they have no preferences, they can't be matched two-way properly.
 
@@ -136,7 +168,7 @@ export async function runMatching(
         executed_by: options.executedBy,
         algorithm_version: '1.1.0', // Bumped version for refactor
         candidate_limit: options.limit || results.length,
-        candidates_considered: (flatCandidates || []).length,
+        candidates_considered: activeCandidates.length,
         candidates_matched: results.length,
       })
       .select('id')

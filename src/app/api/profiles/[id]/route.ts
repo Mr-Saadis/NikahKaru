@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getPauseInfoMap } from '@/lib/services/profile-pause-server';
 
 export async function GET(
   request: NextRequest,
@@ -57,10 +58,16 @@ export async function GET(
     }
 
     // Map the view data back to FullProfile structure expected by the frontend
+    const pauseInfo =
+      coreData.status === 'PAUSED'
+        ? (await getPauseInfoMap([coreData.profile_id])).get(coreData.profile_id) || null
+        : null;
+
     const profile = {
       id: coreData.profile_id,
       gender: coreData.gender,
       status: coreData.status,
+      pause_info: pauseInfo,
       created_by: coreData.created_by,
       current_agent_id: coreData.current_agent_id,
       created_at: coreData.created_at,

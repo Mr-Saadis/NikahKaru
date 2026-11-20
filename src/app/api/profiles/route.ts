@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getPauseInfoMap } from '@/lib/services/profile-pause-server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -105,14 +106,17 @@ export async function GET(request: NextRequest) {
     }
 
     const profileIds = coreData.map(p => p.profile_id);
+    const pausedProfileIds = coreData.filter(p => p.status === 'PAUSED').map(p => p.profile_id);
 
     // 2. Fetch Nested Arrays and Preferences for these profile IDs
     const [
       { data: nestedData, error: nestedError },
-      { data: prefData, error: prefError }
+      { data: prefData, error: prefError },
+      pauseMap,
     ] = await Promise.all([
       supabase.from('vw_profile_nested_arrays').select('*').in('profile_id', profileIds),
-      supabase.from('vw_profile_active_preferences').select('*').in('profile_id', profileIds)
+      supabase.from('vw_profile_active_preferences').select('*').in('profile_id', profileIds),
+      pausedProfileIds.length > 0 ? getPauseInfoMap(pausedProfileIds) : Promise.resolve(new Map()),
     ]);
 
     if (nestedError) console.error('Error fetching nested data:', nestedError);
@@ -131,6 +135,7 @@ export async function GET(request: NextRequest) {
         id: p.profile_id,
         gender: p.gender,
         status: p.status,
+        pause_info: p.status === 'PAUSED' ? (pauseMap.get(p.profile_id) || null) : null,
         created_by: p.created_by,
         current_agent_id: p.current_agent_id,
         created_at: p.created_at,

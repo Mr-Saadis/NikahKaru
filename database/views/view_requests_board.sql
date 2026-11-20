@@ -25,7 +25,7 @@ SELECT
     
     -- Request specific pseudo-fields
     p.created_at as request_date,
-    'new' as request_status,
+    CASE WHEN p.status = 'PAUSED' THEN 'pause' ELSE 'new' END as request_status,
     false as later,
     true as is_read,
     
@@ -49,6 +49,7 @@ SELECT
         ELSE COALESCE(lr.updated_at, lr.reviewed_at, lr.created_at)
     END as request_date,
     CASE 
+        WHEN p.status = 'PAUSED' THEN 'pause'
         WHEN lr.req_status::text = 'PENDING' THEN 
             CASE WHEN rc.req_count > 1 THEN 'second' ELSE 'first' END
         WHEN lr.req_status::text = 'PENDING_OTHER' THEN 'second'
@@ -77,13 +78,14 @@ FROM latest_requests lr
 JOIN request_counts rc ON lr.source_profile_id = rc.source_profile_id
 JOIN public.vw_profile_core p ON lr.source_profile_id = p.profile_id
 LEFT JOIN public.users u_req ON u_req.id = lr.requested_by
-LEFT JOIN public.users u_rev ON u_rev.id = lr.reviewed_by;
+LEFT JOIN public.users u_rev ON u_rev.id = lr.reviewed_by
+WHERE p.status <> 'DRAFT';
 
 -- =========================================================================
 -- View: vw_agent_requests_board
 -- Description: Unifies agent's created profiles (Entries Logged) and their 
 --              active/past information requests into a structured board view.
--- Columns match AGENT_COLUMNS: logged, requested, responded, done
+-- Columns match AGENT_COLUMNS: logged, requested, responded, done, pause
 -- =========================================================================
 
 CREATE OR REPLACE VIEW public.vw_agent_requests_board
@@ -111,7 +113,7 @@ SELECT
     p.created_by AS agent_id,
 
     p.created_at AS request_date,
-    'logged'::text AS request_status,
+    CASE WHEN p.status = 'PAUSED' THEN 'pause' ELSE 'logged' END::text AS request_status,
     false AS later,
     true AS is_read,
 
@@ -141,6 +143,8 @@ SELECT
     END AS request_date,
 
     CASE
+        WHEN p.status = 'PAUSED'
+            THEN 'pause'
         WHEN ir.status::text IN ('PENDING', 'PENDING_OTHER')
             THEN 'requested'
         WHEN ir.status::text = 'IN_REVIEW'
@@ -178,7 +182,8 @@ LEFT JOIN public.users u_req
     ON u_req.id = ir.requested_by
 LEFT JOIN public.users u_rev
     ON u_rev.id = ir.reviewed_by
-WHERE (
+WHERE p.status <> 'DRAFT'
+  AND (
     p.current_agent_id = (SELECT auth.uid())
     OR (p.current_agent_id IS NULL AND ir.requested_by = (SELECT auth.uid()))
     OR EXISTS (

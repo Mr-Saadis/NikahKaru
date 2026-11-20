@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { DirectoryEntry } from '@/lib/directory/types';
+import { getPauseInfoMap } from '@/lib/services/profile-pause-server';
 
 /**
  * Computes the board stage key for a profile — mirrors vw_manager_requests_board
@@ -248,20 +249,21 @@ export async function GET(request: NextRequest) {
     }
 
     const matchedProfileIds = (coreData || []).map((p: any) => p.profile_id);
+    const pausedProfileIds = (coreData || []).filter((p: any) => p.status === 'PAUSED').map((p: any) => p.profile_id);
 
-    // Fetch nested arrays for matched profiles
+    // Fetch nested arrays for matched profiles and pause metadata for paused profiles
     let nestedData: any[] = [];
-    if (matchedProfileIds.length > 0) {
-      const { data: nested, error: nestedError } = await supabase
-        .from('vw_profile_nested_arrays')
-        .select('*')
-        .in('profile_id', matchedProfileIds);
+    const [nestedRes, pauseMap] = await Promise.all([
+      matchedProfileIds.length > 0
+        ? supabase.from('vw_profile_nested_arrays').select('*').in('profile_id', matchedProfileIds)
+        : Promise.resolve({ data: [] as any[], error: null }),
+      pausedProfileIds.length > 0 ? getPauseInfoMap(pausedProfileIds) : Promise.resolve(new Map()),
+    ]);
 
-      if (nestedError) {
-        console.warn('Warning fetching nested arrays:', nestedError);
-      } else {
-        nestedData = nested || [];
-      }
+    if (nestedRes.error) {
+      console.warn('Warning fetching nested arrays:', nestedRes.error);
+    } else {
+      nestedData = nestedRes.data || [];
     }
 
     // Build requests status map
@@ -319,7 +321,11 @@ export async function GET(request: NextRequest) {
         : 0;
 
       const boardStage: DirectoryEntry['boardStage'] =
-        p.status === 'ARCHIVED' ? 'archive' : computeBoardStage(p.profile_id, requestsByProfile);
+        p.status === 'PAUSED'
+          ? 'pause'
+          : p.status === 'ARCHIVED'
+            ? 'archive'
+            : computeBoardStage(p.profile_id, requestsByProfile);
 
       return {
         id: p.profile_id,
@@ -376,6 +382,7 @@ export async function GET(request: NextRequest) {
 
         profileData: {
           ...p,
+          pause_info: p.status === 'PAUSED' ? (pauseMap.get(p.profile_id) || null) : null,
           request_id: requestsByProfile.get(p.profile_id)?.id || null,
           request_status: requestsByProfile.get(p.profile_id)?.status || null,
           education_records: nested?.education_records || [],

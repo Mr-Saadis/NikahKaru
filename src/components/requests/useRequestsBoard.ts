@@ -493,10 +493,25 @@ export function useRequestsBoard({
     );
   }, []);
 
-  const updateItemStatus = useCallback((id: string, status: RequestStatus) => {
+  const updateItemStatus = useCallback((
+    id: string,
+    status: RequestStatus,
+    extra?: { profileStatus?: string; pauseInfo?: any }
+  ) => {
     setAllItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, status, profileData: { ...item.profileData, request_status: status } } : item
+        item.id === id
+          ? {
+              ...item,
+              status,
+              profileData: {
+                ...item.profileData,
+                request_status: status,
+                ...(extra?.profileStatus !== undefined ? { status: extra.profileStatus } : {}),
+                ...(extra?.pauseInfo !== undefined ? { pause_info: extra.pauseInfo } : {}),
+              },
+            }
+          : item
       )
     );
   }, []);

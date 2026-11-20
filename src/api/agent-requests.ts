@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { RequestItem, FilterState } from '@/components/requests/types';
+import { getPauseInfoMap } from '@/lib/services/profile-pause-server';
 
 function sanitizePostgrestParam(val: string): string {
   return (val || '').replace(/[,()"\\]/g, '').trim();
@@ -78,13 +79,14 @@ export async function fetchAgentBoardRequests(filters: FilterState): Promise<Req
         .from('information_requests')
         .update({ requested_by: user.id })
         .in('source_profile_id', missingProfIds)
-    ).catch(() => {});
+    ).catch(() => { });
 
     for (const req of (missingReqs || [])) {
       const core = coreMap.get(req.source_profile_id);
       if (core) {
         let st = 'requested';
-        if (req.status === 'IN_REVIEW') st = 'responded';
+        if (core.status === 'PAUSED') st = 'pause';
+        else if (req.status === 'IN_REVIEW') st = 'responded';
         else if (req.status === 'DOWNLOADED') st = 'downloaded';
         else if (req.status === 'COMPLETED') st = 'done';
         else if (req.status === 'COMPLETED_OUTSIDE_SYSTEM') st = 'completed_outside';
@@ -121,6 +123,12 @@ export async function fetchAgentBoardRequests(filters: FilterState): Promise<Req
     }
   }
 
+  const pausedProfileIds = rawData
+    .filter((item: any) => item.status === 'PAUSED')
+    .map((item: any) => item.profile_id || item.source_profile_id)
+    .filter(Boolean);
+  const pauseMap = pausedProfileIds.length > 0 ? await getPauseInfoMap(pausedProfileIds) : new Map();
+
   return rawData.map((item: any) => {
     let status = item.request_status;
     if (downloadedIds.has(item.request_id) || downloadedIds.has(item.board_id)) {
@@ -128,6 +136,11 @@ export async function fetchAgentBoardRequests(filters: FilterState): Promise<Req
     } else if (completedOutsideIds.has(item.request_id) || completedOutsideIds.has(item.board_id)) {
       status = 'completed_outside';
     }
+    if (item.status === 'PAUSED') {
+      status = 'pause';
+    }
+    const pid = item.profile_id || item.source_profile_id;
+    const pauseInfo = item.status === 'PAUSED' && pid ? (pauseMap.get(pid) || null) : null;
     return {
       id: item.board_id,
       name: item.full_name || 'Unknown',
@@ -138,7 +151,7 @@ export async function fetchAgentBoardRequests(filters: FilterState): Promise<Req
       status,
       later: item.later || false,
       isRead: item.is_read || false,
-      profileData: { ...item, request_status: status },
+      profileData: { ...item, request_status: status, pause_info: pauseInfo },
     };
   });
 }
@@ -207,6 +220,7 @@ async function fetchAgentColumnRequestsWithClient(
       .from('vw_agent_requests_board')
       .select('*')
       .neq('status', 'DRAFT')
+      .neq('status', 'PAUSED')
       .eq('request_status', 'downloaded');
 
     viewQuery = applyBoardFilters(viewQuery, filters)
@@ -252,7 +266,7 @@ async function fetchAgentColumnRequestsWithClient(
     const profIds = irData.map((r: any) => r.source_profile_id).filter(Boolean);
     let profMap = new Map<string, any>();
     if (profIds.length > 0) {
-      let profQuery = supabase.from('vw_profile_core').select('*').in('profile_id', profIds);
+      let profQuery = supabase.from('vw_profile_core').select('*').neq('status', 'DRAFT').neq('status', 'PAUSED').in('profile_id', profIds);
       if (filters.search) {
         const cleanSearch = sanitizePostgrestParam(filters.search);
         if (cleanSearch) {
@@ -290,6 +304,7 @@ async function fetchAgentColumnRequestsWithClient(
       .from('vw_agent_requests_board')
       .select('*')
       .neq('status', 'DRAFT')
+      .neq('status', 'PAUSED')
       .eq('request_status', 'completed_outside');
 
     viewQuery = applyBoardFilters(viewQuery, filters)
@@ -335,7 +350,7 @@ async function fetchAgentColumnRequestsWithClient(
     const profIds = irData.map((r: any) => r.source_profile_id).filter(Boolean);
     let profMap = new Map<string, any>();
     if (profIds.length > 0) {
-      let profQuery = supabase.from('vw_profile_core').select('*').in('profile_id', profIds);
+      let profQuery = supabase.from('vw_profile_core').select('*').neq('status', 'DRAFT').neq('status', 'PAUSED').in('profile_id', profIds);
       if (filters.search) {
         const cleanSearch = sanitizePostgrestParam(filters.search);
         if (cleanSearch) {
@@ -369,8 +384,13 @@ async function fetchAgentColumnRequestsWithClient(
   let query = supabase
     .from('vw_agent_requests_board')
     .select('*')
-    .neq('status', 'DRAFT')
-    .eq('request_status', status);
+    .neq('status', 'DRAFT');
+
+  if (status === 'pause') {
+    query = query.eq('status', 'PAUSED');
+  } else {
+    query = query.neq('status', 'PAUSED').eq('request_status', status);
+  }
 
   query = applyBoardFilters(query, filters)
     .order('request_date', { ascending: false })
@@ -384,6 +404,11 @@ async function fetchAgentColumnRequestsWithClient(
   }
 
   const rawData = (data || []).filter((item: any) => !userId || !item.current_agent_id || item.current_agent_id === userId);
+  const pausedIds = rawData
+    .filter((item: any) => item.status === 'PAUSED')
+    .map((item: any) => item.profile_id || item.source_profile_id)
+    .filter(Boolean);
+  const pauseMap = pausedIds.length > 0 ? await getPauseInfoMap(pausedIds) : new Map();
 
   // If status is 'requested', filter out any items that are actually DOWNLOADED in information_requests
   if (status === 'requested' && rawData.length > 0) {
@@ -400,7 +425,12 @@ async function fetchAgentColumnRequestsWithClient(
       .map((item: any) => mapViewRowToRequestItem(item));
   }
 
-  return rawData.map((item: any) => mapViewRowToRequestItem(item));
+  return rawData.map((item: any) => {
+    const pid = item.profile_id || item.source_profile_id;
+    const pauseInfo = item.status === 'PAUSED' && pid ? (pauseMap.get(pid) || null) : null;
+    const enriched = item.status === 'PAUSED' ? { ...item, pause_info: pauseInfo } : item;
+    return mapViewRowToRequestItem(enriched, item.status === 'PAUSED' ? 'pause' : undefined);
+  });
 }
 
 export async function fetchAgentColumnRequests(
@@ -417,7 +447,7 @@ export async function fetchAgentColumnRequests(
 // =======================================================================
 // Batched Initial Load for all Agent Board Columns (1 auth check + parallel queries)
 // =======================================================================
-const AGENT_COLUMN_KEYS = ['logged', 'requested', 'responded', 'downloaded', 'done', 'completed_outside'] as const;
+const AGENT_COLUMN_KEYS = ['logged', 'requested', 'responded', 'downloaded', 'done', 'completed_outside', 'pause'] as const;
 
 export async function fetchAgentBoardInitialColumns(
   filters: FilterState,
@@ -447,7 +477,18 @@ export async function fetchAgentBoardInitialColumns(
   const validRows = (data || []).filter(
     (item: any) => !item.current_agent_id || item.current_agent_id === user.id
   );
-  const mappedItems = validRows.map((item: any) => mapViewRowToRequestItem(item));
+  const pausedIds = validRows
+    .filter((item: any) => item.status === 'PAUSED')
+    .map((item: any) => item.profile_id || item.source_profile_id)
+    .filter(Boolean);
+  const pauseMap = pausedIds.length > 0 ? await getPauseInfoMap(pausedIds) : new Map();
+
+  const mappedItems = validRows.map((item: any) => {
+    const pid = item.profile_id || item.source_profile_id;
+    const pauseInfo = item.status === 'PAUSED' && pid ? (pauseMap.get(pid) || null) : null;
+    const enriched = item.status === 'PAUSED' ? { ...item, pause_info: pauseInfo } : item;
+    return mapViewRowToRequestItem(enriched, item.status === 'PAUSED' ? 'pause' : undefined);
+  });
   const uniqueItems = deduplicateByProfile(mappedItems);
 
   uniqueItems.forEach((item) => {

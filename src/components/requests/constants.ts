@@ -14,7 +14,7 @@ export const COLUMNS: ColumnDef[] = [
   { label: 'Downloaded',                key: 'downloaded',        color: '#1F3B34', cardBg: '#A3B18A', filledDashes: 2 },
   { label: 'Completed',                 key: 'done',              color: '#A3B18A', cardBg: 'transparent', filledDashes: 3 },
   { label: 'Completed Outside System',  key: 'completed_outside', color: '#5C5449', cardBg: '#F2EDE1', filledDashes: 3 },
-  { label: 'Pause',                     key: 'pause',             color: '#6b7280', cardBg: '#1F3B34', filledDashes: 2 },
+  { label: 'Pause',                     key: 'pause',             color: '#C86A4A', cardBg: '#1F3B34', filledDashes: 2 },
   { label: 'Feedback',                  key: 'feedback',          color: '#1F3B34', cardBg: '#F2EDE1', filledDashes: 2 },
   { label: 'Archive',                   key: 'archive',           color: '#2F3E51', cardBg: '#A3B18A', filledDashes: 3 },
 ];
@@ -26,6 +26,7 @@ export const AGENT_COLUMNS: ColumnDef[] = [
   { label: 'Downloaded',                key: 'downloaded',        color: '#1F3B34', cardBg: '#A3B18A', filledDashes: 2 },
   { label: 'Completed',                 key: 'done',              color: '#A3B18A', cardBg: 'transparent', filledDashes: 3 },
   { label: 'Completed Outside System',  key: 'completed_outside', color: '#5C5449', cardBg: '#F2EDE1', filledDashes: 3 },
+  { label: 'Paused',                    key: 'pause',             color: '#C86A4A', cardBg: '#1F3B34', filledDashes: 2 },
 ];
 
 // Avatar accent colours — cycle by card index

@@ -340,6 +340,34 @@ export function DirectoryClient() {
     setToastMsg('Profile and all associated data have been permanently deleted.');
   }, []);
 
+  const handleItemStatusUpdated = useCallback((
+    itemId: string,
+    newStatus: any,
+    extra?: { profileStatus?: string; pauseInfo?: any }
+  ) => {
+    const updater = (list: DirectoryEntry[]) =>
+      list.map((e) => {
+        const reqId = (e.profileData as any)?.request_id;
+        if (e.id === itemId || e.profileId === itemId || reqId === itemId) {
+          return {
+            ...e,
+            boardStage: newStatus,
+            cardBg: newStatus,
+            profileData: {
+              ...e.profileData,
+              request_status: newStatus,
+              ...(extra?.profileStatus !== undefined ? { status: extra.profileStatus } : {}),
+              ...(extra?.pauseInfo !== undefined ? { pause_info: extra.pauseInfo } : {}),
+            },
+          };
+        }
+        return e;
+      });
+    setBaseEntries(updater);
+    setEntries(updater);
+    clearDirectoryCache();
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -534,6 +562,7 @@ export function DirectoryClient() {
         hideRespondLater={true}
         isDirectory={true}
         rightOffset={isDesktop ? 318 : 0}
+        onItemStatusUpdated={handleItemStatusUpdated}
         onProfileDeleted={handleProfileDeleted}
       />
 

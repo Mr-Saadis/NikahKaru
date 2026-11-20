@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import type { RequestItem, ColumnDef } from './types';
 import { useBottomSheet } from './useBottomSheet';
 import { XIcon, PhoneIcon, CopyIcon, UserIcon, HashIcon, CalendarIcon, SparkIcon, BookmarkFilledIcon } from './icons';
-import { FileDown, UserCheck, ChevronDown, Search, Trash2, Pencil, Heart, CheckCircle2, RotateCcw, ExternalLink } from 'lucide-react';
+import { FileDown, UserCheck, ChevronDown, Search, Trash2, Pencil, Heart, CheckCircle2, RotateCcw, ExternalLink, PauseCircle, PlayCircle, Clock } from 'lucide-react';
 import DeleteProfileDialog from './DeleteProfileDialog';
 import { CompleteMarriageDialog } from './CompleteMarriageDialog';
+import PauseProfileDialog from '@/components/profile/PauseProfileDialog';
 import { MatchesSection } from './MatchesSection';
 import { ProfileNav } from './ProfileNav';
 import { ProfileSection } from './ProfileSection';
@@ -22,8 +23,10 @@ import {
   markRequestAsCompletedOutsideSystem,
   type AgentOption,
 } from '@/lib/actions/requests';
-import { ProfileAuditLogsSection } from './ProfileAuditLogsSection';
+import { resumeProfileAction } from '@/lib/actions/profiles';
+import { ProfileAuditLogsSection, invalidateProfileAuditLogCache } from './ProfileAuditLogsSection';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { formatPauseDate, isPauseReminderDue } from '@/lib/utils/pauseFormatting';
 import { submitMatchRequest } from '@/lib/actions/agent-requests';
 import { generateSingleProfilePDF, generateReleasedProfilesPDF } from '@/lib/utils/pdfExport';
 import { notificationService } from '@/lib/services/notification-service';
@@ -48,7 +51,11 @@ interface RequestDetailsSheetProps {
   isDirectory?: boolean;
   rightOffset?: number | string;
   onItemStaffUpdated?: (itemId: string, newStaff: string) => void;
-  onItemStatusUpdated?: (itemId: string, newStatus: any) => void;
+  onItemStatusUpdated?: (
+    itemId: string,
+    newStatus: any,
+    extra?: { profileStatus?: string; pauseInfo?: any }
+  ) => void;
   onProfileDeleted?: (profileId: string) => void;
 }
 
@@ -104,7 +111,7 @@ export default function RequestDetailsSheet({
   } = useBottomSheet({ isOpen, containerRef, onClose });
 
   const router = useRouter();
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const isAgent = role === 'AGENT';
   const isAdmin = role === 'HIGH_LEVEL_ADMIN';
   const isManager = role === 'MANAGER';
@@ -114,6 +121,8 @@ export default function RequestDetailsSheet({
   const [isDownloadingProfilePdf, setIsDownloadingProfilePdf] = useState(false);
   const [isDownloadingMatchesPdf, setIsDownloadingMatchesPdf] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [pauseDialogMode, setPauseDialogMode] = useState<'pause' | 'extend' | null>(null);
+  const [isResumingProfile, setIsResumingProfile] = useState(false);
 
   // Assignment states
   const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
@@ -233,6 +242,52 @@ export default function RequestDetailsSheet({
       (item.profileData as any)?.status === 'INACTIVE'
     )
   );
+
+  const rawProfileStatus = (item?.profileData as any)?.status;
+  const isPaused = Boolean(item && (item.status === 'pause' || rawProfileStatus === 'PAUSED'));
+  const pauseInfo = (item?.profileData as any)?.pause_info || null;
+  const canManagePause = Boolean(
+    item &&
+    profileId &&
+    !isCompleted &&
+    rawProfileStatus !== 'ARCHIVED' &&
+    rawProfileStatus !== 'DRAFT' &&
+    rawProfileStatus !== 'INACTIVE' &&
+    (
+      isAdmin ||
+      isManager ||
+      (isAgent && (
+        (item.profileData as any)?.current_agent_id === user?.id ||
+        (!(item.profileData as any)?.current_agent_id && (item.profileData as any)?.created_by === user?.id)
+      ))
+    )
+  );
+
+  const handleResumeProfile = useCallback(async () => {
+    if (!item || !profileId || isResumingProfile) return;
+    setIsResumingProfile(true);
+    try {
+      const res = await resumeProfileAction(profileId);
+      if (!res.success) {
+        onToast(res.error || 'Failed to activate profile');
+        return;
+      }
+      const nextStage = isAgent ? (res.agentBoardStage || 'logged') : (res.boardStage || 'new');
+      if (item.profileData) {
+        (item.profileData as any).status = 'ACTIVE';
+        (item.profileData as any).pause_info = null;
+        (item.profileData as any).request_status = nextStage;
+      }
+      item.status = nextStage;
+      invalidateProfileAuditLogCache(profileId);
+      onItemStatusUpdated?.(item.id, nextStage, { profileStatus: 'ACTIVE', pauseInfo: null });
+      onToast(`${item.name} is now Active and available for matching.`);
+    } catch (err: any) {
+      onToast(err?.message || 'Failed to activate profile');
+    } finally {
+      setIsResumingProfile(false);
+    }
+  }, [item, profileId, isResumingProfile, isAgent, onItemStatusUpdated, onToast]);
 
   // Completion / Status Dropdown & Dialog state
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
@@ -728,6 +783,7 @@ export default function RequestDetailsSheet({
 
   const col = columns.find((c) => c.key === item.status) ?? columns[0];
   const heroBase = getHeroBase(item.status, columns);
+  const isDarkHero = ['#2F3E51', '#1F3B34', '#C86A4A'].includes(heroBase);
   const requestId = item.profileData?.request_id
     ? `REQ-${item.profileData.request_id.slice(0, 8).toUpperCase()}`
     : `PROF-${item.id.slice(0, 8).toUpperCase()}`;
@@ -913,7 +969,15 @@ export default function RequestDetailsSheet({
                   <a href={`tel:${digitsOnly(item.phone)}`} className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-[#111] text-white text-[12px] font-[600] no-underline transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_8px_16px_rgba(0,0,0,.14)]">
                     <PhoneIcon size={14} /> Call now
                   </a>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleCopy(item.phone, item.phone); }} className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-transparent text-[#1F1E1B] text-[12px] font-[600] border border-[#1F1E1B]/20 hover:bg-black/5 cursor-pointer transition-all duration-200 hover:-translate-y-[1px]">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleCopy(item.phone, item.phone); }}
+                    className={`inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-transparent text-[12px] font-[600] border cursor-pointer transition-all duration-200 hover:-translate-y-[1px] ${
+                      isDarkHero
+                        ? 'text-white border-white/25 hover:bg-white/15'
+                        : 'text-[#1F1E1B] border-[#1F1E1B]/20 hover:bg-black/5'
+                    }`}
+                  >
                     <CopyIcon size={14} /> Copy phone
                   </button>
 
@@ -926,7 +990,11 @@ export default function RequestDetailsSheet({
                         router.push(`/add-profile?edit=${profileId}`);
                       }}
                       title="Edit this profile in Add Profile form"
-                      className="inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-transparent text-[#1F1E1B] text-[12px] font-[600] border border-[#1F1E1B]/20 hover:bg-black/5 cursor-pointer transition-all duration-200 hover:-translate-y-[1px]"
+                      className={`inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full bg-transparent text-[12px] font-[600] border cursor-pointer transition-all duration-200 hover:-translate-y-[1px] ${
+                        isDarkHero
+                          ? 'text-white border-white/25 hover:bg-white/15'
+                          : 'text-[#1F1E1B] border-[#1F1E1B]/20 hover:bg-black/5'
+                      }`}
                     >
                       <Pencil size={13} />
                       <span>Edit Profile</span>
@@ -1043,6 +1111,26 @@ export default function RequestDetailsSheet({
                       )}
                     </>
                   )}
+
+                  {/* Pause Profile Action (when active) */}
+                  {canManagePause && !isPaused && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPauseDialogMode('pause');
+                      }}
+                      title="Pause this profile temporarily with a reminder timer"
+                      className={`inline-flex items-center gap-[7px] h-[34px] px-[14px] rounded-full text-[12px] font-[600] border cursor-pointer transition-all duration-200 hover:-translate-y-[1px] ${
+                        isDarkHero
+                          ? 'bg-white/14 hover:bg-white/22 text-white border-white/25 backdrop-blur-sm'
+                          : 'bg-white/85 hover:bg-white text-[#9E472A] border-[#C86A4A]/35 shadow-[0_2px_8px_rgba(0,0,0,0.04)]'
+                      }`}
+                    >
+                      <PauseCircle size={14} />
+                      <span>Pause Profile</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1064,94 +1152,145 @@ export default function RequestDetailsSheet({
               ))}
               {isAgent ? (
                 <div className="ml-auto flex items-center gap-[10px]">
-                  {item.status === 'logged' && (
-                    <button
-                      type="button"
-                      disabled={isSubmittingRequest}
-                      onClick={handleAgentSubmitRequest}
-                      className="inline-flex items-center gap-[9px] h-[48px] px-[24px] border-0 rounded-full bg-[#064e3b] text-white font-inherit text-[13.5px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(6,78,59,.25)] transition-all duration-200 hover:-translate-y-[2px] disabled:opacity-50"
-                    >
-                      <SparkIcon size={16} className={`text-[#eddd02] ${isSubmittingRequest ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
-                      <span>{isSubmittingRequest ? 'Submitting…' : 'Request Matches from Manager'}</span>
-                    </button>
-                  )}
-                  {item.status === 'requested' && (
-                    <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#FDF0D8] border border-[#F5C770] text-[#92400e] text-[13px] font-[600]">
-                      <span>⏳ Awaiting Manager Review</span>
-                    </div>
-                  )}
-                  {(item.status === 'responded' || item.status === 'downloaded' || item.status === 'done' || item.status === 'completed_outside' || releaseHistory.length > 0) && (
-                    isActuallyLoading ? (
-                      <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#F2EDE1] border border-[#E5DFD3] text-[#2F3E51] text-[13px] font-[600]">
-                        <SparkIcon size={16} className="text-[#C86A4A] animate-[sheet-spin_1s_linear_infinite]" />
-                        <span>Loading released matches…</span>
-                      </div>
+                  {isPaused ? (
+                    canManagePause ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPauseDialogMode('extend');
+                          }}
+                          className={`inline-flex items-center gap-[7px] h-[44px] px-[18px] rounded-full text-[13px] font-[600] border cursor-pointer transition-all duration-200 hover:-translate-y-[1px] ${
+                            isDarkHero
+                              ? 'bg-white/14 hover:bg-white/22 text-white border-white/25 backdrop-blur-sm'
+                              : 'bg-white hover:bg-[#FAF8F5] text-[#1F3B34] border-[#E9E4DC]'
+                          }`}
+                        >
+                          <Clock size={15} />
+                          <span>Update Reminder</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isResumingProfile}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleResumeProfile();
+                          }}
+                          className={`inline-flex items-center gap-[8px] h-[44px] px-[22px] rounded-full border-0 text-[13px] font-[700] cursor-pointer transition-all duration-200 hover:-translate-y-[1px] disabled:opacity-60 ${
+                            isDarkHero
+                              ? 'bg-white hover:bg-[#F2EDE1] text-[#1F3B34] shadow-[0_8px_20px_rgba(0,0,0,0.18)]'
+                              : 'bg-[#1F3B34] hover:bg-[#172E29] text-white shadow-[0_8px_20px_rgba(31,59,52,0.22)]'
+                          }`}
+                        >
+                          <PlayCircle size={15} />
+                          <span>{isResumingProfile ? 'Activating…' : 'Activate Profile'}</span>
+                        </button>
+                      </>
                     ) : (
-                      <div className="flex items-center gap-[10px]">
-                        {item.status === 'completed_outside' ? (
-                          <div className="inline-flex items-center gap-2 h-[44px] px-[18px] rounded-full bg-[#F2EDE1] border border-[#E5DFD3] text-[#5C5449] text-[13px] font-[700]">
-                            <span>✓ Completed Outside System</span>
+                      <div
+                        className={`inline-flex items-center gap-2 h-[42px] px-[18px] rounded-full border text-[12.5px] font-[600] ${
+                          isDarkHero
+                            ? 'bg-white/12 border-white/20 text-white/90'
+                            : 'bg-white/80 border-[#E9E4DC] text-[#5C5449]'
+                        }`}
+                      >
+                        <PauseCircle size={15} />
+                        <span>Profile Paused</span>
+                      </div>
+                    )
+                  ) : (
+                    <>
+                      {item.status === 'logged' && (
+                        <button
+                          type="button"
+                          disabled={isSubmittingRequest}
+                          onClick={handleAgentSubmitRequest}
+                          className="inline-flex items-center gap-[9px] h-[48px] px-[24px] border-0 rounded-full bg-[#064e3b] text-white font-inherit text-[13.5px] font-[600] cursor-pointer shadow-[0_10px_24px_rgba(6,78,59,.25)] transition-all duration-200 hover:-translate-y-[2px] disabled:opacity-50"
+                        >
+                          <SparkIcon size={16} className={`text-[#eddd02] ${isSubmittingRequest ? 'animate-[sheet-spin_1s_linear_infinite]' : ''}`} />
+                          <span>{isSubmittingRequest ? 'Submitting…' : 'Request Matches from Manager'}</span>
+                        </button>
+                      )}
+                      {item.status === 'requested' && (
+                        <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#FDF0D8] border border-[#F5C770] text-[#92400e] text-[13px] font-[600]">
+                          <span>⏳ Awaiting Manager Review</span>
+                        </div>
+                      )}
+                      {(item.status === 'responded' || item.status === 'downloaded' || item.status === 'done' || item.status === 'completed_outside' || releaseHistory.length > 0) && (
+                        isActuallyLoading ? (
+                          <div className="inline-flex items-center gap-2 h-[44px] px-[20px] rounded-full bg-[#F2EDE1] border border-[#E5DFD3] text-[#2F3E51] text-[13px] font-[600]">
+                            <SparkIcon size={16} className="text-[#C86A4A] animate-[sheet-spin_1s_linear_infinite]" />
+                            <span>Loading released matches…</span>
                           </div>
                         ) : (
-                          <div className="inline-flex items-center gap-2 h-[44px] px-[18px] rounded-full bg-[#E8F5E9] border border-[#A5D6A7] text-[#1B5E20] text-[13px] font-[600]">
-                            <span>✓ Matches Released ({releaseHistory.length})</span>
-                          </div>
-                        )}
+                          <div className="flex items-center gap-[10px]">
+                            {item.status === 'completed_outside' ? (
+                              <div className="inline-flex items-center gap-2 h-[44px] px-[18px] rounded-full bg-[#F2EDE1] border border-[#E5DFD3] text-[#5C5449] text-[13px] font-[700]">
+                                <span>✓ Completed Outside System</span>
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center gap-2 h-[44px] px-[18px] rounded-full bg-[#E8F5E9] border border-[#A5D6A7] text-[#1B5E20] text-[13px] font-[600]">
+                                <span>✓ Matches Released ({releaseHistory.length})</span>
+                              </div>
+                            )}
 
-                        {/* Dropdown for Downloaded Profiles (Manager/Admin only) */}
-                        {!isAgent && item.status === 'downloaded' && (
-                          <div className="relative" ref={statusDropdownRef}>
-                            <button
-                              type="button"
-                              onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
-                              className="inline-flex items-center gap-2 h-[44px] px-[18px] border-0 rounded-full bg-[#A3B18A] hover:bg-[#8fa074] text-[#1F3B34] font-inherit text-[13px] font-[700] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-[2px]"
-                              title="Mark as Complete"
-                            >
-                              <CheckCircle2 size={16} className="text-[#1F3B34]" />
-                              <span>Mark as Complete</span>
-                              <ChevronDown size={14} className={`transition-transform duration-200 ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            {isStatusDropdownOpen && (
-                              <div className="absolute right-0 mt-2 w-64 bg-white rounded-[20px] shadow-[0_16px_36px_rgba(0,0,0,0.15)] border border-[#E9E4DC] p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                            {/* Dropdown for Downloaded Profiles (Manager/Admin only) */}
+                            {!isAgent && item.status === 'downloaded' && (
+                              <div className="relative" ref={statusDropdownRef}>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setIsStatusDropdownOpen(false);
-                                    handleMarkCompletedOutsideSystem();
-                                  }}
-                                  disabled={isMarkingIncomplete}
-                                  className="w-full text-left px-3.5 py-2.5 rounded-[14px] text-[13px] font-semibold text-[#696256] hover:bg-[#FAF8F5] hover:text-[#1F3B34] flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
+                                  className="inline-flex items-center gap-2 h-[44px] px-[18px] border-0 rounded-full bg-[#A3B18A] hover:bg-[#8fa074] text-[#1F3B34] font-inherit text-[13px] font-[700] cursor-pointer shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-[2px]"
+                                  title="Mark as Complete"
                                 >
-                                  <ExternalLink size={15} className="text-[#C86A4A]" />
-                                  <div>
-                                    <div className="font-bold text-[#1F3B34]">Completed Outside System</div>
-                                    <div className="text-[11px] text-[#8B8479] font-normal">Marriage finalized outside NikahKaru</div>
-                                  </div>
+                                  <CheckCircle2 size={16} className="text-[#1F3B34]" />
+                                  <span>Mark as Complete</span>
+                                  <ChevronDown size={14} className={`transition-transform duration-200 ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
                                 </button>
 
-                                <div className="h-[1px] bg-[#E9E4DC]/60 my-1" />
+                                {isStatusDropdownOpen && (
+                                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-[20px] shadow-[0_16px_36px_rgba(0,0,0,0.15)] border border-[#E9E4DC] p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsStatusDropdownOpen(false);
+                                        handleMarkCompletedOutsideSystem();
+                                      }}
+                                      disabled={isMarkingIncomplete}
+                                      className="w-full text-left px-3.5 py-2.5 rounded-[14px] text-[13px] font-semibold text-[#696256] hover:bg-[#FAF8F5] hover:text-[#1F3B34] flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <ExternalLink size={15} className="text-[#C86A4A]" />
+                                      <div>
+                                        <div className="font-bold text-[#1F3B34]">Completed Outside System</div>
+                                        <div className="text-[11px] text-[#8B8479] font-normal">Marriage finalized outside NikahKaru</div>
+                                      </div>
+                                    </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setIsStatusDropdownOpen(false);
-                                    setIsCompleteDialogOpen(true);
-                                  }}
-                                  className="w-full text-left px-3.5 py-2.5 rounded-[14px] text-[13px] font-semibold text-[#064e3b] hover:bg-[#E5EFE9] flex items-center gap-2.5 transition-colors cursor-pointer"
-                                >
-                                  <Heart size={16} className="text-[#064e3b] fill-[#064e3b]" />
-                                  <div>
-                                    <div className="font-bold text-[#064e3b]">Completed (Marriage Finalized)</div>
-                                    <div className="text-[11px] text-[#064e3b]/80 font-normal">Select candidate & finalize</div>
+                                    <div className="h-[1px] bg-[#E9E4DC]/60 my-1" />
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsStatusDropdownOpen(false);
+                                        setIsCompleteDialogOpen(true);
+                                      }}
+                                      className="w-full text-left px-3.5 py-2.5 rounded-[14px] text-[13px] font-semibold text-[#064e3b] hover:bg-[#E5EFE9] flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                      <Heart size={16} className="text-[#064e3b] fill-[#064e3b]" />
+                                      <div>
+                                        <div className="font-bold text-[#064e3b]">Completed (Marriage Finalized)</div>
+                                        <div className="text-[11px] text-[#064e3b]/80 font-normal">Select candidate & finalize</div>
+                                      </div>
+                                    </button>
                                   </div>
-                                </button>
+                                )}
                               </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    )
+                        )
+                      )}
+                    </>
                   )}
                 </div>
               ) : (
@@ -1209,7 +1348,54 @@ export default function RequestDetailsSheet({
                     </div>
                   )}
 
-                  {isCompleted ? (
+                  {isPaused ? (
+                    canManagePause ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPauseDialogMode('extend');
+                          }}
+                          className={`inline-flex items-center gap-[7px] h-[44px] px-[18px] rounded-full text-[13px] font-[600] border cursor-pointer transition-all duration-200 hover:-translate-y-[1px] ${
+                            isDarkHero
+                              ? 'bg-white/14 hover:bg-white/22 text-white border-white/25 backdrop-blur-sm'
+                              : 'bg-white hover:bg-[#FAF8F5] text-[#1F3B34] border-[#E9E4DC]'
+                          }`}
+                        >
+                          <Clock size={15} />
+                          <span>Update Reminder</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isResumingProfile}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleResumeProfile();
+                          }}
+                          className={`inline-flex items-center gap-[8px] h-[44px] px-[22px] rounded-full border-0 text-[13px] font-[700] cursor-pointer transition-all duration-200 hover:-translate-y-[1px] disabled:opacity-60 ${
+                            isDarkHero
+                              ? 'bg-white hover:bg-[#F2EDE1] text-[#1F3B34] shadow-[0_8px_20px_rgba(0,0,0,0.18)]'
+                              : 'bg-[#1F3B34] hover:bg-[#172E29] text-white shadow-[0_8px_20px_rgba(31,59,52,0.22)]'
+                          }`}
+                        >
+                          <PlayCircle size={15} />
+                          <span>{isResumingProfile ? 'Activating…' : 'Activate Profile'}</span>
+                        </button>
+                      </>
+                    ) : (
+                      <div
+                        className={`inline-flex items-center gap-2 h-[42px] px-[18px] rounded-full border text-[12.5px] font-[600] ${
+                          isDarkHero
+                            ? 'bg-white/12 border-white/20 text-white/90'
+                            : 'bg-white/80 border-[#E9E4DC] text-[#5C5449]'
+                        }`}
+                      >
+                        <PauseCircle size={15} />
+                        <span>Profile Paused</span>
+                      </div>
+                    )
+                  ) : isCompleted ? (
                     (isActuallyLoading || isMatchingLoading) ? (
                       <div className="inline-flex items-center gap-2 h-[48px] px-[24px] rounded-full bg-[rgba(255,255,255,.72)] backdrop-blur-[8px] text-[#111] text-[13.5px] font-[600]">
                         <SparkIcon size={17} className="text-[#064e3b] animate-[sheet-spin_1s_linear_infinite]" />
@@ -1250,6 +1436,37 @@ export default function RequestDetailsSheet({
                 </div>
               )}
             </div>
+
+            {isPaused && (
+              <div
+                className={`relative z-[1] mt-1 rounded-[18px] px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 backdrop-blur-md border ${
+                  isDarkHero
+                    ? 'bg-black/18 border-white/15 text-white/90'
+                    : 'bg-white/80 border-[#E9E4DC] text-[#1F3B34]'
+                }`}
+              >
+                <div className="flex items-center gap-2 text-[12px] font-medium">
+                  <Clock
+                    size={15}
+                    className={`shrink-0 ${isDarkHero ? 'text-[#F5C770]' : 'text-[#C86A4A]'}`}
+                  />
+                  <span>
+                    {pauseInfo?.pause_until
+                      ? isPauseReminderDue(pauseInfo)
+                        ? `Pause reminder due since ${formatPauseDate(pauseInfo.pause_until)}`
+                        : `Paused until ${formatPauseDate(pauseInfo.pause_until)}`
+                      : 'Paused indefinitely (no timer)'}
+                    {pauseInfo?.reason ? ` — Reason: ${pauseInfo.reason}` : ''}
+                    {pauseInfo?.paused_by_name ? ` • By ${pauseInfo.paused_by_name}` : ''}
+                  </span>
+                </div>
+                {pauseInfo?.pause_until && isPauseReminderDue(pauseInfo) && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#C86A4A] text-white text-[10px] font-bold uppercase tracking-wider">
+                    Reminder Due
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div id="mt" ref={matchesRef}>
@@ -1424,6 +1641,33 @@ export default function RequestDetailsSheet({
           requestId={(item.profileData as any)?.request_id || (item.id.length === 36 ? item.id : '')}
           candidates={releasedCandidates}
           onSuccess={handleMarriageSuccess}
+          onToast={onToast}
+        />
+      )}
+
+      {/* Pause / Extend Reminder Dialog */}
+      {pauseDialogMode && profileId && item && (
+        <PauseProfileDialog
+          isOpen={Boolean(pauseDialogMode)}
+          mode={pauseDialogMode}
+          profileId={profileId}
+          profileName={item.name}
+          currentPauseInfo={pauseInfo}
+          onClose={() => setPauseDialogMode(null)}
+          onSuccess={(res) => {
+            if (item.profileData) {
+              (item.profileData as any).status = 'PAUSED';
+              (item.profileData as any).pause_info = res.pauseInfo;
+              (item.profileData as any).request_status = 'pause';
+            }
+            item.status = 'pause';
+            invalidateProfileAuditLogCache(profileId);
+            onItemStatusUpdated?.(item.id, 'pause', {
+              profileStatus: 'PAUSED',
+              pauseInfo: res.pauseInfo,
+            });
+            setPauseDialogMode(null);
+          }}
           onToast={onToast}
         />
       )}

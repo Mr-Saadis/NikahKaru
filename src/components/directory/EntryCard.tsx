@@ -8,7 +8,9 @@ import {
   Ruler,
   Calendar,
   User,
+  Clock,
 } from 'lucide-react';
+import { formatPauseBadge, formatPauseDate } from '@/lib/utils/pauseFormatting';
 import type {
   DirectoryEntry,
   FilterMatchDetail,
@@ -200,19 +202,40 @@ export function EntryCard({
             )}
           </div>
 
-          {/* Right: Board Stage Badge */}
-          {stageCol && (
-            <span
-              className="shrink-0 px-2.5 py-0.5 rounded-full text-[9.5px] font-bold tracking-wider uppercase"
-              style={{
-                backgroundColor: isDarkBg ? 'rgba(255,255,255,0.16)' : 'rgba(31,59,52,0.07)',
-                color: isDarkBg ? '#FFFFFF' : '#1F3B34',
-                border: isDarkBg ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(31,59,52,0.1)',
-              }}
-            >
-              {stageCol.label}
-            </span>
-          )}
+          {/* Right: Board Stage / Pause Reminder Badge */}
+          <div className="flex items-center gap-1 shrink-0">
+            {entry.boardStage === 'pause' && (() => {
+              const pInfo = (entry.profileData as any)?.pause_info;
+              const pBadge = formatPauseBadge(pInfo);
+              if (pBadge.isIndefinite) return null;
+              return (
+                <span
+                  title={pInfo?.pause_until ? `Reminder: ${formatPauseDate(pInfo.pause_until)}` : undefined}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide"
+                  style={{
+                    backgroundColor: pBadge.isDue ? '#C86A4A' : 'rgba(242, 237, 225, 0.16)',
+                    color: pBadge.isDue ? '#FFFFFF' : '#F2EDE1',
+                    border: pBadge.isDue ? 'none' : '1px solid rgba(242, 237, 225, 0.28)',
+                  }}
+                >
+                  <Clock size={9} />
+                  <span>{pBadge.label}</span>
+                </span>
+              );
+            })()}
+            {stageCol && (
+              <span
+                className="shrink-0 px-2.5 py-0.5 rounded-full text-[9.5px] font-bold tracking-wider uppercase"
+                style={{
+                  backgroundColor: isDarkBg ? 'rgba(255,255,255,0.16)' : 'rgba(31,59,52,0.07)',
+                  color: isDarkBg ? '#FFFFFF' : '#1F3B34',
+                  border: isDarkBg ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(31,59,52,0.1)',
+                }}
+              >
+                {stageCol.label}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ── 2. Profile Identity Row (Full Width!) ── */}

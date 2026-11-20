@@ -124,3 +124,34 @@ export async function deleteProfileViaRpc(profileId: string): Promise<{ success:
     return { success: false, error: err?.message || 'Failed to delete profile' };
   }
 }
+
+export async function pauseProfileAction(params: {
+  profileId: string;
+  durationDays?: number | null;
+  customUntilIso?: string | null;
+  reason?: string | null;
+}) {
+  const { pauseProfileServer } = await import('@/lib/services/profile-pause-server');
+  return pauseProfileServer(params);
+}
+
+export async function extendProfilePauseAction(params: {
+  profileId: string;
+  durationDays?: number | null;
+  customUntilIso?: string | null;
+  reason?: string | null;
+}) {
+  const { extendProfilePauseServer } = await import('@/lib/services/profile-pause-server');
+  return extendProfilePauseServer(params);
+}
+
+export async function resumeProfileAction(profileId: string) {
+  const { resumeProfileServer } = await import('@/lib/services/profile-pause-server');
+  return resumeProfileServer(profileId);
+}
+
+export async function getProfilePauseSummaryAction(profileId: string) {
+  const { getProfilePauseSummaryServer } = await import('@/lib/services/profile-pause-server');
+  return getProfilePauseSummaryServer(profileId);
+}
+

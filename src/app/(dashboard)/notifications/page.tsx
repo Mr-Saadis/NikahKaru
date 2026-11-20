@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Bell, Inbox, ArrowLeft, Check, X, Clock, CalendarDays, Search, Download, FileText, Loader2 } from 'lucide-react';
+import { Bell, Inbox, ArrowLeft, Check, X, Clock, CalendarDays, Search, Download, FileText, Loader2, PauseCircle, PlayCircle, ExternalLink, MapPin, Phone, UserCheck } from 'lucide-react';
 import { generateReleasedProfilesPDF } from '@/lib/utils/pdfExport';
 import { filterAndFormatReleaseFields } from '@/lib/utils/formatReleaseFields';
 import { useAuthStore } from '@/lib/stores/auth-store';
@@ -12,7 +12,12 @@ import { createBrowserClient } from '@supabase/ssr';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { markRequestAsDownloaded } from '@/lib/actions/requests';
+import { getProfilePauseSummaryAction, resumeProfileAction } from '@/lib/actions/profiles';
+import PauseProfileDialog from '@/components/profile/PauseProfileDialog';
+import { formatPauseDate, isPauseReminderDue } from '@/lib/utils/pauseFormatting';
 import Header from '@/components/layout/Header';
+
+type PauseSummaryState = NonNullable<Awaited<ReturnType<typeof getProfilePauseSummaryAction>>['data']>;
 
 type UINotif = Notification & {
   date: string;
@@ -59,10 +64,16 @@ export default function NotificationsPage() {
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [pauseProfileSummary, setPauseProfileSummary] = useState<PauseSummaryState | null>(null);
+  const [isLoadingPauseSummary, setIsLoadingPauseSummary] = useState(false);
+  const [isActivatingFromNotif, setIsActivatingFromNotif] = useState(false);
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
 
   const pageRef = useRef(1);
   const hasMoreRef = useRef(true);
   const isFetchingRef = useRef(false);
+  const reminderCheckedRef = useRef(false);
+  const consumedUrlIdRef = useRef<string | null>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -104,6 +115,11 @@ export default function NotificationsPage() {
     setHasMore(true);
 
     try {
+      if (!reminderCheckedRef.current) {
+        reminderCheckedRef.current = true;
+        await fetch('/api/profiles/check-pause-reminders', { method: 'POST' }).catch(() => {});
+      }
+
       const res = await notificationService.getMyNotificationsPaginated(user.id, role, {
         searchQuery: appliedSearchQuery,
         fromDate,
@@ -262,9 +278,39 @@ export default function NotificationsPage() {
   useEffect(() => {
     if (!selectedNotification) {
       setRequestDetails(null);
+      setPauseProfileSummary(null);
       return;
     }
-    
+
+    if (
+      (selectedNotification.entity_type === 'profile_pause_reminder' ||
+        selectedNotification.entity_type === 'profile') &&
+      selectedNotification.entity_id
+    ) {
+      let cancelled = false;
+      setRequestDetails(null);
+      setIsLoadingDetails(false);
+      setIsLoadingPauseSummary(true);
+      getProfilePauseSummaryAction(selectedNotification.entity_id)
+        .then((res) => {
+          if (!cancelled) {
+            setPauseProfileSummary(res.success && res.data ? res.data : null);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setPauseProfileSummary(null);
+        })
+        .finally(() => {
+          if (!cancelled) setIsLoadingPauseSummary(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setPauseProfileSummary(null);
+      setIsLoadingPauseSummary(false);
+    }
+
     if (selectedNotification.type === 'REQUEST' && selectedNotification.entity_id) {
       const title = selectedNotification.title?.toLowerCase() || '';
       const isReleaseNotification = title.includes('release') || title.includes('sent');
@@ -309,7 +355,7 @@ export default function NotificationsPage() {
     return acc;
   }, {} as Record<string, UINotif[]>);
 
-  const handleSelect = async (id: string) => {
+  const handleSelect = useCallback(async (id: string) => {
     setSelectedNotificationId(id);
     const notif = notifications.find(n => n.id === id);
     if (notif && !notif.is_read) {
@@ -320,6 +366,43 @@ export default function NotificationsPage() {
       } catch {
         // ignore
       }
+    }
+  }, [notifications]);
+
+  // Auto-select notification if ?id=<notifId> is passed from NotificationDropdown
+  useEffect(() => {
+    if (typeof window === 'undefined' || notifications.length === 0) return;
+    const sp = new URLSearchParams(window.location.search);
+    const targetId = sp.get('id');
+    if (targetId && consumedUrlIdRef.current !== targetId) {
+      const found = notifications.find(n => n.id === targetId);
+      if (found) {
+        consumedUrlIdRef.current = targetId;
+        handleSelect(found.id);
+        sp.delete('id');
+        const nextQuery = sp.toString();
+        window.history.replaceState({}, '', `/notifications${nextQuery ? `?${nextQuery}` : ''}`);
+      }
+    }
+  }, [notifications, handleSelect]);
+
+  const handleActivateFromNotification = async () => {
+    if (!pauseProfileSummary || isActivatingFromNotif) return;
+    setIsActivatingFromNotif(true);
+    try {
+      const res = await resumeProfileAction(pauseProfileSummary.profileId);
+      if (!res.success) {
+        toast.error(res.error || 'Failed to activate profile');
+        return;
+      }
+      setPauseProfileSummary((prev) =>
+        prev ? { ...prev, status: 'ACTIVE', pauseInfo: null } : prev
+      );
+      toast.success(`${pauseProfileSummary.fullName} is now Active and returned to matching pool!`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to activate profile');
+    } finally {
+      setIsActivatingFromNotif(false);
     }
   };
 
@@ -813,6 +896,146 @@ export default function NotificationsPage() {
                   </div>
                   );
                 })()}
+
+                {/* Profile Pause Reminder / Status Card */}
+                {(selectedNotification.entity_type === 'profile_pause_reminder' ||
+                  selectedNotification.entity_type === 'profile') && (
+                  <div className="mt-4">
+                    {isLoadingPauseSummary ? (
+                      <div className="border border-[#EFE9DF] rounded-2xl p-6 bg-white flex items-center gap-3 text-[#7D766C] text-[13px] font-medium">
+                        <Loader2 size={16} className="animate-spin text-[#1F3B34]" />
+                        <span>Loading live profile status...</span>
+                      </div>
+                    ) : pauseProfileSummary ? (
+                      <div className="border border-[#EFE9DF] rounded-2xl p-6 shadow-sm bg-white space-y-5">
+                        <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-[#F2EEE8]">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                                pauseProfileSummary.status === 'PAUSED'
+                                  ? 'bg-[#F7ECE6] text-[#C86A4A] border border-[#EBCFC1]'
+                                  : 'bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc]'
+                              }`}
+                            >
+                              {pauseProfileSummary.status === 'PAUSED' ? (
+                                <PauseCircle size={22} />
+                              ) : (
+                                <Check size={22} />
+                              )}
+                            </div>
+                            <div>
+                              <h3 className="text-[17px] font-bold text-[#1F3B34]">
+                                {pauseProfileSummary.fullName}
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#7D766C] mt-0.5">
+                                <span className="inline-flex items-center gap-1">
+                                  <Phone size={12} /> {pauseProfileSummary.phone}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPin size={12} /> {pauseProfileSummary.city}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <UserCheck size={12} /> {pauseProfileSummary.assignedAgentName}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <span
+                            className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
+                              pauseProfileSummary.status === 'PAUSED'
+                                ? 'bg-[#F7ECE6] text-[#9E472A] border border-[#EBCFC1]'
+                                : 'bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc]'
+                            }`}
+                          >
+                            {pauseProfileSummary.status}
+                          </span>
+                        </div>
+
+                        {pauseProfileSummary.status === 'PAUSED' && pauseProfileSummary.pauseInfo && (
+                          <div className="bg-[#FAF8F5] rounded-2xl p-4 border border-[#EFE9DF] grid grid-cols-1 sm:grid-cols-2 gap-4 text-[12.5px]">
+                            <div>
+                              <span className="block text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider mb-1">
+                                Reminder Schedule
+                              </span>
+                              <span className="font-semibold text-[#1F3B34]">
+                                {pauseProfileSummary.pauseInfo.pause_until
+                                  ? `${formatPauseDate(pauseProfileSummary.pauseInfo.pause_until)}${
+                                      isPauseReminderDue(pauseProfileSummary.pauseInfo) ? ' (Due)' : ''
+                                    }`
+                                  : 'Indefinite (No timer)'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] font-bold text-[#A49C8F] uppercase tracking-wider mb-1">
+                                Pause Reason
+                              </span>
+                              <span className="font-semibold text-[#1F3B34]">
+                                {pauseProfileSummary.pauseInfo.reason || 'No reason provided'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-3 pt-1">
+                          {pauseProfileSummary.status === 'PAUSED' ? (
+                            pauseProfileSummary.canManage ? (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isActivatingFromNotif}
+                                  onClick={handleActivateFromNotification}
+                                  className="inline-flex items-center gap-2 h-10 px-6 rounded-full bg-[#1F3B34] hover:bg-[#172E29] text-white text-[13px] font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+                                >
+                                  {isActivatingFromNotif ? (
+                                    <Loader2 size={15} className="animate-spin" />
+                                  ) : (
+                                    <PlayCircle size={15} />
+                                  )}
+                                  <span>
+                                    {isActivatingFromNotif ? 'Activating...' : 'Activate Profile'}
+                                  </span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setIsReminderModalOpen(true)}
+                                  className="inline-flex items-center gap-2 h-10 px-5 rounded-full bg-[#F4EFE7] hover:bg-[#EAE2D5] text-[#1F3B34] border border-[#E5DED3] text-[13px] font-semibold transition-colors cursor-pointer"
+                                >
+                                  <Clock size={15} />
+                                  <span>Set Reminder Again</span>
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-[12px] font-medium text-[#7D766C]">
+                                Only the assigned agent or a manager can update this profile.
+                              </span>
+                            )
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#E5EFE9] text-[#064e3b] border border-[#d1e3dc] text-[12.5px] font-bold">
+                              <Check size={14} /> Already {pauseProfileSummary.status === 'ACTIVE' ? 'Activated' : pauseProfileSummary.status}
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const dest =
+                                role === 'AGENT'
+                                  ? `/profiles?profileId=${pauseProfileSummary.profileId}`
+                                  : `/requests?profileId=${pauseProfileSummary.profileId}`;
+                              router.push(dest);
+                            }}
+                            className="inline-flex items-center gap-1.5 h-10 px-5 rounded-full bg-white hover:bg-[#FAF8F5] text-[#1F3B34] border border-[#E5DED3] text-[13px] font-semibold transition-colors cursor-pointer ml-auto"
+                          >
+                            <ExternalLink size={14} />
+                            <span>Open Profile</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -820,6 +1043,24 @@ export default function NotificationsPage() {
 
       </div>
       </div>
+
+      {isReminderModalOpen && pauseProfileSummary && (
+        <PauseProfileDialog
+          isOpen={isReminderModalOpen}
+          mode="extend"
+          profileId={pauseProfileSummary.profileId}
+          profileName={pauseProfileSummary.fullName}
+          currentPauseInfo={pauseProfileSummary.pauseInfo}
+          onClose={() => setIsReminderModalOpen(false)}
+          onSuccess={(res) => {
+            setPauseProfileSummary((prev) =>
+              prev ? { ...prev, status: 'PAUSED', pauseInfo: res.pauseInfo } : prev
+            );
+            setIsReminderModalOpen(false);
+          }}
+          onToast={(msg) => toast.success(msg)}
+        />
+      )}
     </>
   );
 }

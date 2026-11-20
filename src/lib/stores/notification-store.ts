@@ -28,6 +28,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set({ isLoading: true });
 
     try {
+      // 0. Check & generate any due profile pause reminders (server-side 60s throttle)
+      await fetch('/api/profiles/check-pause-reminders', { method: 'POST' }).catch(() => {});
+
       // 1. Initial Fetch
       const data = await notificationService.getMyNotifications(userId, role, { 
         status: 'unread', 

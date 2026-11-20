@@ -4,6 +4,8 @@ import { unstable_cache } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { RequestItem, RequestStatus, FilterState } from '@/components/requests/types';
+import { getPauseInfoMap } from '@/lib/services/profile-pause-server';
+import { formatPauseDate } from '@/lib/utils/pauseFormatting';
 
 function sanitizePostgrestParam(val: string): string {
   return (val || '').replace(/[,()"\\]/g, '').trim();
@@ -46,6 +48,12 @@ export async function fetchBoardRequests(filters: FilterState): Promise<RequestI
   }
 
   const rawData = data || [];
+  const pausedProfileIds = rawData
+    .filter((item: any) => item.status === 'PAUSED')
+    .map((item: any) => item.profile_id || item.source_profile_id)
+    .filter(Boolean);
+  const pauseMap = pausedProfileIds.length > 0 ? await getPauseInfoMap(pausedProfileIds) : new Map();
+
   const requestIds = rawData.map((item: any) => item.request_id || item.board_id).filter(Boolean);
   let completedOutsideIds = new Set<string>();
 
@@ -66,6 +74,11 @@ export async function fetchBoardRequests(filters: FilterState): Promise<RequestI
     if (completedOutsideIds.has(item.request_id) || completedOutsideIds.has(item.board_id)) {
       status = 'completed_outside';
     }
+    if (item.status === 'PAUSED') {
+      status = 'pause';
+    }
+    const pid = item.profile_id || item.source_profile_id;
+    const pauseInfo = item.status === 'PAUSED' && pid ? (pauseMap.get(pid) || null) : null;
     return {
       id: item.board_id,
       name: item.full_name || 'Unknown',
@@ -76,7 +89,7 @@ export async function fetchBoardRequests(filters: FilterState): Promise<RequestI
       status,
       later: item.later || false,
       isRead: item.is_read || false,
-      profileData: { ...item, request_status: status },
+      profileData: { ...item, request_status: status, pause_info: pauseInfo },
     };
   });
 }
@@ -94,6 +107,7 @@ export async function fetchColumnRequests(
       .from('vw_manager_requests_board')
       .select('*')
       .neq('status', 'DRAFT')
+      .neq('status', 'PAUSED')
       .eq('request_status', 'completed_outside');
 
     if (filters.search) {
@@ -146,7 +160,7 @@ export async function fetchColumnRequests(
     const profIds = irData.map((r: any) => r.source_profile_id).filter(Boolean);
     if (profIds.length === 0) return [];
 
-    let profQuery = supabase.from('vw_profile_core').select('*').neq('status', 'DRAFT').in('profile_id', profIds);
+    let profQuery = supabase.from('vw_profile_core').select('*').neq('status', 'DRAFT').neq('status', 'PAUSED').in('profile_id', profIds);
     if (filters.search) {
       const cleanSearch = sanitizePostgrestParam(filters.search);
       if (cleanSearch) {
@@ -179,8 +193,13 @@ export async function fetchColumnRequests(
   let query = supabase
     .from('vw_manager_requests_board')
     .select('*')
-    .neq('status', 'DRAFT')
-    .eq('request_status', status);
+    .neq('status', 'DRAFT');
+
+  if (status === 'pause') {
+    query = query.eq('status', 'PAUSED');
+  } else {
+    query = query.neq('status', 'PAUSED').eq('request_status', status);
+  }
 
   // Database-Level Filtering
   if (filters.search) {
@@ -215,18 +234,30 @@ export async function fetchColumnRequests(
     return [];
   }
 
-  return (data || []).map((item: any) => ({
-    id: item.board_id,
-    name: item.full_name || 'Unknown',
-    cnic: item.cnic || '00000-0000000-0',
-    phone: item.primary_phone || item.phone || 'N/A',
-    staff: item.stage_actor_name || item.current_agent_name || item.created_by_name || 'System',
-    date: item.request_date,
-    status: item.request_status,
-    later: item.later || false,
-    isRead: item.is_read || false,
-    profileData: item,
-  }));
+  const rows = data || [];
+  const pausedProfileIds = rows
+    .filter((item: any) => item.status === 'PAUSED')
+    .map((item: any) => item.profile_id || item.source_profile_id)
+    .filter(Boolean);
+  const pauseMap = pausedProfileIds.length > 0 ? await getPauseInfoMap(pausedProfileIds) : new Map();
+
+  return rows.map((item: any) => {
+    const colStatus = item.status === 'PAUSED' ? 'pause' : item.request_status;
+    const pid = item.profile_id || item.source_profile_id;
+    const pauseInfo = item.status === 'PAUSED' && pid ? (pauseMap.get(pid) || null) : null;
+    return {
+      id: item.board_id,
+      name: item.full_name || 'Unknown',
+      cnic: item.cnic || '00000-0000000-0',
+      phone: item.primary_phone || item.phone || 'N/A',
+      staff: item.stage_actor_name || item.current_agent_name || item.created_by_name || 'System',
+      date: item.request_date,
+      status: colStatus,
+      later: item.later || false,
+      isRead: item.is_read || false,
+      profileData: { ...item, request_status: colStatus, pause_info: pauseInfo },
+    };
+  });
 }
 
 const MANAGER_COLUMN_KEYS = [
@@ -285,8 +316,17 @@ export async function fetchManagerBoardInitialColumns(
     return columnMap;
   }
 
-  (data || []).forEach((item: any) => {
-    const colKey = item.request_status || 'new';
+  const rows = data || [];
+  const pausedProfileIds = rows
+    .filter((item: any) => item.status === 'PAUSED')
+    .map((item: any) => item.profile_id || item.source_profile_id)
+    .filter(Boolean);
+  const pauseMap = pausedProfileIds.length > 0 ? await getPauseInfoMap(pausedProfileIds) : new Map();
+
+  rows.forEach((item: any) => {
+    const colKey = item.status === 'PAUSED' ? 'pause' : (item.request_status || 'new');
+    const pid = item.profile_id || item.source_profile_id;
+    const pauseInfo = item.status === 'PAUSED' && pid ? (pauseMap.get(pid) || null) : null;
     if (!columnMap[colKey]) columnMap[colKey] = [];
     if (columnMap[colKey].length < limit) {
       columnMap[colKey].push({
@@ -299,7 +339,7 @@ export async function fetchManagerBoardInitialColumns(
         status: colKey,
         later: item.later || false,
         isRead: item.is_read || false,
-        profileData: item,
+        profileData: { ...item, request_status: colKey, pause_info: pauseInfo },
       });
     }
   });
@@ -312,7 +352,7 @@ export async function fetchManagerBoardInitialColumns(
 // =======================================================================
 const fetchAgentNamesCached = unstable_cache(async (): Promise<string[]> => {
   const supabase = createAdminClient();
-  
+
   const { data, error } = await supabase
     .from('user_roles')
     .select(`
@@ -352,7 +392,7 @@ export async function fetchAgentNames(): Promise<string[]> {
 // =======================================================================
 export async function markRequestAsRead(requestId: string): Promise<void> {
   const supabase = await createClient(); // Use regular authenticated client to respect RLS
-  
+
   const { error } = await supabase
     .from('information_requests')
     .update({ is_read: true })
@@ -674,7 +714,7 @@ export async function fetchProfileCompleteReleaseHistory(profileId: string): Pro
     .from('information_requests')
     .select('id')
     .eq('source_profile_id', profileId);
-    
+
   const requestIds = sourceRequests?.map(r => r.id) || [];
 
   if (requestIds.length === 0) return [];
@@ -702,7 +742,7 @@ export async function fetchProfileCompleteReleaseHistory(profileId: string): Pro
     .from('vw_profile_core')
     .select('profile_id, full_name')
     .in('profile_id', Array.from(otherProfileIds));
-    
+
   const namesMap = new Map();
   if (namesData) {
     namesData.forEach(row => namesMap.set(row.profile_id, row.full_name));
@@ -775,6 +815,22 @@ function formatAuditAction(log: any): { title: string; description: string } {
   }
 
   if (action === 'STATUS_CHANGE') {
+    if (meta.event === 'PROFILE_PAUSED' || meta.event === 'PROFILE_PAUSE_EXTENDED') {
+      const durationStr = meta.pause_until
+        ? `until ${formatPauseDate(meta.pause_until)}${meta.pause_days ? ` (${meta.pause_days} day${meta.pause_days === 1 ? '' : 's'})` : ''}`
+        : 'indefinitely';
+      const reasonStr = meta.reason ? ` Reason: ${meta.reason}.` : '';
+      return {
+        title: meta.event === 'PROFILE_PAUSE_EXTENDED' ? 'Pause Reminder Updated' : 'Profile Paused',
+        description: `Profile paused ${durationStr}.${reasonStr}`,
+      };
+    }
+    if (meta.event === 'PROFILE_RESUMED') {
+      return {
+        title: 'Profile Resumed',
+        description: 'Profile reactivated to ACTIVE status and returned to matching pool.',
+      };
+    }
     return {
       title: 'Status Changed',
       description: `Profile status updated${newData.status ? ` to ${newData.status}` : ''}${oldData.status ? ` (from ${oldData.status})` : ''}.`,

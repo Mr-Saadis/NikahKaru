@@ -227,6 +227,17 @@ export interface RejectionReason {
 // 4. PROFILE ROOT & AGENT ASSIGNMENT
 // ============================================================
 
+export interface ProfilePauseInfo {
+  paused_at: string;
+  pause_until: string | null;
+  pause_days: number | null;
+  reason: string | null;
+  paused_by_id: string | null;
+  paused_by_name: string | null;
+  paused_by_role: string | null;
+  event: 'PROFILE_PAUSED' | 'PROFILE_PAUSE_EXTENDED';
+}
+
 export interface Profile {
   id: string;
   gender: ProfileGender;
@@ -237,6 +248,7 @@ export interface Profile {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  pause_info?: ProfilePauseInfo | null;
 }
 
 export interface ProfileAgentAssignment {
@@ -792,6 +804,7 @@ export interface ProfileListItem {
   profile_locations: {
     current_city_id: number | null;
   } | null;
+  pause_info?: ProfilePauseInfo | null;
 }
 
 /** Full profile with all sections loaded */

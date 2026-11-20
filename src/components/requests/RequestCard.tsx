@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { Clock } from 'lucide-react';
 import type { RequestItem, ColumnDef } from './types';
 import { AVATAR_COLORS } from './constants';
 import { BookmarkFilledIcon } from './icons';
+import { formatPauseBadge, formatPauseDate } from '@/lib/utils/pauseFormatting';
 
 // ============================================================
 // RequestCard — Individual draggable card
@@ -225,6 +227,30 @@ export default function RequestCard({
           <BookmarkFilledIcon size={14} />
         </button>
       )}
+
+      {/* Pause reminder badge if paused */}
+      {(item.status === 'pause' || item.profileData?.status === 'PAUSED') && (() => {
+        const pauseInfo = item.profileData?.pause_info;
+        const badge = formatPauseBadge(pauseInfo);
+        const tooltip = pauseInfo?.pause_until
+          ? `Reminder: ${formatPauseDate(pauseInfo.pause_until)}${pauseInfo.reason ? ` • ${pauseInfo.reason}` : ''}`
+          : `Paused indefinitely${pauseInfo?.reason ? ` • ${pauseInfo.reason}` : ''}`;
+        return (
+          <div className="mt-2.5 flex items-center" title={tooltip}>
+            <span
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
+              style={{
+                background: badge.isDue ? '#C86A4A' : 'rgba(242, 237, 225, 0.16)',
+                color: badge.isDue ? '#FFFFFF' : '#F2EDE1',
+                border: badge.isDue ? 'none' : '1px solid rgba(242, 237, 225, 0.28)',
+              }}
+            >
+              <Clock size={10} />
+              <span>{badge.label}</span>
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Bottom block — pushed down */}
       <div style={{ marginTop: 'auto' }}>

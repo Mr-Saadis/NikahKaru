@@ -35,7 +35,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data);
+    const mapped = (data || []).map((row: any) => ({
+      ...row,
+      request_status: row.status === 'PAUSED' ? 'pause' : row.request_status,
+    }));
+
+    return NextResponse.json(mapped);
   } catch (error: any) {
     console.error('API /api/requests error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

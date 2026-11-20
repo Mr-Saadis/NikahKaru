@@ -149,6 +149,14 @@ function getInitials(name: string): string {
 const auditLogCache = new Map<string, ProfileAuditLogItem[]>();
 const inFlightAuditFetches = new Set<string>();
 
+export function invalidateProfileAuditLogCache(profileId?: string) {
+  if (profileId) {
+    auditLogCache.delete(profileId);
+  } else {
+    auditLogCache.clear();
+  }
+}
+
 export function ProfileAuditLogsSection({ profileId, profileName }: ProfileAuditLogsSectionProps) {
   const [logs, setLogs] = useState<ProfileAuditLogItem[]>(() => (profileId && auditLogCache.get(profileId)) || []);
   const [loading, setLoading] = useState(() => !profileId || !auditLogCache.has(profileId));

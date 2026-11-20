@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Check, X, FileText, Download, Pencil, ExternalLink } from "lucide-react";
+import { Bell, Check, X, FileText, Download, Pencil, ExternalLink, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { notificationService } from "@/lib/services/notification-service";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -81,7 +81,7 @@ export default function NotificationDropdown({
       console.error("Failed to mark as read", err);
     }
     
-    router.push(`/notifications`);
+    router.push(`/notifications?id=${notif.id}`);
   };
 
   const handleRedirect = async (e: React.MouseEvent, notif: Notification) => {
@@ -169,11 +169,19 @@ export default function NotificationDropdown({
                         className="px-3 sm:px-4 py-3 border-b border-[var(--border-soft)] transition-colors flex items-start gap-2 sm:gap-3 cursor-pointer hover:bg-[var(--bg-sidebar)]"
                       >
                         <div className={`mt-0.5 p-1.5 rounded-md shrink-0 ${
-                          notif.type === 'REQUEST' ? 'bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]' :
-                          notif.type === 'SYSTEM' ? 'bg-[var(--accent-gold-bg)] text-[var(--accent-gold)]' :
-                          'bg-[var(--accent-gold)]/10 text-[var(--accent-gold)]'
+                          notif.entity_type === 'profile_pause_reminder' || notif.type === 'ALERT'
+                            ? 'bg-[#F7ECE6] text-[#C86A4A]'
+                            : notif.type === 'REQUEST'
+                              ? 'bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]'
+                              : notif.type === 'SYSTEM'
+                                ? 'bg-[var(--accent-gold-bg)] text-[var(--accent-gold)]'
+                                : 'bg-[var(--accent-gold)]/10 text-[var(--accent-gold)]'
                         }`}>
-                          <FileText size={14} />
+                          {notif.entity_type === 'profile_pause_reminder' || notif.type === 'ALERT' ? (
+                            <Clock size={14} />
+                          ) : (
+                            <FileText size={14} />
+                          )}
                         </div>
 
                         {/* Text */}

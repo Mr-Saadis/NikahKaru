@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
       try {
         let pipeQuery = supabase
           .from('vw_manager_requests_board')
-          .select('request_status')
+          .select('request_status, status')
           .neq('status', 'DRAFT');
 
         if (days > 0) {
@@ -146,7 +146,8 @@ export async function GET(request: NextRequest) {
         if (pipelineRows) {
           const pipeMap: Record<string, number> = {};
           pipelineRows.forEach((row: any) => {
-            pipeMap[row.request_status] = (pipeMap[row.request_status] || 0) + 1;
+            const stage = row.status === 'PAUSED' ? 'pause' : row.request_status;
+            pipeMap[stage] = (pipeMap[stage] || 0) + 1;
           });
           result.pipeline = pipeMap;
         }
