@@ -15,7 +15,7 @@ export async function fetchAgentBoardRequests(filters: FilterState): Promise<Req
   if (!user) return [];
 
   // Query official agent requests board view
-  let query = supabase.from('vw_agent_requests_board').select('*');
+  let query = supabase.from('vw_agent_requests_board').select('*').neq('status', 'DRAFT');
 
   // Database-Level Filtering with input sanitization
   if (filters.search) {
@@ -48,6 +48,7 @@ export async function fetchAgentBoardRequests(filters: FilterState): Promise<Req
   const { data: assignedProfs } = await supabase
     .from('profiles')
     .select('id')
+    .neq('status', 'DRAFT')
     .eq('current_agent_id', user.id);
 
   const assignedProfIds = (assignedProfs || []).map((p: any) => p.id);
@@ -205,6 +206,7 @@ async function fetchAgentColumnRequestsWithClient(
     let viewQuery = supabase
       .from('vw_agent_requests_board')
       .select('*')
+      .neq('status', 'DRAFT')
       .eq('request_status', 'downloaded');
 
     viewQuery = applyBoardFilters(viewQuery, filters)
@@ -287,6 +289,7 @@ async function fetchAgentColumnRequestsWithClient(
     let viewQuery = supabase
       .from('vw_agent_requests_board')
       .select('*')
+      .neq('status', 'DRAFT')
       .eq('request_status', 'completed_outside');
 
     viewQuery = applyBoardFilters(viewQuery, filters)
@@ -366,6 +369,7 @@ async function fetchAgentColumnRequestsWithClient(
   let query = supabase
     .from('vw_agent_requests_board')
     .select('*')
+    .neq('status', 'DRAFT')
     .eq('request_status', status);
 
   query = applyBoardFilters(query, filters)
@@ -423,7 +427,7 @@ export async function fetchAgentBoardInitialColumns(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return {};
 
-  let query = supabase.from('vw_agent_requests_board').select('*');
+  let query = supabase.from('vw_agent_requests_board').select('*').neq('status', 'DRAFT');
   query = applyBoardFilters(query, filters)
     .order('request_date', { ascending: false })
     .limit(limit * AGENT_COLUMN_KEYS.length);

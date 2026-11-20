@@ -135,7 +135,8 @@ export async function GET(request: NextRequest) {
       try {
         let pipeQuery = supabase
           .from('vw_manager_requests_board')
-          .select('request_status');
+          .select('request_status')
+          .neq('status', 'DRAFT');
 
         if (days > 0) {
           pipeQuery = pipeQuery.gte('request_date', sinceIso);

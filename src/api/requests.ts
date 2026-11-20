@@ -13,7 +13,7 @@ export async function fetchBoardRequests(filters: FilterState): Promise<RequestI
   const supabase = await createClient();
 
   // Query official manager requests board view
-  let query = supabase.from('vw_manager_requests_board').select('*');
+  let query = supabase.from('vw_manager_requests_board').select('*').neq('status', 'DRAFT');
 
   // Database-Level Filtering with input sanitization
   if (filters.search) {
@@ -93,6 +93,7 @@ export async function fetchColumnRequests(
     let query = supabase
       .from('vw_manager_requests_board')
       .select('*')
+      .neq('status', 'DRAFT')
       .eq('request_status', 'completed_outside');
 
     if (filters.search) {
@@ -145,7 +146,7 @@ export async function fetchColumnRequests(
     const profIds = irData.map((r: any) => r.source_profile_id).filter(Boolean);
     if (profIds.length === 0) return [];
 
-    let profQuery = supabase.from('vw_profile_core').select('*').in('profile_id', profIds);
+    let profQuery = supabase.from('vw_profile_core').select('*').neq('status', 'DRAFT').in('profile_id', profIds);
     if (filters.search) {
       const cleanSearch = sanitizePostgrestParam(filters.search);
       if (cleanSearch) {
@@ -178,6 +179,7 @@ export async function fetchColumnRequests(
   let query = supabase
     .from('vw_manager_requests_board')
     .select('*')
+    .neq('status', 'DRAFT')
     .eq('request_status', status);
 
   // Database-Level Filtering
@@ -246,7 +248,7 @@ export async function fetchManagerBoardInitialColumns(
 ): Promise<Record<string, RequestItem[]>> {
   const supabase = await createClient();
 
-  let query = supabase.from('vw_manager_requests_board').select('*');
+  let query = supabase.from('vw_manager_requests_board').select('*').neq('status', 'DRAFT');
 
   if (filters.search) {
     const cleanSearch = sanitizePostgrestParam(filters.search);

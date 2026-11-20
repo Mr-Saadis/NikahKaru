@@ -34,6 +34,7 @@ SELECT
 FROM public.vw_profile_core p
 LEFT JOIN request_counts rc ON p.profile_id = rc.source_profile_id
 WHERE rc.req_count IS NULL
+  AND p.status <> 'DRAFT'
 
 UNION ALL
 
@@ -118,6 +119,7 @@ SELECT
     COALESCE(p.created_by_name, p.current_agent_name, 'Agent')::text AS stage_actor_name
 FROM public.vw_profile_core p
 WHERE (p.current_agent_id = (SELECT auth.uid()) OR (p.current_agent_id IS NULL AND p.created_by = (SELECT auth.uid())))
+  AND p.status <> 'DRAFT'
   AND NOT EXISTS (
       SELECT 1
       FROM public.information_requests ir

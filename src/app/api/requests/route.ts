@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     }
 
     // Build the query
-    let query = supabase.from('vw_manager_requests_board').select('*');
+    let query = supabase.from('vw_manager_requests_board').select('*').neq('status', 'DRAFT');
 
     // Fetch data
     const { data, error } = await query;
