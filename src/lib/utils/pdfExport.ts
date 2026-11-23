@@ -474,9 +474,42 @@ function drawRoundedImageMm(
   ctx.restore();
 }
 
+interface PageTheme {
+  bg: string;
+  primary: string;
+  secondary: string;
+  ink: string;
+  muted: string;
+  rule: string;
+  subtitleEnOverride?: string;
+  subtitleUrOverride?: string;
+}
+
+const DEFAULT_PAGE_THEME: PageTheme = {
+  bg: COLORS.bg,
+  primary: COLORS.primary,
+  secondary: COLORS.sage,
+  ink: COLORS.ink,
+  muted: COLORS.muted,
+  rule: COLORS.rule,
+};
+
+// Cohesive NikahKaru color-scheme theme for Partner Preferences pages
+const PREFERENCES_PAGE_THEME: PageTheme = {
+  bg: '#F2EDE1',       // Warm Sand Cream (distinct from #FAF8F5 profile pages)
+  primary: '#2F3E51',  // Deep Slate Navy (matches ProfileSidebar & Compatibility cards)
+  secondary: '#C86A4A', // Terracotta accent
+  ink: '#1E2022',
+  muted: '#676156',
+  rule: '#DDD4C4',
+  subtitleEnOverride: 'Partner Preferences Criteria',
+  subtitleUrOverride: 'شریکِ حیات کی ترجیحات',
+};
+
 interface CanvasPage {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
+  theme: PageTheme;
 }
 
 function createNewA4Page(
@@ -486,15 +519,16 @@ function createNewA4Page(
     subtitleUr: string;
     dateEn: string;
     dateUr: string;
-  }
+  },
+  theme: PageTheme = DEFAULT_PAGE_THEME
 ): CanvasPage {
   const canvas = document.createElement('canvas');
   canvas.width = mm(PAGE_W_MM);
   canvas.height = mm(PAGE_H_MM);
   const ctx = canvas.getContext('2d')!;
 
-  // Clean warm ivory page background
-  ctx.fillStyle = COLORS.bg;
+  // Page background (Warm Ivory for profile pages, Warm Sand Cream for preferences pages)
+  ctx.fillStyle = theme.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Brand lockup on top-left using public/nikah_icon.png
@@ -512,10 +546,24 @@ function createNewA4Page(
   const nikahW = measureTextMm(ctx, 'nikah ', brandFont);
   drawLtr(ctx, 'karu', textStartX + nikahW, 20.5, brandFont, COLORS.sage);
 
-  drawLtr(ctx, headerConfig.subtitleEn, textStartX, 25.5, fontEn(9.2, 500), COLORS.muted);
+  drawLtr(
+    ctx,
+    theme.subtitleEnOverride || headerConfig.subtitleEn,
+    textStartX,
+    25.5,
+    fontEn(9.2, 500),
+    theme.muted
+  );
 
   // Right side: Urdu subtitle + Date
-  drawRtl(ctx, headerConfig.subtitleUr, PAGE_W_MM - MARGIN_X, 19.8, fontUr(11.5, 600), COLORS.primary);
+  drawRtl(
+    ctx,
+    theme.subtitleUrOverride || headerConfig.subtitleUr,
+    PAGE_W_MM - MARGIN_X,
+    19.8,
+    fontUr(11.5, 600),
+    theme.primary
+  );
   drawBilingualRightAlignedPair(
     ctx,
     headerConfig.dateEn,
@@ -524,27 +572,27 @@ function createNewA4Page(
     25.5,
     fontEn(9.2, 500),
     fontUr(10, 500),
-    COLORS.muted
+    theme.muted
   );
 
   // Minimalist single top rule
-  drawLineMm(ctx, MARGIN_X, HEADER_RULE_Y, PAGE_W_MM - MARGIN_X, HEADER_RULE_Y, COLORS.primary, 0.35);
+  drawLineMm(ctx, MARGIN_X, HEADER_RULE_Y, PAGE_W_MM - MARGIN_X, HEADER_RULE_Y, theme.primary, 0.35);
 
-  return { canvas, ctx };
+  return { canvas, ctx, theme };
 }
 
 function stampPageFootersAndExport(pages: CanvasPage[], filename: string): void {
   const total = pages.length;
   pages.forEach((page, idx) => {
     const p = idx + 1;
-    drawLineMm(page.ctx, MARGIN_X, FOOTER_RULE_Y, PAGE_W_MM - MARGIN_X, FOOTER_RULE_Y, COLORS.rule, 0.25);
+    drawLineMm(page.ctx, MARGIN_X, FOOTER_RULE_Y, PAGE_W_MM - MARGIN_X, FOOTER_RULE_Y, page.theme.rule, 0.25);
     drawLtr(
       page.ctx,
       'nikahkaru.com  •  Confidential Matrimonial Record',
       MARGIN_X,
       FOOTER_TEXT_Y,
       fontEn(9, 500),
-      COLORS.muted
+      page.theme.muted
     );
     drawBilingualRightAlignedPair(
       page.ctx,
@@ -554,7 +602,7 @@ function stampPageFootersAndExport(pages: CanvasPage[], filename: string): void 
       FOOTER_TEXT_Y,
       fontEn(9, 500),
       fontUr(10, 500),
-      COLORS.muted
+      page.theme.muted
     );
   });
 
@@ -637,51 +685,99 @@ function drawCell(
   cell: CellItem,
   layout: CellLayout,
   xMm: number,
-  topYMm: number
+  topYMm: number,
+  theme: PageTheme = DEFAULT_PAGE_THEME
 ): void {
   let y = topYMm + 5.0;
 
   // Labels
-  drawLtr(ctx, cell.label.en.toUpperCase(), xMm, y, LABEL_EN_FONT, COLORS.muted);
+  drawLtr(ctx, cell.label.en.toUpperCase(), xMm, y, LABEL_EN_FONT, theme.muted);
   if (cell.label.ur) {
     if (layout.stackLabels) {
       y += 4.5;
     }
-    drawRtl(ctx, cell.label.ur, xMm + COL_W, y, LABEL_UR_FONT, COLORS.muted);
+    drawRtl(ctx, cell.label.ur, xMm + COL_W, y, LABEL_UR_FONT, theme.muted);
   }
 
   // Values
   y += 5.5;
   if (layout.stackValues) {
     layout.enValLines.forEach((line, idx) => {
-      drawLtr(ctx, line, xMm, y + idx * 5.5, VAL_EN_FONT, COLORS.ink);
+      drawLtr(ctx, line, xMm, y + idx * 5.5, VAL_EN_FONT, theme.ink);
     });
     const urStartY = y + (layout.enValLines.length - 1) * 5.5 + 6.0;
     layout.urValLines.forEach((line, idx) => {
-      drawRtl(ctx, line, xMm + COL_W, urStartY + idx * 6.0, VAL_UR_FONT, COLORS.primary);
+      drawRtl(ctx, line, xMm + COL_W, urStartY + idx * 6.0, VAL_UR_FONT, theme.primary);
     });
   } else {
-    drawLtr(ctx, cell.value.en, xMm, y, VAL_EN_FONT, COLORS.ink);
+    drawLtr(ctx, cell.value.en, xMm, y, VAL_EN_FONT, theme.ink);
     if (cell.value.ur) {
-      drawRtl(ctx, cell.value.ur, xMm + COL_W, y, VAL_UR_FONT, COLORS.primary);
+      drawRtl(ctx, cell.value.ur, xMm + COL_W, y, VAL_UR_FONT, theme.primary);
     }
   }
+}
+
+/**
+ * Render exact Lucide React `Venus` / `Mars` 24x24 vector icon directly on Canvas.
+ */
+function drawLucideGenderIconMm(
+  ctx: CanvasRenderingContext2D,
+  gender: 'MALE' | 'FEMALE',
+  xMm: number,
+  yMm: number,
+  sizeMm: number,
+  color: string
+): void {
+  const scale = mm(sizeMm) / 24;
+  ctx.save();
+  ctx.translate(mm(xMm), mm(yMm));
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.1;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (gender === 'FEMALE') {
+    // Lucide <Venus />: <path d="M12 15v7"/><path d="M9 19h6"/><circle cx="12" cy="9" r="6"/>
+    ctx.stroke(new Path2D('M12 15v7'));
+    ctx.stroke(new Path2D('M9 19h6'));
+    ctx.beginPath();
+    ctx.arc(12, 9, 6, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    // Lucide <Mars />: <path d="M16 3h5v5"/><path d="m21 3-6.75 6.75"/><circle cx="10" cy="14" r="6"/>
+    ctx.stroke(new Path2D('M16 3h5v5'));
+    ctx.stroke(new Path2D('m21 3-6.75 6.75'));
+    ctx.beginPath();
+    ctx.arc(10, 14, 6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawSectionHeader(
   ctx: CanvasRenderingContext2D,
   title: BilingualText,
   yMm: number,
-  isContinuation = false
+  isContinuation = false,
+  theme: PageTheme = DEFAULT_PAGE_THEME,
+  seekingGender?: 'MALE' | 'FEMALE' | null
 ): number {
   const enTitle = isContinuation ? `${title.en} (Cont.)` : title.en;
   const urTitle = isContinuation && title.ur ? `${title.ur} (جاری)` : title.ur;
 
-  drawLtr(ctx, enTitle, MARGIN_X, yMm + 5.2, fontDisplay(15.5, 700), COLORS.primary);
-  if (urTitle) {
-    drawRtl(ctx, urTitle, PAGE_W_MM - MARGIN_X, yMm + 5.2, fontUr(13.5, 700), COLORS.primary);
+  let enX = MARGIN_X;
+  if (!isContinuation && seekingGender) {
+    const iconSizeMm = 5.0;
+    drawLucideGenderIconMm(ctx, seekingGender, MARGIN_X, yMm + 0.8, iconSizeMm, theme.primary);
+    enX = MARGIN_X + iconSizeMm + 2.0;
   }
-  drawLineMm(ctx, MARGIN_X, yMm + 7.8, PAGE_W_MM - MARGIN_X, yMm + 7.8, COLORS.primary, 0.35);
+
+  drawLtr(ctx, enTitle, enX, yMm + 5.2, fontDisplay(15.5, 700), theme.primary);
+  if (urTitle) {
+    drawRtl(ctx, urTitle, PAGE_W_MM - MARGIN_X, yMm + 5.2, fontUr(13.5, 700), theme.primary);
+  }
+  drawLineMm(ctx, MARGIN_X, yMm + 7.8, PAGE_W_MM - MARGIN_X, yMm + 7.8, theme.primary, 0.35);
   return yMm + 8.8;
 }
 
@@ -689,6 +785,8 @@ interface SectionRenderInput {
   title: BilingualText;
   rows: Array<[CellItem, CellItem?]>;
   startOnNewPage?: boolean;
+  theme?: PageTheme;
+  seekingGender?: 'MALE' | 'FEMALE' | null;
   candidateBanner?: {
     index: number;
     name: string;
@@ -762,17 +860,18 @@ function renderSectionsAcrossPages(
 
   let cursorY = drawInitialHero(page.ctx, HEADER_RULE_Y + 4);
 
-  const startNewPage = () => {
-    page = createNewA4Page(brandIcon, headerConfig);
+  const startNewPage = (theme: PageTheme = DEFAULT_PAGE_THEME) => {
+    page = createNewA4Page(brandIcon, headerConfig, theme);
     pages.push(page);
     cursorY = HEADER_RULE_Y + 4;
   };
 
   for (const section of sections) {
     if (section.rows.length === 0) continue;
+    const sectionTheme = section.theme || DEFAULT_PAGE_THEME;
 
-    if (section.startOnNewPage && cursorY > HEADER_RULE_Y + 4.5) {
-      startNewPage();
+    if (section.startOnNewPage && (cursorY > HEADER_RULE_Y + 4.5 || page.theme !== sectionTheme)) {
+      startNewPage(sectionTheme);
     }
 
     // Measure first row so header + first row stay together cleanly
@@ -783,13 +882,13 @@ function renderSectionsAcrossPages(
     const headerH = section.candidateBanner ? (section.candidateBanner.photo ? 16 : 13) : 8;
 
     if (cursorY + headerH + firstRowH + 2 > MAX_BODY_Y) {
-      startNewPage();
+      startNewPage(sectionTheme);
     }
 
     if (section.candidateBanner) {
       cursorY = drawCandidateBanner(page.ctx, section.candidateBanner, cursorY);
     } else {
-      cursorY = drawSectionHeader(page.ctx, section.title, cursorY, false);
+      cursorY = drawSectionHeader(page.ctx, section.title, cursorY, false, sectionTheme, section.seekingGender);
     }
 
     for (let rIdx = 0; rIdx < section.rows.length; rIdx++) {
@@ -799,22 +898,22 @@ function renderSectionsAcrossPages(
       const rowH = Math.max(leftLayout.heightMm, rightLayout?.heightMm ?? 0);
 
       if (cursorY + rowH > MAX_BODY_Y) {
-        startNewPage();
+        startNewPage(sectionTheme);
         if (section.candidateBanner) {
           cursorY = drawCandidateBanner(page.ctx, section.candidateBanner, cursorY);
         } else {
-          cursorY = drawSectionHeader(page.ctx, section.title, cursorY, true);
+          cursorY = drawSectionHeader(page.ctx, section.title, cursorY, true, sectionTheme, section.seekingGender);
         }
       }
 
-      drawCell(page.ctx, leftCell, leftLayout, MARGIN_X, cursorY);
+      drawCell(page.ctx, leftCell, leftLayout, MARGIN_X, cursorY, sectionTheme);
       if (rightCell && rightLayout) {
-        drawCell(page.ctx, rightCell, rightLayout, MARGIN_X + COL_W + COL_GAP, cursorY);
+        drawCell(page.ctx, rightCell, rightLayout, MARGIN_X + COL_W + COL_GAP, cursorY, sectionTheme);
       }
 
       cursorY += rowH;
       if (rIdx < section.rows.length - 1) {
-        drawLineMm(page.ctx, MARGIN_X, cursorY, PAGE_W_MM - MARGIN_X, cursorY, COLORS.rule, 0.2);
+        drawLineMm(page.ctx, MARGIN_X, cursorY, PAGE_W_MM - MARGIN_X, cursorY, sectionTheme.rule, 0.2);
       }
     }
 
@@ -1144,6 +1243,10 @@ export async function generateSingleProfilePDF(data: {
     picUrl ? fetchCircularOrFramedPhoto(picUrl) : Promise.resolve(null),
   ]);
 
+  const rawProfileGender = String(profileData.gender || '').trim().toUpperCase();
+  const seekingGender: 'MALE' | 'FEMALE' | null =
+    rawProfileGender === 'MALE' ? 'FEMALE' : rawProfileGender === 'FEMALE' ? 'MALE' : null;
+
   const sections: SectionRenderInput[] = groups
     .map(([groupTitle, rawFields]) => {
       const isPrefGroup = groupTitle.trim().toLowerCase() === 'partner preferences';
@@ -1173,6 +1276,8 @@ export async function generateSingleProfilePDF(data: {
         title: getBilingualSectionTitle(groupTitle),
         rows,
         startOnNewPage: isPrefGroup,
+        theme: isPrefGroup ? PREFERENCES_PAGE_THEME : DEFAULT_PAGE_THEME,
+        seekingGender: isPrefGroup ? seekingGender : null,
       };
     })
     .filter((s) => s.rows.length > 0);
