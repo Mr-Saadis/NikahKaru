@@ -8,7 +8,9 @@ import { PreferenceService } from '@/lib/services/preference-service';
 import { createClient } from '@/lib/supabase/client';
 import { useAutoSave } from '@/lib/hooks/useAutoSave';
 import { clearDirectoryCache } from '@/lib/directory/directory-cache';
+import { useDashboardCacheStore } from '@/lib/stores/dashboard-cache-store';
 import { logProfileEditAction } from '@/lib/actions/audit';
+import { toast } from 'sonner';
 import ProfileSidebar from './ProfileSidebar';
 import Step1BasicInfo, { type Step1Data } from './steps/Step1BasicInfo';
 import Step2MaritalPhysical, { type Step2Data } from './steps/Step2MaritalPhysical';
@@ -1214,7 +1216,10 @@ export default function AddProfileForm() {
         if (step5.family_setup) completed++;
         if (step5.living_with) completed++;
         const isCurrentPak = Number(step5.current_country_id) === 131;
-        const mandatoryComplete = !!(step5.current_country_id && (isCurrentPak ? (step5.current_province_id && step5.current_city_id) : step5.current_location_text));
+        const hasOverseasLoc = Boolean(
+          joinOverseasLocation(step5.current_city_text, step5.current_province_text, step5.current_location_text)
+        );
+        const mandatoryComplete = !!(step5.current_country_id && (isCurrentPak ? (step5.current_province_id && step5.current_city_id) : hasOverseasLoc));
         return { completed, total, mandatoryComplete };
       }
       case 6: {
@@ -1356,7 +1361,10 @@ export default function AddProfileForm() {
       if (!step5.current_province_id) s5.push('Current Province');
       if (!step5.current_city_id) s5.push('Current City');
     } else {
-      if (!step5.current_location_text?.trim()) s5.push('Address / Location Details');
+      const hasOverseasLoc = Boolean(
+        joinOverseasLocation(step5.current_city_text, step5.current_province_text, step5.current_location_text)
+      );
+      if (!hasOverseasLoc) s5.push('City / Address Details');
     }
     if (s5.length > 0) missing.push({ stepId: 5, stepName: 'Location & Residency', missingFields: s5 });
 
@@ -1381,17 +1389,21 @@ export default function AddProfileForm() {
 
   // ── Trigger save: if mandatory fields are missing, prompt confirmation modal ──
   const handleSaveClick = () => {
-    if (!isConfirmedAccuracy) return;
+    if (!isConfirmedAccuracy) {
+      toast.error('Please check the confirmation box above before saving.');
+      return;
+    }
     if (cnicStatus === 'duplicate') {
-      setError(
-        duplicateCnicInfo
-          ? `A profile already exists on this CNIC (${duplicateCnicInfo.full_name}). Please update the CNIC before saving.`
-          : 'A profile already exists on this CNIC. Please update the CNIC before saving.'
-      );
+      const msg = duplicateCnicInfo
+        ? `A profile already exists on this CNIC (${duplicateCnicInfo.full_name}). Please update the CNIC before saving.`
+        : 'A profile already exists on this CNIC. Please update the CNIC before saving.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
     const missing = getMissingMandatoryDetails();
-    if (missing.length > 0) {
+    const preservedStatuses = ['PAUSED', 'INACTIVE', 'ARCHIVED'];
+    if (missing.length > 0 && !preservedStatuses.includes(initialProfileStatusRef.current)) {
       setMissingFieldsList(missing);
       setShowDraftModal(true);
       return;
@@ -1401,13 +1413,18 @@ export default function AddProfileForm() {
 
   // ── Execute save to DB ─────────────────────────────────────
   const performSave = async (forceDraft: boolean = false) => {
-    if (!user) return;
+    if (!user) {
+      const msg = 'Your session is still loading or has expired. Please refresh or sign in again.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
     if (cnicStatus === 'duplicate') {
-      setError(
-        duplicateCnicInfo
-          ? `A profile already exists on this CNIC (${duplicateCnicInfo.full_name}).`
-          : 'A profile already exists on this CNIC.'
-      );
+      const msg = duplicateCnicInfo
+        ? `A profile already exists on this CNIC (${duplicateCnicInfo.full_name}).`
+        : 'A profile already exists on this CNIC.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
     setShowDraftModal(false);
@@ -1415,9 +1432,9 @@ export default function AddProfileForm() {
     setError(null);
 
     try {
-      // Cancel any pending auto-save debounce and wait for any active auto-save to finish
+      // Cancel any pending auto-save debounce and wait briefly for any active auto-save
       cancelAutoSave();
-      await waitForAutoSaveIdle();
+      await waitForAutoSaveIdle(4500);
 
       // Final server-side duplicate CNIC guard right before DB write
       if (isValidCnic(step1.cnic)) {
@@ -1430,17 +1447,28 @@ export default function AddProfileForm() {
             const info = checkJson.existingProfile || { full_name: 'Existing Profile', status: null };
             setCnicStatus('duplicate');
             setDuplicateCnicInfo(info);
-            setError(`A profile already exists on this CNIC (${info.full_name}).`);
+            const dupMsg = `A profile already exists on this CNIC (${info.full_name}).`;
+            setError(dupMsg);
+            toast.error(dupMsg);
             setIsSaving(false);
             return;
           }
         }
       }
-      // 1. Use existing draft profile or create new one
+      // 1. Use existing draft profile or create new one (and immediately bind ID to prevent duplicates on retry)
       let pid = profileId;
       if (!pid) {
         const profile = await ProfileService.createProfile(user.id, step1.gender as string);
         pid = profile.id;
+        profileIdRef.current = pid;
+        loadedProfileIdRef.current = pid;
+        skipReloadForIdRef.current = pid;
+        setProfileId(pid);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('draftId', pid);
+          window.history.replaceState(null, '', url.toString());
+        }
       } else if (step1.gender) {
         await ProfileService.updateProfileGender(pid, step1.gender as any);
       }
@@ -1714,14 +1742,19 @@ export default function AddProfileForm() {
             : 'DRAFT';
       await ProfileService.updateProfileStatus(pid, targetStatus as any);
 
-      // Refresh the materialized view for matching if it became active or was active
+      // Refresh the materialized view in the background (non-blocking so Save Profile never hangs on MV locks)
       if (targetStatus === 'ACTIVE' || initialProfileStatusRef.current === 'ACTIVE') {
         try {
           const supabase = createClient();
-          const { error: rpcError } = await supabase.rpc('refresh_mv_matching_profiles');
-          if (rpcError) console.error('Failed to refresh MV:', rpcError);
+          void Promise.resolve(supabase.rpc('refresh_mv_matching_profiles'))
+            .then(({ error: rpcError }) => {
+              if (rpcError) console.error('Failed to refresh MV:', rpcError);
+            })
+            .catch((e) => {
+              console.error('Error refreshing MV:', e);
+            });
         } catch (e) {
-          console.error('Error refreshing MV:', e);
+          console.error('Error initiating MV refresh:', e);
         }
       }
 
@@ -1758,26 +1791,41 @@ export default function AddProfileForm() {
       // Mark current snapshot saved so unmounting on redirect never triggers a trailing auto-save
       markAutoSaveSaved();
 
+      // Invalidate cached views/dashboard counts
+      clearDirectoryCache();
+      useDashboardCacheStore.getState().clearAll();
+
+      toast.success(
+        targetStatus === 'DRAFT'
+          ? 'Profile saved as Draft.'
+          : isEdit
+            ? 'Profile updated successfully!'
+            : 'Profile saved successfully!'
+      );
+
       // Role-based redirect after saving:
       // If AGENT -> redirect to /profiles with this profile open
-      // If ADMIN or MANAGER -> redirect to /directory with their sheet open
+      // If ADMIN or MANAGER -> redirect to /directory (for non-drafts) or /overview (for drafts, since /directory hides drafts)
       const isAgent = role === 'AGENT';
       if (isAgent) {
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('selected_profile_id', pid);
         }
         router.push('/profiles');
+      } else if (targetStatus === 'DRAFT') {
+        router.push('/overview');
       } else {
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('open_directory_profile_id', pid);
         }
-        clearDirectoryCache();
         router.push('/directory');
       }
     } catch (err: any) {
       const errMsg = err instanceof Error ? err.message : (err?.message || JSON.stringify(err));
       console.error('Full save error:', errMsg, err);
-      setError(errMsg || 'Failed to save profile. Check console.');
+      const displayMsg = errMsg || 'Failed to save profile. Please try again.';
+      setError(displayMsg);
+      toast.error(displayMsg);
     } finally {
       setIsSaving(false);
     }
@@ -1839,23 +1887,41 @@ export default function AddProfileForm() {
 
             {/* Step 9 Accuracy Commitment Checkbox */}
             {currentStep === 9 && (
-              <div className="mb-6 p-4.5 sm:p-5 rounded-2xl transition-all">
-                <label className="flex items-start gap-3.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={isConfirmedAccuracy}
-                    onChange={(e) => setIsConfirmedAccuracy(e.target.checked)}
-                    className="mt-0.5 h-5 w-5 rounded border-[#C86A4A] text-[#064e3b] focus:ring-[#064e3b] accent-[#064e3b] cursor-pointer shrink-0"
-                  />
-                  <div className="text-[13px] leading-relaxed">
-                    <p className="font-bold text-[#1E1F22]">
-                      I confirm that all information entered above is correct.
-                    </p>
-                    <p className="text-[12px] text-[#7A6B58] mt-1">
-                      Please note: If any false or incorrect information is provided, matching will not be run for this profile.
-                    </p>
+              <div className="mb-6 space-y-3">
+                <div className="p-4.5 sm:p-5 rounded-2xl transition-all">
+                  <label className="flex items-start gap-3.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isConfirmedAccuracy}
+                      onChange={(e) => setIsConfirmedAccuracy(e.target.checked)}
+                      className="mt-0.5 h-5 w-5 rounded border-[#C86A4A] text-[#064e3b] focus:ring-[#064e3b] accent-[#064e3b] cursor-pointer shrink-0"
+                    />
+                    <div className="text-[13px] leading-relaxed">
+                      <p className="font-bold text-[#1E1F22]">
+                        I confirm that all information entered above is correct.
+                      </p>
+                      <p className="text-[12px] text-[#7A6B58] mt-1">
+                        Please note: If any false or incorrect information is provided, matching will not be run for this profile.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {error && (
+                  <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[13px] font-medium">
+                    {error}
                   </div>
-                </label>
+                )}
+
+                {isConfirmedAccuracy && (!step1.full_name?.trim() || !step1.gender || cnicStatus === 'duplicate' || cnicStatus === 'checking') && (
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[12.5px] font-medium">
+                    {cnicStatus === 'checking'
+                      ? 'Verifying CNIC uniqueness… Save Profile will enable automatically in a moment.'
+                      : cnicStatus === 'duplicate'
+                        ? 'Duplicate CNIC detected on Step 1. Please update the CNIC before saving.'
+                        : 'Please enter Full Name and Gender on Step 1 before saving.'}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1890,9 +1956,19 @@ export default function AddProfileForm() {
                 <button
                   type="button"
                   onClick={handleSaveClick}
-                  disabled={isSaving || isUploadingImage || cnicStatus === 'duplicate' || cnicStatus === 'checking' || !step1.full_name || !step1.gender || !isConfirmedAccuracy}
-                  title={!isConfirmedAccuracy ? "Please check the confirmation box above to enable saving" : undefined}
-                  className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-5 xl:px-8 py-3 xl:py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+                  disabled={isSaving || isUploadingImage || cnicStatus === 'duplicate' || cnicStatus === 'checking' || !step1.full_name?.trim() || !step1.gender || !isConfirmedAccuracy}
+                  title={
+                    !isConfirmedAccuracy
+                      ? "Please check the confirmation box above to enable saving"
+                      : cnicStatus === 'duplicate'
+                        ? "Duplicate CNIC detected on Step 1"
+                        : cnicStatus === 'checking'
+                          ? "Verifying CNIC..."
+                          : (!step1.full_name?.trim() || !step1.gender)
+                            ? "Full Name and Gender on Step 1 are required"
+                            : undefined
+                  }
+                  className="flex items-center gap-2 bg-[#C86A4A] text-white font-bold text-[14px] px-5 xl:px-8 py-3 xl:py-3.5 rounded-2xl hover:bg-[#b05a3e] hover:-translate-y-0.5 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
                 >
                   {isSaving ? (
                     <><Loader2 size={18} className="animate-spin" /> Saving...</>

@@ -108,10 +108,14 @@ export function useAutoSave<T extends Record<string, any>>({
     pendingRerunRef.current = false;
   }, []);
 
-  // Wait until any active auto-save finishes
-  const waitForIdle = useCallback(async () => {
-    while (inFlightRef.current) {
-      await inFlightRef.current;
+  // Wait until any active auto-save finishes (with safety timeout so UI never hangs)
+  const waitForIdle = useCallback(async (timeoutMs: number = 5000) => {
+    const deadline = Date.now() + timeoutMs;
+    while (inFlightRef.current && Date.now() < deadline) {
+      await Promise.race([
+        inFlightRef.current,
+        new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now()))),
+      ]);
     }
   }, []);
 

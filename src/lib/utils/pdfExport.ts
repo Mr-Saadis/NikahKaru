@@ -497,9 +497,6 @@ function createNewA4Page(
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Subtle top Bismillah centered cleanly
-  drawCenteredRtl(ctx, 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', PAGE_W_MM / 2, 11.5, fontUr(11, 500), COLORS.goldMuted);
-
   // Brand lockup on top-left using public/nikah_icon.png
   let textStartX = MARGIN_X;
   if (brandIcon) {
