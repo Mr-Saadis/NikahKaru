@@ -862,6 +862,20 @@ export default function RequestDetailsSheet({
     }
   }, [item, onToast]);
 
+  const rawHeroPic =
+    (enrichedItem?.profileData as any)?.profile_url ||
+    (enrichedItem?.profileData as any)?.profile_URL ||
+    (enrichedItem?.profileData as any)?.profile_picture ||
+    (item?.profileData as any)?.profile_url ||
+    (item?.profileData as any)?.profile_URL ||
+    (item?.profileData as any)?.profile_picture ||
+    null;
+  const [heroImgError, setHeroImgError] = useState(false);
+
+  useEffect(() => {
+    setHeroImgError(false);
+  }, [item?.id, rawHeroPic]);
+
   if (!item) return null;
 
   const col = columns.find((c) => c.key === item.status) ?? columns[0];
@@ -983,9 +997,19 @@ export default function RequestDetailsSheet({
               fontWeight: 700,
               color: ['#2F3E51', '#1F3B34', '#C86A4A'].includes(heroBase) ? '#fff' : '#1F3B34',
               flexShrink: 0,
+              overflow: 'hidden',
             }}
           >
-            {getInitials(item.name)}
+            {rawHeroPic && !heroImgError ? (
+              <img
+                src={rawHeroPic}
+                alt={item.name}
+                onError={() => setHeroImgError(true)}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              getInitials(item.name)
+            )}
           </div>
           <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: -0.3, color: '#111' }}>
             {item.name}
@@ -1036,8 +1060,17 @@ export default function RequestDetailsSheet({
             </div>
 
             <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', paddingRight: 56, position: 'relative', zIndex: 40, flexWrap: 'wrap' }}>
-              <div style={{ width: 76, height: 76, borderRadius: '50%', background: heroBase, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 23, fontWeight: 700, color: ['#2F3E51', '#1F3B34', '#C86A4A'].includes(heroBase) ? '#fff' : '#1F3B34', flexShrink: 0, boxShadow: '0 0 0 4px rgba(255,255,255,.7), 0 12px 26px rgba(0,0,0,.14)' }}>
-                {getInitials(item.name)}
+              <div style={{ width: 76, height: 76, borderRadius: '50%', background: heroBase, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 23, fontWeight: 700, color: ['#2F3E51', '#1F3B34', '#C86A4A'].includes(heroBase) ? '#fff' : '#1F3B34', flexShrink: 0, boxShadow: '0 0 0 4px rgba(255,255,255,.7), 0 12px 26px rgba(0,0,0,.14)', overflow: 'hidden' }}>
+                {rawHeroPic && !heroImgError ? (
+                  <img
+                    src={rawHeroPic}
+                    alt={item.name}
+                    onError={() => setHeroImgError(true)}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  getInitials(item.name)
+                )}
               </div>
 
               <div style={{ minWidth: 0, flex: 1 }}>
